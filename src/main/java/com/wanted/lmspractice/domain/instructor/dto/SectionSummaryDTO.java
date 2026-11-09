@@ -7,16 +7,32 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * 강사 홈 분반 요약
- * 담당: 팀원 1 · #07
- * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
+ * [역할] 강사 홈 "현재 담당 분반" 표의 한 줄, 학습자 관리의 분반 선택 목록
+ * [담당] 팀원 1 · #07   [화면] T-S01, T-S02
+ * [연결]
+ *  - 만든 곳: InstructorDashboardService (SectionStatDTO를 from()으로 변환)
+ *  - 쓰는 곳: instructor/home.html, instructor/students.html
+ * [기술] 🟢 정적 팩토리 from()
  */
 @NoArgsConstructor
-// @AllArgsConstructor  // TODO: 필드 추가 후 다시 활성화
+@AllArgsConstructor
 @Getter
 @Setter
 @ToString
 public class SectionSummaryDTO {
 
-    // TODO #07: 필드 정의
+    private Long sectionId;
+    private String courseTitle;
+    private String levelLabel;
+    private String sectionName;
+    private int capacity;
+    private int activeCount;
+    private int pendingCount;
+    private int imminentCount;
+    private int overdueCount;
+
+    public static SectionSummaryDTO from(SectionStatDTO s) {
+        return new SectionSummaryDTO(s.getSectionId(), s.getCourseTitle(), s.getLevelLabel(), s.getSectionName(),
+                s.getCapacity(), s.getActiveCount(), s.getPendingCount(), s.getImminentCount(), s.getOverdueCount());
+    }
 }
