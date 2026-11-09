@@ -9,7 +9,7 @@ import com.wanted.lmspractice.domain.enrollment.repository.EnrollmentRepository;
 import com.wanted.lmspractice.domain.enrollment.repository.WaitlistEntryRepository;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
 import com.wanted.lmspractice.domain.review.dto.ReviewDecisionDTO;
-import com.wanted.lmspractice.domain.review.dto.ReviewDetailDTO;
+import com.wanted.lmspractice.domain.review.dto.InstructorReviewDetailDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewListDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewListPageDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewTab;
@@ -221,7 +221,7 @@ class ReviewServiceTest {
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_ASSIGNED_INSTRUCTOR));
         entityManager.clear();
 
-        ReviewDetailDTO detail = reviewService.getDetail(TEACHER_B, R4_IN_REVIEW);
+        InstructorReviewDetailDTO detail = reviewService.getDetail(TEACHER_B, R4_IN_REVIEW);
         assertThat(detail.getStatus()).isEqualTo(ReviewStatus.IN_REVIEW);
         assertThat(detail.getDraftBody()).startsWith("레이어 구분이 깔끔합니다.");
         assertThat(detail.isDueSoon()).isTrue();

@@ -2,7 +2,7 @@ package com.wanted.lmspractice.domain.review.controller;
 
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.review.dto.ReviewDecisionDTO;
-import com.wanted.lmspractice.domain.review.dto.ReviewDetailDTO;
+import com.wanted.lmspractice.domain.review.dto.InstructorReviewDetailDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewTab;
 import com.wanted.lmspractice.domain.review.service.ReviewService;
 import com.wanted.lmspractice.global.exception.BusinessException;
@@ -75,7 +75,7 @@ public class InstructorReviewController {
                          @RequestParam(required = false) String decision,
                          @AuthenticationPrincipal AuthDetails details,
                          Model model) {
-        ReviewDetailDTO review = reviewService.getDetail(details.getUserId(), reviewRoundId);
+        InstructorReviewDetailDTO review = reviewService.getDetail(details.getUserId(), reviewRoundId);
         model.addAttribute("review", review);
         model.addAttribute("decision", DECISION_REJECT.equals(decision) ? DECISION_REJECT : DECISION_APPROVE);
         if (!model.containsAttribute("decisionForm")) {  // flash로 입력값이 넘어왔으면 그대로 둔다

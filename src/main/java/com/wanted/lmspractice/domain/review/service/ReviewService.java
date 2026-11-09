@@ -4,7 +4,7 @@ import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
 import com.wanted.lmspractice.domain.notification.entity.NotificationKind;
 import com.wanted.lmspractice.domain.notification.service.NotificationService;
 import com.wanted.lmspractice.domain.review.dto.ReviewDecisionDTO;
-import com.wanted.lmspractice.domain.review.dto.ReviewDetailDTO;
+import com.wanted.lmspractice.domain.review.dto.InstructorReviewDetailDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewListDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewListPageDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewTab;
@@ -86,11 +86,11 @@ public class ReviewService {
      * @throws BusinessException REVIEW_NOT_FOUND, NOT_ASSIGNED_INSTRUCTOR
      */
     @Transactional(readOnly = true)
-    public ReviewDetailDTO getDetail(Long instructorId, Long reviewRoundId) {
+    public InstructorReviewDetailDTO getDetail(Long instructorId, Long reviewRoundId) {
         ReviewRound round = reviewRoundRepository.findById(reviewRoundId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
         RoundContext context = requireAssigned(instructorId, reviewRoundId);
-        return ReviewDetailDTO.from(round, context,
+        return InstructorReviewDetailDTO.from(round, context,
                 reviewQuery.findSubmission(round.getWorkVersionId()),
                 reviewRoundRepository.findByEnrollmentIdOrderByRoundNoAsc(round.getEnrollmentId()),
                 now());

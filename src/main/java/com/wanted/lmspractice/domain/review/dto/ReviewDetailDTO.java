@@ -1,129 +1,77 @@
 package com.wanted.lmspractice.domain.review.dto;
 
-import com.wanted.lmspractice.domain.review.entity.ReviewRound;
 import com.wanted.lmspractice.domain.review.entity.ReviewStatus;
-import com.wanted.lmspractice.domain.review.repository.ReviewQuery.RoundContext;
-import com.wanted.lmspractice.domain.review.repository.ReviewQuery.Submission;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import lombok.ToString;
 
 /**
- * [역할] 최종 과제 평가 화면(T-S04) — 학습자·강의·분반, 제출물(이미지·설명), 상태·마감, 작성 중 초안, 확정 결과, 이전 회차 이력
- * [담당] 팀원 3 · #14   [API] RV-02 모델 `review`   [기획] FR-030·031, D-37(확정 결과 정정 없음)
- * [연결] ReviewService.getDetail(from) → InstructorReviewController.detail → templates/instructor/review-detail.html
- *  - 이전 담당자가 확정한 회차의 피드백도 이력에 읽기 전용으로 남긴다(API RV-02)
+ * [역할] 평가 결과·공식 피드백 화면(U-S14)에 보여 줄 값 — 결과, 피드백/반려 사유 원문, 담당 강사, 제출·평가 시작·확정 시각, 이력, 배지
+ * [담당] 팀원 3 · #15 (#14와 같은 이름을 쓴다)   [화면] U-S14   [API] AS-05
+ * [연결]
+ *  - 만든 곳: ReviewResultService.getResult
+ *  - 쓰는 곳: AssignmentController.result → templates/review/result.html (모델 review)
+ * [#15 정의 — 팀원 3 확인 필요] #14에서 같은 DTO를 쓰게 되면 이 필드를 기준으로 맞춘다.
+ * 확정 시각 표시: 승인이면 "수료일", 반려면 "평가 확정"으로 같은 값(finalizedAt)을 쓴다(수료일 = 승인 시각).
  */
-@NoArgsConstructor
 @AllArgsConstructor
 @Getter
-@Setter
 @ToString
 public class ReviewDetailDTO {
 
     private Long reviewRoundId;
-    private String learnerName;       // 실명 — 담당 강사 화면에만(NFR-04)
+    private Long enrollmentId;
+    private Long courseId;
+    /** 사이드 메뉴의 "차시 영상 학습" 링크용 첫 차시 id */
+    private Long firstLessonId;
     private String courseTitle;
     private String levelLabel;
     private String sectionName;
-    private String assignmentTitle;
-    private String submissionLabel;
-    private LocalDateTime submittedAt;
-    private LocalDateTime startedAt;
-    private LocalDateTime dueAt;
+    /** 평가를 확정한 강사 이름. 알 수 없으면 null */
+    private String instructorName;
     private ReviewStatus status;
-    private String statusLabel;
-    private boolean dueSoon;
-    private boolean overdue;
-    private String remainingText;
-    /** 작성 중 초안 (담당이 바뀌어도 그대로 이어진다) */
-    private String draftBody;
-    private LocalDateTime draftUpdatedAt;
-    /** 초안이 있어 시작 취소를 할 수 없는지 (RV-04) */
-    private boolean hasDraft;
-    /** 확정된 공식 피드백 또는 반려 사유 */
+    /** 승인 피드백 또는 반려 사유 원문 */
     private String feedbackBody;
+    private int roundNo;
+    private LocalDateTime submittedAt;
+    private LocalDateTime dueAt;
+    private LocalDateTime startedAt;
     private LocalDateTime finalizedAt;
-    /** 제출 작품 — 과제가 삭제됐으면 제목·설명은 null, 이미지는 빈 목록 */
-    private String workTitle;
-    private String workDescription;
-    private List<Long> fileIds;
-    /** 이 수강 건의 모든 회차 이력(제출·평가 시작·승인/반려) */
-    private List<HistoryItem> history;
+    /** 수강 종료 시각 — 재제출 가능 기간 계산용 */
+    private LocalDateTime expiresAt;
+    /** 반려 후 재제출까지 남은 일수 (기간이 지났으면 0) */
+    private long remainingDays;
+    /** 반려이고 최신 회차이며 수강 기간 안이면 재제출 링크를 보인다 */
+    private boolean canResubmit;
+    /** 승인일 때 이 강의로 얻은 배지(수준 배지, 마스터가 되면 마스터 배지). 그 밖에는 빈 목록 */
+    private List<BadgeDTO> badges;
+    /** 같은 수강 건의 제출·평가 이력 (회차 순) */
+    private List<HistoryDTO> history;
 
-    /**
-     * 평가 회차 + 수강 정보 + 제출물 + 같은 수강 건의 전체 회차 → 상세 화면 값.
-     * 호출: ReviewService.getDetail
-     */
-    public static ReviewDetailDTO from(ReviewRound round, RoundContext context, Optional<Submission> submission,
-                                       List<ReviewRound> allRounds, LocalDateTime now) {
-        return new ReviewDetailDTO(
-                round.getId(),
-                context.getLearnerName(),
-                context.getCourseTitle(),
-                context.getLevelLabel(),
-                context.getSectionName(),
-                context.getAssignmentTitle(),
-                ReviewListDTO.submissionLabel(round.getRoundNo()),
-                round.getSubmittedAt(),
-                round.getStartedAt(),
-                round.getDueAt(),
-                round.getStatus(),
-                ReviewListDTO.statusLabel(round, now),
-                round.isDueSoon(now),
-                round.isOverdue(now),
-                ReviewListDTO.remainingText(round, now),
-                round.getDraftBody(),
-                round.getDraftUpdatedAt(),
-                round.hasDraft(),
-                round.getFeedbackBody(),
-                round.getFinalizedAt(),
-                submission.map(Submission::getTitle).orElse(null),
-                submission.map(Submission::getDescription).orElse(null),
-                submission.map(Submission::getFileIds).orElse(List.of()),
-                historyOf(allRounds));
+    public boolean isApproved() {
+        return status == ReviewStatus.APPROVED;
     }
 
-    /** 평가 마감 옆 안내 — " · 남은 1일 3시간 (임박)" / " · 초과 2일 0시간 (기한 초과)" / 확정된 건은 빈 글자 */
-    public String getDueNotice() {
-        if (!status.equals(ReviewStatus.WAITING) && !status.equals(ReviewStatus.IN_REVIEW)) {
-            return "";
-        }
-        if (overdue) {
-            return " · " + remainingText + " (기한 초과)";
-        }
-        return " · 남은 " + remainingText + (dueSoon ? " (임박)" : "");
+    public boolean isRejected() {
+        return status == ReviewStatus.REJECTED;
     }
 
-    /** 회차마다 제출 → 평가 시작 → 승인/반려(피드백 전문) 순서로 이력 줄을 만든다 */
-    private static List<HistoryItem> historyOf(List<ReviewRound> rounds) {
-        List<HistoryItem> items = new ArrayList<>();
-        for (ReviewRound r : rounds) {
-            items.add(new HistoryItem(r.getSubmittedAt(), ReviewListDTO.submissionLabel(r.getRoundNo()), null));
-            if (r.getStartedAt() != null) {
-                items.add(new HistoryItem(r.getStartedAt(), r.getRoundNo() + "회차 평가 시작", null));
-            }
-            if (r.getFinalizedAt() != null) {
-                String result = r.getStatus() == ReviewStatus.APPROVED ? "수료 승인" : "반려";
-                items.add(new HistoryItem(r.getFinalizedAt(), r.getRoundNo() + "회차 " + result, r.getFeedbackBody()));
-            }
-        }
-        return items;
-    }
-
-    /** 이력 한 줄 — 시각, 내용, 확정 피드백(있을 때만, 읽기 전용) */
-    @Getter
+    /** 이력 한 회차 */
     @AllArgsConstructor
+    @Getter
     @ToString
-    public static class HistoryItem {
-        private LocalDateTime at;
-        private String label;
-        private String feedback;
+    public static class HistoryDTO {
+        private int roundNo;
+        private LocalDateTime submittedAt;
+        private LocalDateTime dueAt;
+        /** 아직 확정 전이면 null */
+        private LocalDateTime finalizedAt;
+        private ReviewStatus status;
+
+        public boolean isApproved() {
+            return status == ReviewStatus.APPROVED;
+        }
     }
 }

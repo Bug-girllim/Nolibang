@@ -4,7 +4,7 @@
   [화면] T-S04 최종 과제 평가   (원본: 2_teacher/T-S04.dc.html)
   [연결] InstructorReviewController.detail · RV-02   → return "instructor/review-detail";
   [상태] 2단계 연결 완료 (#14, 팀원 3)
-  [모델] review(ReviewDetailDTO), decisionForm(ReviewDecisionDTO — 처음엔 작성 중 초안, 오류로 돌아오면 방금 입력값),
+  [모델] review(InstructorReviewDetailDTO), decisionForm(ReviewDecisionDTO — 처음엔 작성 중 초안, 오류로 돌아오면 방금 입력값),
          decision(String APPROVE/REJECT — 승인·반려 입력 탭, API 명세에 없어 새로 정함), flash message / errorMessage
   [동작] 다시 만든 것: 평가 시작(POST + confirm, 대기 상태에 추가), 평가 시작 취소(POST, 초안 있으면 비활성),
          수료 승인/반려 탭(GET ?decision=), 초안 저장(같은 폼의 formaction POST), 승인·반려 확정(POST + confirm),

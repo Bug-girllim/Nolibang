@@ -12,9 +12,9 @@ import org.springframework.stereotype.Repository;
 
 /**
  * [역할] review_rounds 표 조회·저장 (Spring Data JPA)
- * [담당] 팀원 3 · #13(제출) · #14(평가 쿼리 추가)
+ * [담당] 팀원 3 · #13(제출) · #14(평가 쿼리 추가) · #15(결과 화면 이력)
  * [연결]
- *  - 호출받음: ReviewService(#14 잠금 조회·이력), ReviewQueryService(계약 C11), #13 AssignmentService
+ *  - 호출받음: ReviewService(#14 잠금 조회·이력), ReviewQueryService(계약 C11), ReviewResultService(#15), #13 AssignmentService
  * [기술] 🟢 쿼리 메서드(existsBy…·findBy…OrderBy…), 🟢 @Query(nativeQuery = true) SELECT … FOR UPDATE (@Lock은 안 배움)
  */
 @Repository
@@ -31,6 +31,9 @@ public interface ReviewRoundRepository extends JpaRepository<ReviewRound, Long> 
     /** 수강 건에 평가 대기·진행 중인 회차가 있는지 — 계약 C11 hasPendingReview (uq_reviews_active로 최대 1건) */
     boolean existsByEnrollmentIdAndStatusIn(Long enrollmentId, Collection<ReviewStatus> statuses);
 
-    /** 수강 건의 모든 회차(1회차부터) — 평가 상세의 이전 회차 이력, 계약 C11 getLatestStatus(최초 제출 시각·최신 회차) */
+    /**
+     * 수강 건의 모든 회차(1회차부터) — #14 평가 상세의 이전 회차 이력·계약 C11 getLatestStatus,
+     * #15 결과 화면의 제출·평가 이력·최신 회차 판단 (#14·#15가 같은 메서드를 각각 추가해 merge 때 하나로 합침)
+     */
     List<ReviewRound> findByEnrollmentIdOrderByRoundNoAsc(Long enrollmentId);
 }
