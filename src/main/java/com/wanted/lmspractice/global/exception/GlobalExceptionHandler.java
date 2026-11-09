@@ -1,6 +1,8 @@
 package com.wanted.lmspractice.global.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,8 +16,10 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.servlet.support.RequestContextUtils;
 
 /**
  * [역할] 컨트롤러에서 난 예외를 오류 화면(error/400·403·404·405·500)으로 바꾼다.
@@ -30,6 +34,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Slf4j
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    /** 업로드 용량 초과 안내 문구 — 장당 50MB(D-22)·한 번에 최대 5장(D-18)·요청 전체 300MB(application.yaml) */
+    static final String UPLOAD_TOO_LARGE_MESSAGE =
+            "올린 파일이 너무 커요. 이미지는 한 장당 50MB 이하, 한 번에 최대 5장까지 올릴 수 있어요.";
 
     /** 업무 규칙 위반 — ErrorCode의 상태·메시지를 그대로 사용 */
     @ExceptionHandler(BusinessException.class)
@@ -73,6 +81,41 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public Object handleMethodNotAllowed(HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
         return respond(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "허용되지 않는 요청 방식입니다.", request);
+    }
+
+    /**
+     * 업로드 용량 초과(장당 50MB·요청 전체 300MB — application.yaml multipart 설정) → 400 FILE_TOO_LARGE.
+     * 이 예외는 요청이 컨트롤러에 닿기 전(서블릿의 multipart 해석 단계)에 나서 컨트롤러 안의 BusinessException 처리로는 받을 수 없다.
+     * 그래서 여기서, 사진을 올리던 화면(Referer)으로 되돌려 errorMessage 로 안내한다(API §1-6 flash). JSON 요청이거나
+     * 되돌아갈 같은 사이트 화면을 알 수 없으면 400 오류 화면을 보인다. 고른 사진은 브라우저 보안상 다시 골라야 한다.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Object handleMaxUploadSize(MaxUploadSizeExceededException e, HttpServletRequest request) {
+        log.warn("업로드 용량 초과: {}", e.getMessage());
+        String back = wantsJson(request) ? null : sameSitePathOf(request.getHeader("Referer"), request);
+        if (back == null) {
+            return respond(HttpStatus.BAD_REQUEST, ErrorCode.FILE_TOO_LARGE.name(), UPLOAD_TOO_LARGE_MESSAGE, request);
+        }
+        RequestContextUtils.getOutputFlashMap(request).put("errorMessage", UPLOAD_TOO_LARGE_MESSAGE);
+        return "redirect:" + back;
+    }
+
+    /** 같은 사이트의 Referer 만 "경로?쿼리"로 돌려준다 — 외부 주소로 보내는 오픈 리다이렉트를 막는다. 쓸 수 없으면 null */
+    private String sameSitePathOf(String referer, HttpServletRequest request) {
+        if (referer == null || referer.isBlank()) {
+            return null;
+        }
+        try {
+            URI uri = new URI(referer);
+            boolean sameHost = uri.getHost() != null && uri.getHost().equalsIgnoreCase(request.getServerName());
+            String path = uri.getRawPath();
+            if (!sameHost || path == null || !path.startsWith("/") || path.startsWith("//")) {
+                return null;
+            }
+            return uri.getRawQuery() == null ? path : path + "?" + uri.getRawQuery();
+        } catch (URISyntaxException ex) {
+            return null;
+        }
     }
 
     /** 그 밖의 모든 예외 → 500. 상세 원인은 로그에만 남기고 화면에는 일반 문구만 보인다 */
