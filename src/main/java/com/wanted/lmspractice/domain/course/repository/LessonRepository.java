@@ -1,16 +1,25 @@
 package com.wanted.lmspractice.domain.course.repository;
 
 import com.wanted.lmspractice.domain.course.entity.Lesson;
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 /**
- * Lesson 테이블 접근 (Spring Data JPA)
- * 담당: 팀원 2 · #08
- * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
+ * [역할] lessons 표 조회 (Spring Data JPA 쿼리 메서드) — 차시는 시드 데이터라 조회만 한다 (D-59)
+ * [담당] 팀원 2 · #08
+ * [연결]
+ *  - 호출받음: CourseService(강의 상세의 차시 목록, 관리자 차시 수 집계)
+ *  - 호출함:   없음
+ * [기술] 🟢 JpaRepository 쿼리 메서드
  */
 @Repository
 public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
-    // TODO: 쿼리 메서드는 담당 이슈에서 추가
+    /** 한 강의의 차시를 1·2·3차시 순서로 */
+    List<Lesson> findByCourseIdOrderByLessonNoAsc(Long courseId);
+
+    /** 여러 강의에 속한 차시 수 (관리자 A-S15의 세부 취미별 차시 수) */
+    long countByCourseIdIn(Collection<Long> courseIds);
 }
