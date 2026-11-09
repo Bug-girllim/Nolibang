@@ -134,7 +134,7 @@ public class SectionService {
     @Transactional
     public Long create(Long courseId, SectionFormDTO dto) {
         CourseDetailDTO course = findCourse(courseId);
-        sectionRepository.lockByCourseId(courseId);  // 번호 중복·자동 확정 동시 처리 방지 — 잠금 후에 번호를 정한다
+        sectionRepository.findByCourseIdForUpdate(courseId);  // 번호 중복·자동 확정 동시 처리 방지 — 잠금 후에 번호를 정한다
         checkAssignable(dto.getInstructorId(), course.getHobbyId());
 
         String name = dto.getTrimmedName();
@@ -166,7 +166,8 @@ public class SectionService {
             throw new BusinessException(ErrorCode.CAPACITY_OUT_OF_RANGE);  // 범위 오류를 "인원 미만"보다 먼저 알린다
         }
         CourseSection section = lockSection(sectionId);
-        long activeCount = enrollmentRepository.countBySectionIdAndStatus(sectionId, EnrollmentStatus.ACTIVE);
+        // 잠금 읽기로 센다 — 일반 조회는 트랜잭션 첫 조회 시점 스냅숏이라 잠금을 기다리는 사이 확정된 수강을 못 볼 수 있다(#09와 같은 규칙)
+        long activeCount = enrollmentRepository.countActiveBySectionIdForUpdate(sectionId);
         if (capacity < activeCount) {
             throw new BusinessException(ErrorCode.CAPACITY_BELOW_ACTIVE);  // FR-052: 활성 수강 미만 축소 불가
         }
@@ -253,7 +254,7 @@ public class SectionService {
     private CourseSection lockSection(Long sectionId) {
         Long courseId = sectionRepository.findCourseIdById(sectionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SECTION_NOT_FOUND));
-        return sectionRepository.lockByCourseId(courseId).stream()
+        return sectionRepository.findByCourseIdForUpdate(courseId).stream()
                 .filter(section -> section.getId().equals(sectionId))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.SECTION_NOT_FOUND));
@@ -279,7 +280,7 @@ public class SectionService {
      * 기본 키(종류:분반id)를 쓰면 두 번째부터 UNIQUE(user_id, dedupe_key)에 걸려 저장이 생략된다(C7).
      */
     private void notifyAssigned(CourseSection section, String courseTitle) {
-        String sectionName = SectionDTO.displayName(section.getSectionNo(), section.getName());
+        String sectionName = section.getDisplayName();
         notificationService.notify(
                 section.getInstructorId(),
                 NotificationKind.SECTION_ASSIGNED,

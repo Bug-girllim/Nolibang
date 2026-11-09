@@ -55,9 +55,9 @@ public class EnrollmentExpiryService {
         if (courseId == null) {
             return false;
         }
-        sectionRepository.lockByCourseId(courseId);
-        // 잠근 뒤에 읽어야 그 사이 취소·수료된 상태를 본다 (잠금 전에 엔티티를 읽지 않은 이유)
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId).orElse(null);
+        sectionRepository.findByCourseIdForUpdate(courseId);
+        // 잠근 뒤 잠금 읽기로 가져와야 그 사이 취소·수료된 최신 상태를 본다 (EnrollmentService.lockEnrollment와 같은 순서)
+        Enrollment enrollment = enrollmentRepository.findByIdForUpdate(enrollmentId).orElse(null);
         if (enrollment == null || !enrollment.isActive() || !enrollment.isPastExpiry(now)) {
             return false;
         }

@@ -25,7 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 2 · #08   [화면] U-S03·U-S04, A-S15   [기획] D-08(비회원도 강의 상세까지 열람), D-59(강의는 시드 데이터라 조회만)
  *       [API] CO-01·CO-02
  * [연결]
- *  - 호출받음: CourseCatalogService(강의 목록·상세·관리자 집계·#10 관리자 강의 선택), SectionService(#10 강의 확인·취미 id)
+ *  - 호출받음: CourseCatalogService(강의 목록·상세·관리자 집계·#10 관리자 강의 선택), #09 EnrollEligibilityPolicy(신청할 강의 확인)·SeatService(알림용 강의 이름),
+ *             #10 SectionService(강의 확인·취미 id)
  *  - 호출함:   CourseRepository, LessonRepository, HobbyService(강의가 속한 취미를 이 사람이 볼 수 있는지 확인)
  *  - 규칙:     비공개 취미의 강의·닫힌(CLOSED) 강의는 관리자만 본다. 그 밖의 사람에게는 "없는 강의"로 응답해 존재를 숨긴다.
  *  - 의존 방향: course → hobby. 수강 도메인(EnrollmentService·SeatService)은 여기서 부르지 않는다 — #09의 신청 로직이
@@ -110,6 +111,18 @@ public class CourseService {
         hobby.setTotalCourseCount((int) courseRepository.countByHobbyId(hobby.getId()));
         hobby.setOpenCourseCount((int) courseRepository.countByHobbyIdAndStatus(hobby.getId(), CourseStatus.OPEN));
         hobby.setLessonCount(courseIds.isEmpty() ? 0 : (int) lessonRepository.countByCourseIdIn(courseIds));
+    }
+
+    /**
+     * 강의 이름만 — 노출 규칙 없이 id로 찾는다(이미 수강·대기 중인 사람에게 보내는 안내 문구용).
+     * 호출: SeatService.fillVacancies (#09 대기 자동 확정 알림 본문)
+     * @throws BusinessException COURSE_NOT_FOUND — 없는 강의
+     */
+    @Transactional(readOnly = true)
+    public String getCourseTitle(Long courseId) {
+        return courseRepository.findById(courseId)
+                .map(Course::getTitle)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_NOT_FOUND));
     }
 
     /** 관리자는 닫힌 강의도 보고, 그 밖의 사람은 열린(OPEN) 강의만 본다 */

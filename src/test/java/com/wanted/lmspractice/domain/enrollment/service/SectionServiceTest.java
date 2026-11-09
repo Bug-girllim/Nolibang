@@ -31,8 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       시드: 강의 1(색연필화, 분반 1 A·teacherA / 분반 2 B·teacherB, 수강 e6 ACTIVE는 분반 1), 강의 3(분반 4, e3 ACTIVE),
  *            강의 4(디지털, 분반 5 정원 1 만석, 대기 w2 learner3), 강의 6(분반 7 teacherA, 분반 8 담당 공백), 강의 7(디저트, 분반 9)
  *            teacherA(6) 취미 1·2 / teacherB(7) 취미 3·1 / teacherC(8) 비활성·취미 3 / teacherD(9) 취미 2 / learner(2)
- * [미확인] fillVacancies(#09)는 스텁이라 "정원 증가·담당 공백 해소·만료 → 대기 1순위 자동 확정"은 #09 merge 후 확인한다.
- *         평가 대기 과제가 있는 만료 건 유지는 ReviewQueryService(#14) 스텁이 false라 #14 merge 후 확인한다.
+ * [자동 확정] issue09(#09 fillVacancies)를 합친 뒤 정원 증가·만료 → 대기 1순위 자동 확정을 확인한다(autoConfirm… 테스트).
+ * [미확인] 평가 대기 과제가 있는 만료 건 유지는 ReviewQueryService(#14) 스텁이 false라 #14 merge 후 확인한다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5에서 핵심 규칙 테스트용으로 허용)
  */
 @SpringBootTest
@@ -143,7 +143,7 @@ class SectionServiceTest {
         sectionService.changeCapacity(SECTION_PENCIL_A, 1);  // 활성 1명과 같게
         assertThat(sectionService.getSection(SECTION_PENCIL_A).getRemaining()).isZero();
 
-        sectionService.changeCapacity(SECTION_PENCIL_A, 12);  // 늘리면 fillVacancies 호출(#09 merge 후 자동 확정 확인)
+        sectionService.changeCapacity(SECTION_PENCIL_A, 12);  // 늘리면 fillVacancies 호출(대기자 없는 강의라 확정 0명)
         SectionDTO section = sectionService.getSection(SECTION_PENCIL_A);
         assertThat(section.getCapacity()).isEqualTo(12);
         assertThat(section.getRemaining()).isEqualTo(11);
@@ -206,6 +206,38 @@ class SectionServiceTest {
         assertThat(e3.getEndedAt()).isNotNull();
         assertThat(sectionService.getSectionsForAdmin(COURSE_PENCIL_ADVANCED).get(0).getActiveCount()).isEqualTo(activeBefore - 1);
         assertThat(enrollmentRepository.findById(ENROLLMENT_E6).orElseThrow().getStatus()).isEqualTo(EnrollmentStatus.ACTIVE);
+    }
+
+    // ───────────────────────── 자동 확정 (#09 fillVacancies 연결) ─────────────────────────
+
+    @Test
+    @DisplayName("정원 증가: 만석 분반(강의 4)의 정원을 늘리면 대기 1순위(learner3)가 자동 수강 확정된다")
+    void autoConfirmOnCapacityIncrease() {
+        int confirmed = sectionService.changeCapacity(5L, 2);  // 분반 5: 정원 1·활성 1 → 2
+
+        assertThat(confirmed).isEqualTo(1);
+        assertThat(waitlistService.getWaitlist(COURSE_DIGITAL_BASIC)).isEmpty();
+        assertThat(waitlistService.getRecentConfirmed(COURSE_DIGITAL_BASIC))
+                .extracting(WaitlistDTO::getLoginId).containsExactly("learner3");
+        assertThat(sectionService.getSection(5L).getRemaining()).isZero();
+    }
+
+    @Test
+    @DisplayName("만료: 만석 강의의 수강 건이 만료되면 반환된 자리로 대기 1순위가 자동 확정된다")
+    void autoConfirmOnExpiry() {
+        // e5(learner2 · 강의 4 분반 5 · 만석)를 40일 전 확정으로 바꾼다
+        entityManager.createNativeQuery("UPDATE enrollments SET confirmed_at = UTC_TIMESTAMP(6) - INTERVAL 40 DAY, "
+                        + "expires_at = UTC_TIMESTAMP(6) - INTERVAL 10 DAY WHERE id = 5")
+                .executeUpdate();
+        entityManager.clear();
+
+        expiryScheduler.expire();
+
+        entityManager.clear();
+        assertThat(enrollmentRepository.findById(5L).orElseThrow().getStatus()).isEqualTo(EnrollmentStatus.EXPIRED);
+        assertThat(waitlistService.getWaitlist(COURSE_DIGITAL_BASIC)).isEmpty();
+        assertThat(waitlistService.getRecentConfirmed(COURSE_DIGITAL_BASIC))
+                .extracting(WaitlistDTO::getLoginId).containsExactly("learner3");
     }
 
     // ───────────────────────── 대기열 조회 ─────────────────────────

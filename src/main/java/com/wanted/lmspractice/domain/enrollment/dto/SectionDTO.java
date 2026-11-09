@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.enrollment.dto;
 
+import com.wanted.lmspractice.domain.enrollment.entity.CourseSection;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -73,17 +74,8 @@ public class SectionDTO {
         return isVacant() ? "담당 공백" : instructorName;
     }
 
-    /**
-     * 분반 표시 이름 규칙 한곳 — WaitlistDTO(자동 확정 내역의 분반 이름)도 같이 쓴다.
-     * 27번째 분반부터는 글자가 모자라 "27분반"으로 표시한다.
-     */
+    /** 분반 표시 이름 — 규칙은 CourseSection.displayName 한곳에 있다(#09 신청 화면과 같은 이름). WaitlistQuery도 이 메서드를 쓴다 */
     public static String displayName(Integer sectionNo, String name) {
-        if (name != null && !name.isBlank()) {
-            return name;
-        }
-        if (sectionNo == null) {
-            return "";
-        }
-        return (sectionNo >= 1 && sectionNo <= 26) ? (char) ('A' + sectionNo - 1) + "분반" : sectionNo + "분반";
+        return CourseSection.displayName(sectionNo, name);
     }
 }

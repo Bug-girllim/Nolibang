@@ -18,13 +18,14 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * [역할] 분반 (정원 1~30, 담당 강사 1명 — 비어 있으면 신규 배정 제외)
- * [담당] 팀원 2 · #03(매핑), #10(create·changeCapacity·assignInstructor)   [기획] FR-052, D-52, D-59
+ * [역할] 분반 한 행 (정원 1~30, 담당 강사 0~1명) + 자기 칼럼만으로 판단하는 규칙(배정 대상인지·화면 이름)
+ * [담당] 팀원 2 · #03(칼럼 매핑) · #09(isAssignable·getDisplayName) · #10(create·changeCapacity·assignInstructor)   [기획] D-52, D-59
  * [연결]
- *  - 호출받음: SectionService(#10 분반 생성·정원 변경·담당 지정), #09 신청·자동 확정(조회)
- *  - 규칙:     자기 값만으로 판단되는 규칙(정원 1~30)은 여기서, 활성 수강 수처럼 다른 행이 필요한 규칙은 SectionService에서 본다
- * 칼럼은 resources/sql/schema.sql의 `course_sections` 표와 1:1로 매핑했다(11-06). 표가 바뀌면 이 파일도 같이 바꾼다.
- * 다른 표를 가리키는 칼럼(…_id)은 Long 값으로만 둔다 — 다른 도메인 엔티티를 직접 참조하지 않는 규칙.
+ *  - 읽는 곳: SectionAssignPolicy(남은 자리 최대 분반 고르기), EnrollEligibilityPolicy(담당 있는 분반 존재 확인),
+ *            EnrollmentService(확정 안내 문구·신청 영역의 분반 이름)
+ *  - 변경:   SectionService(#10 분반 생성·정원 변경·담당 지정) — 정원 1~30은 여기서, 활성 수강 미만 축소 불가는 서비스에서 본다
+ *  - 잠금:   CourseSectionRepository.findByCourseIdForUpdate — 신청·취소·자리 채우기가 이 행들을 먼저 잠가 한 강의씩 줄 세운다
+ * [DB] schema.sql `course_sections` 표와 1:1 (name은 05 패치 H4). 다른 표 칼럼은 Long 값으로만 둔다.
  * [기술] 🟢 @Entity, 정적 팩토리 create(), 이름 있는 상태 변경 메서드(public setter 없음)
  */
 @Entity
@@ -114,5 +115,32 @@ public class CourseSection {
         if (capacity < MIN_CAPACITY || capacity > MAX_CAPACITY) {
             throw new BusinessException(ErrorCode.CAPACITY_OUT_OF_RANGE);  // D-52: 분반 정원 1~30
         }
+    }
+
+    /** 신청자를 배정할 수 있는 분반인지 — 담당 강사가 없는 분반은 배정 대상이 아니다(D-52, v_section_seats.assignable과 같은 기준) */
+    public boolean isAssignable() {
+        return instructorId != null;
+    }
+
+    /**
+     * 화면에 보일 분반 이름. 이름을 비워 두었으면 번호로 만든다(1 → A분반) — schema.sql 05 패치 H4 주석의 규칙.
+     * 호출: EnrollmentService(신청 결과·신청 영역), SectionService(#10 배정 알림 문구)
+     */
+    public String getDisplayName() {
+        return displayName(sectionNo, name);
+    }
+
+    /**
+     * 분반 표시 이름 규칙 한곳 — 엔티티가 없는 조회 결과(SectionDTO·WaitlistDTO, #10 native 조회)도 이 메서드를 쓴다.
+     * ❓ 임시: 27번째 분반부터는 알파벳이 모자라 "27분반"처럼 숫자로 표시
+     */
+    public static String displayName(Integer sectionNo, String name) {
+        if (name != null && !name.isBlank()) {
+            return name;
+        }
+        if (sectionNo == null) {
+            return "";
+        }
+        return sectionNo <= 26 ? (char) ('A' + sectionNo - 1) + "분반" : sectionNo + "분반";
     }
 }
