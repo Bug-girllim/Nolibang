@@ -54,6 +54,11 @@ public class WorkDTO {
     /** 강사 게시판: 내가 이 작품에 남긴 댓글 수 */
     private long myCommentCount;
 
+    // ── #20 관리자 화면용 ──
+    /** 관리자 숨김 상태 */
+    private boolean hidden;
+    private String hiddenReason;
+
     public static WorkDTO of(Work work, WorkVersion version, List<WorkFile> files) {
         WorkDTO dto = new WorkDTO();
         dto.workId = work.getId();

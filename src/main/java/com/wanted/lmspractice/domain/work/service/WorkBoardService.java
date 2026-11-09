@@ -72,6 +72,24 @@ public class WorkBoardService {
 
         long total = workBoardQuery.count(cond, hobbyIds, viewerId);
         List<WorkDTO> rows = workBoardQuery.find(cond, hobbyIds, viewerId, PAGE_SIZE + 1, page * PAGE_SIZE);  // +1: 다음 쪽 유무 확인
+        return toPage(rows, total, page, grantedHobbyIds);
+    }
+
+    /**
+     * 관리자 목록 한 페이지 (AW-01, #20) — 공개 작품 전체(숨김 포함), cond.hidden 으로 숨김만/공개 중만. 목록 서비스를 재사용한다.
+     * 호출: AdminWorkController.list (A-S08·A-S14)
+     */
+    @Transactional(readOnly = true)
+    public WorkPageDTO searchForAdmin(WorkSearchDTO cond, Long adminId) {
+        int page = Math.max(cond.getPage(), 0);
+        List<Long> hobbyIds = hobbyFilter(cond, Role.ADMIN, Set.of());
+        long total = workBoardQuery.countForAdmin(cond, hobbyIds, adminId);
+        List<WorkDTO> rows = workBoardQuery.findForAdmin(cond, hobbyIds, adminId, PAGE_SIZE + 1, page * PAGE_SIZE);
+        return toPage(rows, total, page, Set.of());
+    }
+
+    // 한 건 더 읽은 결과를 한 페이지로 자르고 취미 이름·강사 댓글 가능 표시를 채운다
+    private WorkPageDTO toPage(List<WorkDTO> rows, long total, int page, Set<Long> grantedHobbyIds) {
         boolean hasNext = rows.size() > PAGE_SIZE;
         List<WorkDTO> items = new ArrayList<>(hasNext ? rows.subList(0, PAGE_SIZE) : rows);
 

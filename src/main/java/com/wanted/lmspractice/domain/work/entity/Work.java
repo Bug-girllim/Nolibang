@@ -2,6 +2,8 @@ package com.wanted.lmspractice.domain.work.entity;
 
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.course.entity.CourseLevelConverter;
+import com.wanted.lmspractice.global.exception.BusinessException;
+import com.wanted.lmspractice.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -125,5 +127,40 @@ public class Work {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    public boolean isAdminHidden() {
+        return Boolean.TRUE.equals(adminHidden);
+    }
+
+    /**
+     * 관리자 숨김 (Q-01) — 공개 작품만. 일반 노출만 막고 작성자의 공개 설정(visibility)은 건드리지 않는다.
+     * 이미 숨김이면 ALREADY_HIDDEN, 비공개 작품이면 INVALID_INPUT. DB CHECK(ck_works_hidden_reason): 숨김이면 사유·시각 필수.
+     */
+    public void hide(Long adminId, String reason, LocalDateTime now) {
+        if (isAdminHidden()) {
+            throw new BusinessException(ErrorCode.ALREADY_HIDDEN);
+        }
+        if (visibility != Visibility.PUBLIC) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);   // 비공개 작품은 숨길 대상이 아니다 (API AW-02)
+        }
+        this.adminHidden = Boolean.TRUE;
+        this.hiddenReason = reason;
+        this.hiddenAt = now;
+        this.hiddenBy = adminId;
+    }
+
+    /**
+     * 숨김 복구 — admin_hidden 만 푼다. 작성자가 그 사이 비공개로 바꿨다면 visibility 가 PRIVATE 그대로라 복구해도 공개되지 않는다.
+     * 숨김 상태가 아니면 NOT_HIDDEN. 지난 숨김 사유는 work_moderation_logs 이력에 남아 있어 여기서는 비운다.
+     */
+    public void restore() {
+        if (!isAdminHidden()) {
+            throw new BusinessException(ErrorCode.NOT_HIDDEN);
+        }
+        this.adminHidden = Boolean.FALSE;
+        this.hiddenReason = null;
+        this.hiddenAt = null;
+        this.hiddenBy = null;
     }
 }
