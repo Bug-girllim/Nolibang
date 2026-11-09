@@ -2,6 +2,9 @@ package com.wanted.lmspractice.domain.enrollment.service;
 
 import com.wanted.lmspractice.domain.enrollment.dto.ApplyResultDTO;
 import com.wanted.lmspractice.domain.enrollment.dto.MyWaitlistDTO;
+import com.wanted.lmspractice.domain.enrollment.dto.WaitlistDTO;
+import com.wanted.lmspractice.domain.enrollment.repository.WaitlistQuery;
+import java.util.List;
 import com.wanted.lmspractice.domain.enrollment.entity.WaitlistEntry;
 import com.wanted.lmspractice.domain.enrollment.entity.WaitlistStatus;
 import com.wanted.lmspractice.domain.enrollment.repository.CourseSectionRepository;
@@ -21,20 +24,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [역할] 강의별 단일 대기열 — 대기 등록(끝순번)·대기 취소·순번 조회. 자동 확정은 SeatService.fillVacancies 한 곳에서만 한다.
- * [담당] 팀원 2 · #09 (관리자 대기열 조회는 #10에서 추가, 본인 대기 목록·자동 확정 여부 조회는 #11에서 추가)   [화면] U-S05·U-S08   [기획] FR-053, D-52   [API] EN-01(대기 분기)·EN-02, ML-01
+ * [담당] 팀원 2 · #09 · #10(관리자 대기열 조회 getWaitlist·getRecentConfirmed·countRecentConfirmed) · #11(getMyWaiting·getAppliedAtByEnrollmentIds)
+ *       [화면] U-S05, A-S12   [기획] FR-053, D-52, D-53   [API] EN-01(대기 분기)·EN-02, WL-01
  * [연결]
  *  - 호출받음: EnrollmentService.apply(join·hasWaiting), EnrollmentService.getStatusForUser(findWaiting·getWaitingNumber),
- *             EnrollmentController.cancelWaiting(cancel), MyLearningService.getMyLearning(getMyWaiting),
- *             EnrollmentService.getMyEnrollments(getAppliedAtByEnrollmentIds)
- *  - 호출함:   WaitlistEntryRepository, CourseSectionRepository(취소 전 강의 잠금)
+ *             EnrollmentController.cancelWaiting(cancel), AdminWaitlistController(#10 WL-01)
+ *  - 호출함:   WaitlistEntryRepository, CourseSectionRepository(취소 전 강의 잠금), WaitlistQuery(#10 native 조회)
  * [기술] 🟢 @Transactional, 🟢 native FOR UPDATE
  */
 @Service
 @RequiredArgsConstructor
 public class WaitlistService {
 
+    /** ❓ 임시값: 최근 자동 확정 내역 표시 개수 (API WL-01 "개수 ❓", #10) */
+    public static final int RECENT_CONFIRMED_LIMIT = 10;
+    /** 시안 KPI "최근 7일 자동 확정"의 기간(일, #10) */
+    public static final int RECENT_CONFIRMED_DAYS = 7;
+
     private final WaitlistEntryRepository waitlistEntryRepository;
     private final CourseSectionRepository courseSectionRepository;
+    private final WaitlistQuery waitlistQuery;  // #10 관리자 조회(native)
 
     /**
      * 대기열 끝에 등록한다. 호출한 쪽(EnrollmentService.apply)이 강의 잠금·자격 확인을 마친 뒤 부른다.
@@ -119,5 +128,31 @@ public class WaitlistService {
     public Map<Long, LocalDateTime> getAppliedAtByEnrollmentIds(Collection<Long> enrollmentIds) {
         return waitlistEntryRepository.findByEnrollmentIdIn(enrollmentIds).stream()
                 .collect(Collectors.toMap(WaitlistEntry::getEnrollmentId, WaitlistEntry::getCreatedAt, (first, second) -> first));
+    }
+
+    // ───────────────────────── #10 관리자 대기열 조회 (A-S12, 조회 전용 — D-53) ─────────────────────────
+
+    /**
+     * 관리자 대기열 — 한 강의의 대기 중 학습자를 순번(FIFO)대로 (WL-01 모델 waitlist).
+     * 호출: AdminWaitlistController.list
+     */
+    @Transactional(readOnly = true)
+    public List<WaitlistDTO> getWaitlist(Long courseId) {
+        return waitlistQuery.findWaiting(courseId);
+    }
+
+    /**
+     * 최근 자동 확정 내역 — 확정 시각 최신순 RECENT_CONFIRMED_LIMIT건 (WL-01 모델 recentConfirmed).
+     * 호출: AdminWaitlistController.list
+     */
+    @Transactional(readOnly = true)
+    public List<WaitlistDTO> getRecentConfirmed(Long courseId) {
+        return waitlistQuery.findRecentConfirmed(courseId, RECENT_CONFIRMED_LIMIT);
+    }
+
+    /** 최근 7일 자동 확정 수 (A-S12 KPI). 호출: AdminWaitlistController.list */
+    @Transactional(readOnly = true)
+    public int countRecentConfirmed(Long courseId) {
+        return waitlistQuery.countConfirmedWithinDays(courseId, RECENT_CONFIRMED_DAYS);
     }
 }
