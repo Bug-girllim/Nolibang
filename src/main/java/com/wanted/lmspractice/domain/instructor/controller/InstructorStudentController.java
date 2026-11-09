@@ -1,16 +1,46 @@
 package com.wanted.lmspractice.domain.instructor.controller;
 
+import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.instructor.dto.StudentStatus;
+import com.wanted.lmspractice.domain.instructor.service.InstructorDashboardService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * 담당 학습자 관리(T-S02) — 다른 분반 차단
- * 담당: 팀원 1 · #07
- * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
+ * [역할] 담당 학습자 관리(T-S02) 화면 연결 — 분반·이름·상태 필터는 GET 쿼리로 다시 그린다
+ * [담당] 팀원 1 · #07   [화면] T-S02   [기획] 05 §7-0, NFR-04   [API] IN-02
+ * [연결]
+ *  - 호출받음: 브라우저 GET /instructor/students?sectionId=&name=&status= (INSTRUCTOR만)
+ *  - 호출함:   InstructorDashboardService.getStudents / getAssignedSections (다른 분반 sectionId는 Service가 404로 차단)
+ *  - 뷰:       templates/instructor/students.html
+ * [기술] 🟢 @RequestParam, Model
  */
 @Controller
 @RequestMapping("/instructor/students")
+@RequiredArgsConstructor
 public class InstructorStudentController {
 
-    // TODO #07: 핸들러 메서드 작성
+    private final InstructorDashboardService instructorDashboardService;
+
+    /** 모델: students, sections(분반 선택), statuses(상태 선택), sectionId·name·status(입력값 유지) */
+    @GetMapping
+    public String students(@AuthenticationPrincipal AuthDetails details,
+                           @RequestParam(required = false) Long sectionId,
+                           @RequestParam(required = false) String name,
+                           @RequestParam(required = false) StudentStatus status,
+                           Model model) {
+        Long instructorId = details.getUserId();
+        model.addAttribute("students", instructorDashboardService.getStudents(instructorId, sectionId, status, name));
+        model.addAttribute("sections", instructorDashboardService.getAssignedSections(instructorId));
+        model.addAttribute("statuses", StudentStatus.values());
+        model.addAttribute("sectionId", sectionId);
+        model.addAttribute("name", name);
+        model.addAttribute("status", status);
+        return "instructor/students";
+    }
 }
