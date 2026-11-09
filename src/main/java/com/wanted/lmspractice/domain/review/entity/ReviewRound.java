@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,11 +17,17 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * 제출 1회 = 1행 (제출·평가 시작·마감 +7일·초안·결과)
- * 담당: 팀원 3 · #03
- * 칼럼은 resources/sql/schema.sql의 `review_rounds` 표와 1:1로 매핑했다(11-06). 표가 바뀌면 이 파일도 같이 바꾼다.
- * 다른 표를 가리키는 칼럼(…_id)은 Long 값으로만 둔다 — 다른 도메인 엔티티를 직접 참조하지 않는 규칙(같은 도메인 안의 연관관계가 필요하면 담당자가 @ManyToOne으로 바꿔도 된다).
- * DB 기본값이 있는 NOT NULL 칼럼은 필드 초기값으로 맞춰 두었다. 비즈니스 메서드·정적 팩토리(create())는 도메인 담당자가 추가.
+ * [역할] 평가 회차 한 행 = 제출 1회 (제출 시각·마감 = 제출 + 7일·평가 시작·초안·결과). 자기 상태로 판단하는 규칙을 가진다.
+ * [담당] 팀원 3 · #03(칼럼 매핑) · #13(create·상태 확인 메서드) · #14(평가 시작·승인·반려 메서드 추가 예정)
+ *       [화면] U-S07   [기획] FR-021·022·026, D-41
+ * [연결]
+ *  - 만든 곳: AssignmentService.submit(1회차)·resubmit(반려 뒤 round_no + 1 새 행 — DB 확정 11-06)
+ *  - 읽는 곳: SubmissionPolicy(수정 잠금·재제출 가능), AssignmentService(화면 이력), #14 ReviewService(평가 진행)
+ * [DB] schema.sql `review_rounds` 표와 1:1(11-06). 표가 바뀌면 이 파일도 같이 바꾼다.
+ *      CHECK: due_at = submitted_at + 7일 / WAITING이면 시작·결과 칼럼이 모두 비어 있어야 한다(ck_reviews_shape).
+ *      UNIQUE: (enrollment_id, round_no), work_version_id, 진행 중(WAITING·IN_REVIEW) 회차는 수강당 1건(uq_reviews_active).
+ *      다른 표를 가리키는 칼럼(…_id)은 Long 값으로만 둔다(다른 도메인 엔티티 직접 참조 금지).
+ * [기술] 🟢 @Entity, @Enumerated(STRING), 정적 팩토리 create(), 이름 있는 상태 메서드(public setter 없음)
  */
 @Entity
 @Table(name = "review_rounds")
@@ -29,6 +36,9 @@ import lombok.ToString;
 @Getter
 @ToString
 public class ReviewRound {
+
+    /** 평가 마감 일수 — 제출(재제출 포함) 시각부터 센다. DB CHECK(due_at = submitted_at + 7일)와 같은 값 (FR-026) */
+    public static final int REVIEW_DUE_DAYS = 7;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -90,4 +100,50 @@ public class ReviewRound {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /**
+     * 새 제출 회차를 "평가 대기"로 만든다 — 최초 제출(1회차)과 반려 뒤 정식 재제출(직전 + 1회차)이 모두 이 메서드만 쓴다.
+     * 마감은 여기서만 계산한다(제출 시각 + 7일). 평가 전 수정은 이 행을 건드리지 않으므로 마감이 바뀌지 않는다.
+     * 호출: AssignmentService.submit·resubmit
+     *
+     * @param workVersionId WorkService.saveFinalWorkVersion이 돌려준 새 버전 id (회차마다 다른 버전 — UNIQUE)
+     * @param submittedAt   제출 시각(서버 현재 시각)
+     */
+    public static ReviewRound create(Long enrollmentId, Long workVersionId, int roundNo, LocalDateTime submittedAt) {
+        // DB가 DATETIME(6)이라 마이크로초 아래를 미리 잘라 둔다 — 두 시각이 같은 소수점으로 저장되어야 CHECK(+7일)를 통과한다
+        LocalDateTime submitted = submittedAt.truncatedTo(ChronoUnit.MICROS);
+        ReviewRound round = new ReviewRound();
+        round.enrollmentId = enrollmentId;
+        round.workVersionId = workVersionId;
+        round.roundNo = roundNo;
+        round.status = ReviewStatus.WAITING;
+        round.submittedAt = submitted;
+        round.dueAt = submitted.plusDays(REVIEW_DUE_DAYS);
+        return round;
+    }
+
+    /** 진행 중(평가 대기·평가 중) 회차인지 — 수강당 1건만 허용(DB uq_reviews_active와 같은 기준) */
+    public boolean isActive() {
+        return status == ReviewStatus.WAITING || status == ReviewStatus.IN_REVIEW;
+    }
+
+    /** 평가 대기 — 학습자가 아직 수정할 수 있는 상태 */
+    public boolean isWaiting() {
+        return status == ReviewStatus.WAITING;
+    }
+
+    /** 평가 중 — 강사가 평가를 시작해 학습자 수정이 잠긴 상태 (E-MODALS "평가 중 과제 잠금") */
+    public boolean isInReview() {
+        return status == ReviewStatus.IN_REVIEW;
+    }
+
+    /** 반려 확정 — 수강 기간 안이면 정식 재제출할 수 있다 */
+    public boolean isRejected() {
+        return status == ReviewStatus.REJECTED;
+    }
+
+    /** 이 회차 다음에 재제출할 때 쓸 회차 번호 (횟수 제한 없음 — FR-026) */
+    public int nextRoundNo() {
+        return roundNo + 1;
+    }
 }

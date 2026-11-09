@@ -155,6 +155,19 @@ public class CourseService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_NOT_FOUND));
     }
 
+    /**
+     * [#13 요청] 강의의 최종 과제 제목만 — 노출 규칙 없이 id로 찾는다(이미 수강 중인 학습자의 과제 화면용).
+     * 팀원 2 소유 파일에 팀원 3이 추가한 최소 메서드(계약 추가 요청 — 확인·수정은 팀원 2). getCourseTitle과 같은 방식.
+     * 호출: AssignmentService.getAssignmentView (AS-01 제목 칸 기본값 = 강의의 과제 제목)
+     * @throws BusinessException COURSE_NOT_FOUND — 없는 강의
+     */
+    @Transactional(readOnly = true)
+    public String getAssignmentTitle(Long courseId) {
+        return courseRepository.findById(courseId)
+                .map(Course::getAssignmentTitle)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_NOT_FOUND));
+    }
+
     /** 관리자는 닫힌 강의도 보고, 그 밖의 사람은 열린(OPEN) 강의만 본다 */
     private boolean isVisible(Course course, Role viewerRole) {
         return course.getStatus() == CourseStatus.OPEN || viewerRole == Role.ADMIN;
