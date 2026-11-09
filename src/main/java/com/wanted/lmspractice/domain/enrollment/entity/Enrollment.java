@@ -20,10 +20,12 @@ import lombok.ToString;
 
 /**
  * [역할] 수강 건 한 행 — 확정 시각·확정+30일 만료 시각·상태(ACTIVE = 정원 점유)와, 자기 상태만으로 판단하는 전이 규칙
- * [담당] 팀원 2 · #03(칼럼 매핑) · #09(create·cancel·complete·closeAfterRejection)   [기획] FR-052·054·055, D-52~D-55
+ * [담당] 팀원 2 · #03(칼럼 매핑) · #09(create·cancel·complete·closeAfterRejection) · #10(isPastExpiry·expire)
+ *       [기획] FR-052·054·055, D-52~D-55, 05 §4-2
  * [연결]
  *  - 만든 곳:   EnrollmentService.apply(즉시 확정), SeatService.fillVacancies(대기 → 자동 확정)
- *  - 상태 변경: EnrollmentService.cancel(본인 취소), complete·closeAfterRejection(계약 C5 — 팀원 3 ReviewService가 호출)
+ *  - 상태 변경: EnrollmentService.cancel(본인 취소), complete·closeAfterRejection(계약 C5 — 팀원 3 ReviewService가 호출),
+ *              EnrollmentExpiryService.expireOne(#10 30일 만료)
  *  - 읽는 곳:   계약 C6 isWithinPeriod(팀원 3 VideoAccessPolicy·SubmissionPolicy 등)
  * [DB] schema.sql `enrollments` 표와 1:1. UNIQUE(user_id, course_id) — 한 강의에는 수강 건이 평생 하나뿐이다(D-55 이중 방어).
  *      CHECK: expires_at = confirmed_at + 30일 / COMPLETED ↔ completed_at / CANCELLED ↔ cancelled_at / ACTIVE가 아니면 ended_at 필수.
@@ -109,9 +111,30 @@ public class Enrollment {
         return !now.isBefore(confirmedAt) && !now.isAfter(expiresAt);
     }
 
+    /**
+     * 만료 시각이 지났는지 (isWithinPeriod와 같은 경계 — 만료 시각 정각까지는 기간 안).
+     * 호출: EnrollmentExpiryService.expireOne (#10 만료 처리)
+     */
+    public boolean isPastExpiry(LocalDateTime now) {
+        return now.isAfter(expiresAt);
+    }
+
     /** 정원을 차지하는 상태인지 — 학습 중·평가 대기/진행(만료 후 포함)·기간 내 반려 (CONVENTIONS §2) */
     public boolean isActive() {
         return status == EnrollmentStatus.ACTIVE;
+    }
+
+    /**
+     * 30일 만료로 수강을 끝낸다 — ACTIVE → EXPIRED, 종료 시각 기록(DB CHECK ck_enroll_end: ACTIVE가 아니면 ended_at 필수).
+     * 평가할 과제가 남았는지는 다른 도메인(#14) 정보라 호출한 EnrollmentExpiryService가 먼저 확인한다(05 §4-2).
+     * 호출: EnrollmentExpiryService.expireOne (#10 SC-01)
+     *
+     * @throws BusinessException INVALID_REVIEW_STATE — 이미 수료·취소·만료된 수강 건
+     */
+    public void expire(LocalDateTime now) {
+        requireActive();
+        this.status = EnrollmentStatus.EXPIRED;
+        this.endedAt = now;
     }
 
     /** 이 학습자의 수강 건인지 — 다른 사람 수강 건은 존재를 숨기려고 ENROLLMENT_NOT_FOUND로 처리한다(API §1-6) */
