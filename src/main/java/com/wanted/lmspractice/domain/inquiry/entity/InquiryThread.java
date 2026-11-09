@@ -59,4 +59,35 @@ public class InquiryThread {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /**
+     * [#21 추가] 스레드 생성 — 수강 건 하나에 스레드 하나(강의별). 제목은 DB CHECK로 공백 불가라 호출한 쪽이 비지 않게 넘긴다.
+     * 호출: InquiryService.writeMessage
+     */
+    public static InquiryThread create(Long enrollmentId, Long learnerId, Long courseId, String title, LocalDateTime now) {
+        InquiryThread thread = new InquiryThread();
+        thread.enrollmentId = enrollmentId;
+        thread.learnerId = learnerId;
+        thread.courseId = courseId;
+        thread.title = title;
+        thread.status = InquiryStatus.OPEN;
+        thread.lastMessageAt = now;
+        return thread;
+    }
+
+    /** [#21 추가] 학습자가 메시지를 보냄 → 다시 답변 대기(OPEN), 마지막 메시지 시각 갱신 */
+    public void receiveLearnerMessage(LocalDateTime now) {
+        this.status = InquiryStatus.OPEN;
+        this.lastMessageAt = now;
+    }
+
+    /** [#21 추가] 담당 강사가 답변함 → ANSWERED(OPEN → ANSWERED), 마지막 메시지 시각 갱신 */
+    public void markAnswered(LocalDateTime now) {
+        this.status = InquiryStatus.ANSWERED;
+        this.lastMessageAt = now;
+    }
+
+    public boolean isOwnedBy(Long userId) {
+        return learnerId.equals(userId);
+    }
 }

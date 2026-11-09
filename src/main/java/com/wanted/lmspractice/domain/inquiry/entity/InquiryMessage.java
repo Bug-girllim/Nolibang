@@ -44,4 +44,13 @@ public class InquiryMessage {
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;  // DB가 자동 기록
+
+    /** [#21 추가] 메시지 생성 — 작성자는 학습자 또는 담당 강사(작성자 구분은 스레드의 learnerId와 비교) */
+    public static InquiryMessage create(Long threadId, Long authorId, String body) {
+        InquiryMessage message = new InquiryMessage();
+        message.threadId = threadId;
+        message.authorId = authorId;
+        message.body = body;
+        return message;
+    }
 }
