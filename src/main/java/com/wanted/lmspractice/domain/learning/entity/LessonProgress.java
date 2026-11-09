@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -14,12 +16,15 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * 차시별 재생 누적 시간·완료 시각
- * 담당: 팀원 3 · #03
+ * [역할] 차시별 재생 누적 시간·완료 시각. 재생 보고를 받아 "서버가 관측한 시간만큼만" 적립하고 60%에 닿으면 완료한다.
+ * [담당] 팀원 3 · #03(칼럼 매핑), #12(적립·완료 규칙)   [기획] FR-020, D-42
+ * [연결]
+ *  - 호출받음: ProgressService.report (재생 보고 1건마다 applyReport), ProgressService.isAllCompleted(completedAt 확인)
+ *  - 호출함:   없음 (자기 칼럼만 사용 — 다른 표 조회 없음)
  * 칼럼은 resources/sql/schema.sql의 `lesson_progresses` 표와 1:1로 매핑했다(11-06). 표가 바뀌면 이 파일도 같이 바꾼다.
- * 다른 표를 가리키는 칼럼(…_id)은 Long 값으로만 둔다 — 다른 도메인 엔티티를 직접 참조하지 않는 규칙(같은 도메인 안의 연관관계가 필요하면 담당자가 @ManyToOne으로 바꿔도 된다).
- * 복합 기본키(enrollment_id, lesson_id) → @IdClass(LessonProgressId.class). Repository는 JpaRepository<LessonProgress, LessonProgressId>.
- * DB 기본값이 있는 NOT NULL 칼럼은 필드 초기값으로 맞춰 두었다. 비즈니스 메서드·정적 팩토리(create())는 도메인 담당자가 추가.
+ * 다른 표를 가리키는 칼럼(…_id)은 Long 값으로만 둔다 — 다른 도메인 엔티티를 직접 참조하지 않는 규칙.
+ * 복합 기본키 (enrollment_id, lesson_id) → @IdClass(LessonProgressId.class). Repository는 JpaRepository<LessonProgress, LessonProgressId>.
+ * [기술] 🟡 @IdClass(복합키) — 11-06 팀 결정으로 허용
  */
 @Entity
 @Table(name = "lesson_progresses")
@@ -29,6 +34,15 @@ import lombok.ToString;
 @Getter
 @ToString
 public class LessonProgress {
+
+    /** 완료 기준: 실제 재생 시간이 영상 길이의 60% 이상 (FR-020) */
+    public static final BigDecimal COMPLETE_RATIO = new BigDecimal("0.6");
+
+    /**
+     * 보고 1건으로 적립할 수 있는 최대 시간(초). 보고 주기 5초의 3배.
+     * ❓ 임시값: 5초 주기(DEV_REVIEW 후보, CONVENTIONS §10 #11)에서 네트워크 지연·탭 지연을 견디는 여유. #12 확정 필요
+     */
+    public static final BigDecimal MAX_CREDIT_PER_REPORT_SEC = new BigDecimal("15");
 
     @Id
     @Column(name = "enrollment_id")
@@ -54,11 +68,78 @@ public class LessonProgress {
     private LocalDateTime lastPingAt;
 
     @Column(name = "last_ping_seq", nullable = false)
-    private Long lastPingSeq;
+    private Long lastPingSeq = 0L;  // DB 기본값과 같은 초기값
 
     @Column(name = "playback_stream_key", length = 64)
     private String playbackStreamKey;
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /** 처음 재생하는 차시의 빈 진도 행. 호출: ProgressService.report */
+    public static LessonProgress create(Long enrollmentId, Long lessonId, Long courseId) {
+        LessonProgress progress = new LessonProgress();
+        progress.enrollmentId = enrollmentId;
+        progress.lessonId = lessonId;
+        progress.courseId = courseId;
+        return progress;
+    }
+
+    public boolean isCompleted() {
+        return completedAt != null;
+    }
+
+    /**
+     * 재생 보고 한 건을 반영한다. 적립 시간은 "서버가 직접 잰 경과 시간"이 상한이다(클라이언트가 보낸 시간은 믿지 않는다).
+     * 호출: ProgressService.report
+     *
+     * 규칙(순서가 중요하다)
+     *  1. 같은 재생(streamKey)에서 순번(seq)이 이미 받은 값 이하면 무시 — 순서가 뒤바뀌거나 중복된 보고(11-06 DB 확정)
+     *  2. 같은 재생이고 "재생 중"일 때만 적립 — 새 재생(streamKey가 다름)의 첫 보고는 기준점만 잡는다.
+     *     다중 탭이 번갈아 보고해도 streamKey가 계속 바뀌므로 이중 적립이 생기지 않는다.
+     *  3. 적립 = min(서버 경과 시간, 1건 상한, 재생 위치가 앞으로 간 만큼) — 건너뛴 구간·배속으로 부풀린 시간은 인정하지 않는다
+     *  4. 일시정지 보고(playing=false)는 적립하지 않고 재생을 끝낸다 — 다시 재생하면 새 streamKey로 시작한다
+     *  5. 적립 합계가 길이의 60% 이상이면 완료 시각을 "처음 한 번만" 기록한다
+     *
+     * @param positionSec 클라이언트가 보고한 현재 재생 위치(초) — 적립 상한 계산에만 쓴다
+     */
+    public void applyReport(String streamKey, long seq, boolean playing, BigDecimal positionSec,
+                            BigDecimal durationSec, LocalDateTime now) {
+        boolean sameStream = streamKey.equals(this.playbackStreamKey);
+        if (sameStream && seq <= this.lastPingSeq) {
+            return;   // 1. 중복·역순 보고
+        }
+
+        BigDecimal position = positionSec.max(BigDecimal.ZERO).min(durationSec);
+        if (sameStream && playing && lastPingAt != null) {
+            credit(position, durationSec, now);   // 2~3. 같은 재생 안에서만 적립
+        }
+
+        // 다음 보고의 기준점. 일시정지 보고면 재생 키를 비워 이어서 오는 보고가 적립되지 않게 한다(4)
+        this.lastPingAt = now;
+        this.lastPingSeq = seq;
+        this.lastPositionSec = position;
+        this.playbackStreamKey = playing ? streamKey : null;
+    }
+
+    private void credit(BigDecimal position, BigDecimal durationSec, LocalDateTime now) {
+        BigDecimal elapsedSec = BigDecimal.valueOf(Duration.between(lastPingAt, now).toMillis())
+                .divide(BigDecimal.valueOf(1000), 3, RoundingMode.DOWN);
+        BigDecimal movedSec = position.subtract(lastPositionSec).max(BigDecimal.ZERO);
+        BigDecimal credit = elapsedSec.min(MAX_CREDIT_PER_REPORT_SEC).min(movedSec);
+
+        this.playedSec = playedSec.add(credit).min(durationSec);
+        if (completedAt == null && playedSec.compareTo(durationSec.multiply(COMPLETE_RATIO)) >= 0) {
+            this.completedAt = now;   // 5. 완료 시각은 1회만
+        }
+    }
+
+    /** 영상 길이 대비 실제 재생 비율(0~100, 소수 버림). 화면의 진행 막대에 쓴다. */
+    public int percent(BigDecimal durationSec) {
+        if (durationSec.signum() <= 0) {
+            return 0;
+        }
+        int percent = playedSec.multiply(BigDecimal.valueOf(100)).divide(durationSec, 0, RoundingMode.DOWN).intValue();
+        return Math.min(percent, 100);
+    }
 }
