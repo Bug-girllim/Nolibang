@@ -1,16 +1,93 @@
 package com.wanted.lmspractice.domain.course.controller;
 
+import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.course.dto.CourseDetailDTO;
+import com.wanted.lmspractice.domain.course.entity.CourseLevel;
+import com.wanted.lmspractice.domain.course.service.CourseCatalogService;
+import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
+import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
+import com.wanted.lmspractice.domain.hobby.service.HobbyService;
+import com.wanted.lmspractice.domain.user.entity.Role;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * 수준별 강의 목록(U-S03), 강의 상세(U-S04) — 비회원도 상세까지 열람(D-08)
- * 담당: 팀원 2 · #08
- * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
+ * [역할] 수준별 강의 목록(U-S03)·강의 상세(U-S04) 화면 — 조회 전용, 비회원도 강의 상세까지 열람(D-08)
+ * [담당] 팀원 2 · #08 (신청 영역은 #09)   [화면] U-S03·U-S04   [기획] FR-010·013, D-08   [API] CO-01·CO-02
+ * [연결]
+ *  - 호출받음: 브라우저(GET /courses?hobbyId=&level=, GET /courses/{courseId}) — SecurityConfig가 /courses/**를 공개로 연다
+ *  - 호출함:   HobbyService(강의 목록 머리의 취미·사이드 메뉴), CourseCatalogService(강의 + 정원·대기 + 내 신청 상태)
+ *  - 이동:     강의 상세의 [수강 신청] → POST /enrollments (EnrollmentController, #09)
+ *  - 화면:     templates/course/list.html · detail.html(신청 영역은 th:fragment "enrollArea"로 분리 — #09에서 채움)
+ * [기술] 🟢 @Controller, @GetMapping, @PathVariable·@RequestParam, @ModelAttribute, @AuthenticationPrincipal
  */
 @Controller
 @RequestMapping("/courses")
+@RequiredArgsConstructor
 public class CourseController {
 
-    // TODO #08: 핸들러 메서드 작성
+    private final HobbyService hobbyService;
+    private final CourseCatalogService courseCatalogService;
+
+    /** 사이드 메뉴("취미 탐색")에 쓰는 대분류·세부 취미 목록. 이 컨트롤러의 모든 요청 앞에서 한 번 만든다 */
+    @ModelAttribute("menuCategories")
+    public List<CategoryDTO> menuCategories(@AuthenticationPrincipal AuthDetails details) {
+        return hobbyService.getCategories(roleOf(details));
+    }
+
+    /**
+     * 수준별 강의 목록. hobbyId가 없으면 400(MissingServletRequestParameterException), level이 없으면 전체 수준.
+     * 호출: GET /courses?hobbyId=&level= (API CO-01)
+     * 모델: hobby(HobbyDTO), courses(List&lt;CourseDTO&gt; — 정원·대기·내 신청 상태 포함), selectedLevel(CourseLevel 또는 null), levels(수준 탭용)
+     */
+    @GetMapping
+    public String list(@RequestParam Long hobbyId,
+                       @RequestParam(required = false) CourseLevel level,
+                       @AuthenticationPrincipal AuthDetails details,
+                       Model model) {
+        HobbyDTO hobby = hobbyService.getHobbySummary(hobbyId, roleOf(details));
+        model.addAttribute("hobby", hobby);
+        model.addAttribute("courses", courseCatalogService.getCourses(hobbyId, level, userIdOf(details), roleOf(details)));
+        model.addAttribute("selectedLevel", level);
+        model.addAttribute("levels", CourseLevel.values());
+        model.addAttribute("sideActive", "courses");
+        model.addAttribute("sideCategoryId", hobby.getCategoryId());
+        model.addAttribute("sideHobbyId", hobbyId);
+        return "course/list";
+    }
+
+    /**
+     * 강의 상세 — 목표·준비물·필수 3차시·최종 과제·수강 기간·정원 현황. 없는 강의는 COURSE_NOT_FOUND(404).
+     * 호출: GET /courses/{courseId} (API CO-02)
+     * 모델: course(CourseDetailDTO), enrollStatus(EnrollmentStatusDTO — 신청 영역)
+     */
+    @GetMapping("/{courseId}")
+    public String detail(@PathVariable Long courseId,
+                         @AuthenticationPrincipal AuthDetails details,
+                         Model model) {
+        CourseDetailDTO course = courseCatalogService.getCourseDetail(courseId, roleOf(details));
+        model.addAttribute("course", course);
+        model.addAttribute("enrollStatus", courseCatalogService.getEnrollStatus(course, userIdOf(details), roleOf(details)));
+        model.addAttribute("sideActive", "course");
+        model.addAttribute("sideHobbyId", course.getHobbyId());
+        return "course/detail";
+    }
+
+    /** 비회원이면 null */
+    private Role roleOf(AuthDetails details) {
+        return details == null ? null : details.getRole();
+    }
+
+    /** 비회원이면 null */
+    private Long userIdOf(AuthDetails details) {
+        return details == null ? null : details.getUserId();
+    }
 }
