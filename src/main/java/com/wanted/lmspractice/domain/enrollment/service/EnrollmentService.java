@@ -133,6 +133,23 @@ public class EnrollmentService {
     }
 
     /**
+     * [#13 요청 — 팀원 2 확인 필요] 본인 수강 건을 잠그며 최신 값으로 가져온다 (계약 C6 getOwnedEnrollment의 잠금판).
+     * 팀원 2 소유 파일에 팀원 3이 추가한 최소 메서드 — 기존 lockEnrollment(강의 잠금 → 수강 건 잠금)를 그대로 써서 잠금 순서를 맞췄다.
+     * 호출: AssignmentService.submit·resubmit — 제출 버튼 연타·다른 탭 동시 제출을 한 줄로 세우고,
+     *       수강 취소(cancel)와 제출이 동시에 일어나 "취소된 수강 건에 평가 대기"가 남는 일을 막는다.
+     * 트랜잭션: 호출한 쪽 트랜잭션에 참여한다(잠금은 그 트랜잭션이 끝날 때 풀린다).
+     * @throws BusinessException ENROLLMENT_NOT_FOUND — 없거나 남의 수강 건(존재를 숨김)
+     */
+    @Transactional
+    public Enrollment lockOwnedEnrollment(Long userId, Long enrollmentId) {
+        Enrollment enrollment = lockEnrollment(enrollmentId);
+        if (!enrollment.isOwnedBy(userId)) {
+            throw new BusinessException(ErrorCode.ENROLLMENT_NOT_FOUND);
+        }
+        return enrollment;
+    }
+
+    /**
      * 계약 C17(#08 이슈 명시): 한 학습자의 강의별 신청 상태 — 학습 중/수료/재신청 불가/대기 n번, 기록이 없으면 신청 가능·대기 신청·신청 불가.
      * 호출: CourseCatalogService (강의 목록·상세·세부 취미 화면의 신청 영역)
      * 강의·취미 자체의 노출 규칙(준비 중 취미, 비회원, 강사·관리자 계정)은 호출한 쪽(#08)이 먼저 걸러서 이 메서드에는 학습자만 온다.

@@ -74,4 +74,50 @@ public class Notification {
 
     @Column(name = "section_id")
     private Long sectionId;
+
+    /**
+     * [#17 추가] 알림 생성 — 대상 칼럼은 종류(kind.getTargetType())가 가리키는 하나에만 넣는다(나머지는 null, DB CHECK가 검사).
+     * 호출: NotificationService.notify
+     */
+    public static Notification create(Long userId, NotificationKind kind, Long targetId,
+                                      String title, String body, String dedupeKey) {
+        Notification n = new Notification();
+        n.userId = userId;
+        n.kind = kind;
+        n.title = title;
+        n.body = body;
+        n.dedupeKey = dedupeKey;
+        switch (kind.getTargetType()) {
+            case ENROLLMENT -> n.enrollmentId = targetId;
+            case REVIEW_ROUND -> n.reviewRoundId = targetId;
+            case WORK -> n.workId = targetId;
+            case COMMENT -> n.commentId = targetId;
+            case INQUIRY_THREAD -> n.inquiryThreadId = targetId;
+            case SECTION -> n.sectionId = targetId;
+        }
+        return n;
+    }
+
+    /** [#17 추가] 읽음 처리 — 이미 읽었으면 처음 읽은 시각을 그대로 둔다 */
+    public void markRead(LocalDateTime now) {
+        if (readAt == null) {
+            readAt = now;
+        }
+    }
+
+    public boolean isRead() {
+        return readAt != null;
+    }
+
+    /** [#17 추가] 종류에 맞는 대상 칼럼의 id */
+    public Long getTargetId() {
+        return switch (kind.getTargetType()) {
+            case ENROLLMENT -> enrollmentId;
+            case REVIEW_ROUND -> reviewRoundId;
+            case WORK -> workId;
+            case COMMENT -> commentId;
+            case INQUIRY_THREAD -> inquiryThreadId;
+            case SECTION -> sectionId;
+        };
+    }
 }

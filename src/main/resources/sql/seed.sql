@@ -297,3 +297,9 @@ INSERT INTO notifications (user_id, kind, title, body, enrollment_id, review_rou
   (6, 'INQUIRY_RECEIVED',    '새 문의',    '색연필화 기초 수강생 문의가 새로 들어왔어요.',                 NULL, NULL, NULL, NULL, 2, NULL, 'INQUIRY_RECEIVED:2',    NULL, @now - INTERVAL 12 HOUR),
   -- teacherB
   (7, 'REVIEW_SUBMITTED',    '과제 제출',  '디저트 기초 최종 과제가 제출되었어요.',                        NULL, 3, NULL, NULL, NULL, NULL, 'REVIEW_SUBMITTED:3',    NULL, @s3);
+
+-- ---------------------------------------------------------------------
+-- 작품 숨김 조치 이력 (#20) — 위 "관리자 숨김"(work 5)과 같은 사건
+-- ---------------------------------------------------------------------
+INSERT INTO work_moderation_logs (work_id, action, reason, admin_id, created_at) VALUES
+  (5, 'HIDE', '작품 설명에 외부 판매 링크가 포함되어 공개 노출을 제한했습니다.', 1, @now - INTERVAL 6 DAY);
