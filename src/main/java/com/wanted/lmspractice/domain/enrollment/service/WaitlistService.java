@@ -1,6 +1,7 @@
 package com.wanted.lmspractice.domain.enrollment.service;
 
 import com.wanted.lmspractice.domain.enrollment.dto.ApplyResultDTO;
+import com.wanted.lmspractice.domain.enrollment.dto.MyWaitlistDTO;
 import com.wanted.lmspractice.domain.enrollment.entity.WaitlistEntry;
 import com.wanted.lmspractice.domain.enrollment.entity.WaitlistStatus;
 import com.wanted.lmspractice.domain.enrollment.repository.CourseSectionRepository;
@@ -8,7 +9,11 @@ import com.wanted.lmspractice.domain.enrollment.repository.WaitlistEntryReposito
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -16,10 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [역할] 강의별 단일 대기열 — 대기 등록(끝순번)·대기 취소·순번 조회. 자동 확정은 SeatService.fillVacancies 한 곳에서만 한다.
- * [담당] 팀원 2 · #09 (관리자 대기열 조회는 #10에서 추가)   [화면] U-S05   [기획] FR-053, D-52   [API] EN-01(대기 분기)·EN-02
+ * [담당] 팀원 2 · #09 (관리자 대기열 조회는 #10에서 추가, 본인 대기 목록·자동 확정 여부 조회는 #11에서 추가)   [화면] U-S05·U-S08   [기획] FR-053, D-52   [API] EN-01(대기 분기)·EN-02, ML-01
  * [연결]
  *  - 호출받음: EnrollmentService.apply(join·hasWaiting), EnrollmentService.getStatusForUser(findWaiting·getWaitingNumber),
- *             EnrollmentController.cancelWaiting(cancel)
+ *             EnrollmentController.cancelWaiting(cancel), MyLearningService.getMyLearning(getMyWaiting),
+ *             EnrollmentService.getMyEnrollments(getAppliedAtByEnrollmentIds)
  *  - 호출함:   WaitlistEntryRepository, CourseSectionRepository(취소 전 강의 잠금)
  * [기술] 🟢 @Transactional, 🟢 native FOR UPDATE
  */
@@ -89,5 +95,29 @@ public class WaitlistService {
                 .filter(found -> found.isOwnedBy(userId) && found.isWaiting())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         entry.cancel(LocalDateTime.now());  // 변경 감지로 커밋 때 UPDATE
+    }
+
+    /**
+     * 계약 C19(#11 추가): 한 학습자가 지금 대기 중인(WAITING) 강의 목록과 각 대기 번호 — 신청 순서대로.
+     * 대기 번호는 getWaitingNumber를 그대로 쓴다(같은 규칙을 두 곳에 만들지 않는다).
+     * 호출: MyLearningService.getMyLearning (GET /my/learning, API ML-01)
+     */
+    @Transactional(readOnly = true)
+    public List<MyWaitlistDTO> getMyWaiting(Long userId) {
+        return waitlistEntryRepository.findByUserIdAndStatusOrderByIdAsc(userId, WaitlistStatus.WAITING).stream()
+                .map(entry -> new MyWaitlistDTO(entry.getId(), entry.getCourseId(), getWaitingNumber(entry), entry.getCreatedAt()))
+                .toList();
+    }
+
+    /**
+     * 수강 건들 가운데 대기열을 거쳐 자동 확정된 것의 "대기 신청 시각" (#11 "자동 확정" 카드용).
+     * 호출: EnrollmentService.getMyEnrollments
+     *
+     * @return 수강 id → 대기 신청 시각 (바로 확정된 수강은 빠진다)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, LocalDateTime> getAppliedAtByEnrollmentIds(Collection<Long> enrollmentIds) {
+        return waitlistEntryRepository.findByEnrollmentIdIn(enrollmentIds).stream()
+                .collect(Collectors.toMap(WaitlistEntry::getEnrollmentId, WaitlistEntry::getCreatedAt, (first, second) -> first));
     }
 }

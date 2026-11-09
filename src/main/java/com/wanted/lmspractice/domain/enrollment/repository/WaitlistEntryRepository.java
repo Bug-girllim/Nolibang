@@ -2,6 +2,8 @@ package com.wanted.lmspractice.domain.enrollment.repository;
 
 import com.wanted.lmspractice.domain.enrollment.entity.WaitlistEntry;
 import com.wanted.lmspractice.domain.enrollment.entity.WaitlistStatus;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,9 +12,9 @@ import org.springframework.stereotype.Repository;
 
 /**
  * [역할] waitlist_entries 표 접근 — 강의별 단일 대기열(FIFO = id 순)의 1순위·순번·대기 인원
- * [담당] 팀원 2 · #09 (관리자 대기열 조회는 #10에서 추가)
+ * [담당] 팀원 2 · #09 (관리자 대기열 조회는 #10에서 추가, 본인 대기 목록·자동 확정 여부 조회는 #11에서 추가)
  * [연결]
- *  - 호출받음: WaitlistService(대기 등록·취소·순번), EnrollEligibilityPolicy(이미 대기 중인지), SeatService.fillVacancies(1순위)
+ *  - 호출받음: WaitlistService(대기 등록·취소·순번·내 대기 목록), EnrollEligibilityPolicy(이미 대기 중인지), SeatService.fillVacancies(1순위)
  * [기술] 🟢 쿼리 메서드(findBy…·countBy…·existsBy…), 🟢 @Query(nativeQuery = true) + FOR UPDATE
  */
 @Repository
@@ -49,4 +51,10 @@ public interface WaitlistEntryRepository extends JpaRepository<WaitlistEntry, Lo
      */
     @Query(value = "SELECT * FROM waitlist_entries WHERE id = :id FOR UPDATE", nativeQuery = true)
     Optional<WaitlistEntry> findByIdForUpdate(@Param("id") Long id);
+
+    /** 한 학습자의 특정 상태 대기 기록을 신청 순서(id)대로 (#11: WAITING만 조회). 호출: WaitlistService.getMyWaiting */
+    List<WaitlistEntry> findByUserIdAndStatusOrderByIdAsc(Long userId, WaitlistStatus status);
+
+    /** 이 수강 건들이 대기열을 거쳐 자동 확정된 것이면 그 대기 기록 (WaitlistEntry.enrollmentId로 이어진다). 호출: WaitlistService.getAppliedAtByEnrollmentIds (#11) */
+    List<WaitlistEntry> findByEnrollmentIdIn(Collection<Long> enrollmentIds);
 }

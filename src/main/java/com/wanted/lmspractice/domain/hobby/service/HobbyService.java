@@ -11,6 +11,7 @@ import com.wanted.lmspractice.domain.hobby.repository.HobbyRepository;
 import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -95,6 +96,23 @@ public class HobbyService {
         Category category = categoryRepository.findById(hobby.getCategoryId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
         return HobbyDTO.from(hobby, effectiveState(category, hobby, viewerRole));
+    }
+
+    /**
+     * 세부 취미 여러 개의 목록용 정보를 노출 규칙 없이 읽는다 — 본인 수강 기록 화면용.
+     * 취미가 준비 중으로 바뀌어도 이미 수강 중인 강의는 계속 보여야 하므로(D-20) 비공개 여부로 걸러내지 않는다.
+     * 상태는 학습자 기준(effectiveState)이라 상위 대분류가 준비 중이면 "준비 중"으로 나온다.
+     * 호출: CourseService.getCourseBriefs ← MyLearningService (GET /my/learning)
+     *
+     * @return 취미 id → HobbyDTO (없는 id는 빠진다)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, HobbyDTO> getHobbiesIgnoringVisibility(Collection<Long> hobbyIds) {
+        Map<Long, Category> categories = categoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Category::getId, category -> category));
+        return hobbyRepository.findAllById(hobbyIds).stream()
+                .collect(Collectors.toMap(Hobby::getId, hobby -> HobbyDTO.from(
+                        hobby, effectiveState(categories.get(hobby.getCategoryId()), hobby, Role.USER))));
     }
 
     // ───────────────────────── 노출 규칙 ─────────────────────────

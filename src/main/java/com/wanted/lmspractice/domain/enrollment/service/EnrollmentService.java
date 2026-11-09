@@ -2,6 +2,7 @@ package com.wanted.lmspractice.domain.enrollment.service;
 
 import com.wanted.lmspractice.domain.enrollment.dto.ApplyResultDTO;
 import com.wanted.lmspractice.domain.enrollment.dto.EnrollmentStatusDTO;
+import com.wanted.lmspractice.domain.enrollment.dto.MyEnrollmentDTO;
 import com.wanted.lmspractice.domain.enrollment.dto.SeatSummaryDTO;
 import com.wanted.lmspractice.domain.enrollment.entity.CourseSection;
 import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
@@ -15,7 +16,9 @@ import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -23,8 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [역할] 수강 신청(즉시 확정 or 대기)·수강 취소·수료/만료 후 반려 종료 흐름을 조립하고, 강의별 "내 신청 상태"를 만든다
- * [담당] 팀원 2 · #09   [화면] U-S05(강의 상세 신청 영역), U-S03·U-S04   [기획] FR-015·052·053·054·055, D-52~D-55
- *       [API] EN-01·EN-03, CO-02(enrollStatus)
+ * [담당] 팀원 2 · #09 (본인 수강 목록 조회 getMyEnrollments는 #11에서 추가)   [화면] U-S05(강의 상세 신청 영역), U-S03·U-S04, U-S08   [기획] FR-015·052·053·054·055, D-52~D-55
+ *       [API] EN-01·EN-03, CO-02(enrollStatus), ML-01
  * [연결]
  *  - 호출받음: EnrollmentController(apply·cancel), CourseCatalogService(#08, getStatusForUser),
  *             팀원 3 ReviewService(#14, complete·closeAfterRejection — 계약 C5), 팀원 3·4(getOwnedEnrollment — 계약 C6)
@@ -155,6 +158,33 @@ public class EnrollmentService {
         // D-52: 대기자가 있으면 빈자리가 있어도 대기열 끝으로 간다 → 만석이거나 대기자가 있으면 대기 신청
         boolean mustWait = seats.isFull() || seats.getWaitingCount() > 0;
         return EnrollmentStatusDTO.of(mustWait ? EnrollmentStatusDTO.CAN_WAIT : EnrollmentStatusDTO.CAN_APPLY);
+    }
+
+    /**
+     * 계약 C18(#11 추가): 한 학습자의 모든 수강 건(진행·수료·취소·만료)을 화면용으로 읽는다 — 최근 확정 순.
+     * 분반 이름과, 대기열을 거쳐 자동 확정된 수강이면 그 대기 신청 시각을 함께 붙인다.
+     * 호출: MyLearningService.getMyLearning (GET /my/learning, API ML-01)
+     * 본인 것만: userId로만 조회하므로 다른 학습자의 수강은 섞이지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public List<MyEnrollmentDTO> getMyEnrollments(Long userId) {
+        List<Enrollment> enrollments = enrollmentRepository.findByUserIdOrderByConfirmedAtDesc(userId);
+        if (enrollments.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, String> sectionNames = courseSectionRepository
+                .findAllById(enrollments.stream().map(Enrollment::getSectionId).distinct().toList()).stream()
+                .collect(Collectors.toMap(CourseSection::getId, CourseSection::getDisplayName));
+        // 대기열에서 자동 확정된 수강: 대기 기록(WaitlistEntry.enrollmentId)이 이 수강 건을 가리킨다
+        Map<Long, LocalDateTime> waitlistAppliedAt = waitlistService.getAppliedAtByEnrollmentIds(
+                enrollments.stream().map(Enrollment::getId).toList());
+
+        return enrollments.stream()
+                .map(enrollment -> MyEnrollmentDTO.from(
+                        enrollment,
+                        sectionNames.get(enrollment.getSectionId()),
+                        waitlistAppliedAt.get(enrollment.getId())))
+                .toList();
     }
 
     /** 수강 건 상태 → 신청 영역 상태. 취소·만료는 재신청 불가(D-55), 수료도 재수강 불가(U-S05 ⑪)라 신청 버튼이 없다 */
