@@ -3,6 +3,7 @@ package com.wanted.lmspractice.global.controller;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
  * [역할] 메인 홈(C-01), 개인정보 처리방침(C-10), 권한 오류 화면 진입점을 화면에 연결한다.
@@ -29,10 +30,10 @@ public class MainController {
     }
 
     /**
-     * 권한 없음 화면. Security 필터에서 난 AccessDeniedException은 컨트롤러 밖이라
+     * 권한 없음 화면 (GET·POST 등 모든 방식). Security 필터에서 난 AccessDeniedException은 컨트롤러 밖이라
      * GlobalExceptionHandler가 못 잡으므로 accessDeniedPage가 이 URL로 보낸다.
      */
-    @GetMapping("/error/403")
+    @RequestMapping("/error/403")   // 모든 HTTP 방식 — accessDeniedPage 는 원래 요청 방식(POST 등) 그대로 forward 하므로 GET 만 받으면 405 가 된다 (이슈 #47)
     public String forbidden(Model model) {
         model.addAttribute("status", 403);
         model.addAttribute("message", "접근 권한이 없습니다.");
