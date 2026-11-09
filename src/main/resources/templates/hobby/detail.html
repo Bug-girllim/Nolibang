@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] U-S02 세부 취미 상세   (원본: 1_learner/U-S02.dc.html)
+  [연결] HobbyController · HB-02 (세부 취미 3개 변형 통합)   → return "hobby/detail";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [통합] 같은 디자인의 변형 화면: U-S02-digital, U-S02-dessert, U-S04-cp-mid, U-S04-cp-adv, U-S04-dd-basic, U-S04-dd-mid, U-S04-dd-adv, U-S04-ds-basic, U-S04-ds-mid, U-S04-ds-adv
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - a [onClick] "강의 상세"
+    - a [onClick] "강의 상세"
+    - button [onClick] "수강 신청"
+    - a [onClick] "강의 상세"
+    - button [onClick] "수강 신청"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>색연필화 상세 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/side-fly.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='hobby')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">취미 탐색</p><nav aria-label="취미 탐색 메뉴" class="side-ctx"><div class="side-hv"><a class="" th:href="@{/hobbies}">전체 취미</a><div aria-label="큰 분야" class="side-fly" role="group"><a class="" th:href="@{/hobbies}">미술·드로잉</a><a class="" th:href="@{/hobbies}">요리·베이킹</a></div></div><div class="side-hv"><a aria-current="true" class="active" th:href="@{/hobbies}">세부 취미 상세<span class="side-sr"> (현재 위치)</span></a><div aria-label="세부 취미" class="side-fly" role="group"><a aria-current="page" class="active" th:href="@{/hobbies/1}">색연필화</a><a class="" th:href="@{/hobbies/2}">디지털 드로잉</a><a class="" th:href="@{/hobbies/3}">디저트 만들기</a></div></div><a class="" th:href="@{/courses(hobbyId=1)}">수준별 강의 목록</a><a class="" th:href="@{/courses(hobbyId=1)}">강의 상세</a></nav></aside><main class="main"><div class="ph"><div><h2>세부 취미 상세</h2><p>취미 탐색 &gt; 미술·드로잉 &gt; 색연필화</p></div><div class="row"><span class="sid">U-S02</span></div></div><div class="sp2"><img alt="색연필화 대표 이미지" style="width: 100%; height: 220px; object-fit: cover; border-radius: 12px; border: 1px solid rgb(216, 204, 181); display: block;" th:src="@{/images/d1e12edec2f86abce9c49eb326397d4d.jpg}"/><div class="box"><div class="rowb"><p class="h3">색연필화</p><span class="chip">운영 중</span></div><p class="mu">색연필로 정물과 풍경을 그리는 취미</p><div class="row" style="gap: 8px;"><span class="mu">내 상태</span><span class="chip dk"><span class="sc-interp">수강 중</span></span></div><p class="mu" style="margin: 0px;"><span class="sc-interp">수강 중인 과정이 있어요. 이어서 학습하려면 「이어서 학습」을 누르세요.</span></p><p>수준을 직접 선택하세요. 이전 단계 수료는 필수가 아닙니다.</p></div></div><p class="h3">학습 수준</p><div class="g3"><div class="box"><img alt="입문 예시 작품: 색연필로 그린 분홍 튤립 한 송이" class="lv-img" style="display: block; width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: cover; border-radius: 8px; border: 1px solid rgb(232, 225, 208); background: rgb(251, 248, 240);" th:src="@{/images/e09f09b947e5652cba60b1aa39b3c64f.webp}"/><div class="rowb"><p class="h4"><span class="sc-interp">입문</span></p><span class="chip dk"><span class="sc-interp">수강 중</span></span></div><p class="mu"><span class="sc-interp">처음 시작하는 과정 · 색연필화 기초</span></p><div class="row" style="gap: 8px;"><a class="btn" th:href="@{/courses/1}">강의 상세</a><a class="btn dk" th:href="@{/lessons/1(enrollmentId=1)}"><span class="sc-interp">이어서 학습</span></a></div></div><div class="box"><img alt="중급 예시 작품: 색연필로 그린 과일 정물(배·살구·자두)" class="lv-img" style="display: block; width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: cover; border-radius: 8px; border: 1px solid rgb(232, 225, 208); background: rgb(251, 248, 240);" th:src="@{/images/cbfd6d2d8616e5aa93b535d0d5f33b84.webp}"/><div class="rowb"><p class="h4"><span class="sc-interp">중급</span></p><span class="chip ol"><span class="sc-interp">미수강</span></span></div><p class="mu"><span class="sc-interp">기초를 활용하는 과정 · 색연필화 응용</span></p><div class="row" style="gap: 8px;"><a class="btn" th:href="@{/courses/2}">강의 상세</a><button aria-busy="false" class="btn pri" type="button"><span class="sc-interp">수강 신청</span></button></div></div><div class="box"><img alt="고급 예시 작품: 색연필로 그린 꽃이 핀 돌담길 마을 풍경" class="lv-img" style="display: block; width: 100%; aspect-ratio: 4 / 3; height: auto; object-fit: cover; border-radius: 8px; border: 1px solid rgb(232, 225, 208); background: rgb(251, 248, 240);" th:src="@{/images/4bf1934989ed611648e241ac7ec10379.webp}"/><div class="rowb"><p class="h4"><span class="sc-interp">고급</span></p><span class="chip ol"><span class="sc-interp">미수강</span></span></div><p class="mu"><span class="sc-interp">응용하는 과정 · 색연필화 심화</span></p><div class="row" style="gap: 8px;"><a class="btn" th:href="@{/courses/3}">강의 상세</a><button aria-busy="false" class="btn pri" type="button"><span class="sc-interp">수강 신청</span></button></div></div></div><ul class="ul mu"><li>수강 신청은 이 화면에서 수준별로 합니다. 분반과 담당 강사는 시스템이 자동 배정합니다.</li><li>정원이 찼거나 대기자가 있으면 대기 신청으로 바뀝니다.</li><li>수료한 강의는 다시 신청할 수 없고 영상은 계속 볼 수 있습니다.</li></ul></main></div><div th:replace="~{common/layout :: footer}"></div></div><a aria-hidden="true" class="dt-go" tabindex="-1" th:href="@{/courses(hobbyId=1)}">이동</a></div>
+</div></div>
+</body>
+</html>

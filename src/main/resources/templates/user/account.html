@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] U-S17 계정 설정   (원본: 1_learner/U-S17.dc.html)
+  [연결] AccountController · US-05   → return "user/account";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - button [onClick] "기본 정보"
+    - button [onClick] "비밀번호"
+    - button [onClick] "회원 탈퇴 P2"
+    - input [onInput] "차분한수달 128"
+    - button [onClick] "중복 확인"
+    - button [onClick] "변경 내용 저장"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>계정 설정 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme-account.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">마이페이지</p><nav aria-label="마이페이지 메뉴" class="side-ctx"><a class="" th:href="@{/my/learning}">나의 학습</a><a class="" th:href="@{/my/works/growth}">성장 기록</a><a class="" th:href="@{/notifications}">알림함</a><a class="" th:href="@{/inquiries}">1:1 문의</a><a aria-current="page" class="active" th:href="@{/my/account}">계정 설정<span class="side-sr"> (현재 페이지)</span></a></nav></aside><main class="main"><div class="ph"><div><h2>계정 설정</h2><p>계정 정보와 비밀번호 관리</p></div><div class="row"><span class="sid">U-S17</span></div></div><div class="tabs" role="tablist"><button aria-selected="true" class="on" role="tab">기본 정보</button><button aria-selected="false" class="" role="tab">비밀번호</button><button aria-selected="false" class="" role="tab">회원 탈퇴 <span class="pt">P2</span></button></div><div class="box" style="max-width: 640px;"><p class="h3">계정 정보 수정</p><div class="field"><label class="lb" for="uid">아이디</label><input aria-describedby="uid-hint" id="uid" readonly="" value="learner"/></div><div class="g2"><div class="field"><label class="lb">이름(실명)</label><input readonly="" value="김학습 (비공개)"/></div><div class="field"><label class="lb">이메일</label><input readonly="" value="learner@example.com"/></div></div><div class="field"><label class="lb" for="nick">닉네임</label><div style="position: relative;"><div class="row" style="flex-wrap: nowrap;"><input aria-describedby="nick-hint" aria-invalid="false" id="nick" value="차분한수달 128"/><button class="btn sm" type="button">중복 확인</button></div></div><p class="mu" id="nick-hint"><span class="sc-interp">변경 시 중복 확인 필요</span></p></div><div class="row"><button aria-busy="false" class="btn dk" type="button"><span class="sc-interp">변경 내용 저장</span></button><span class="mu" role="status"><span class="sc-interp"></span></span></div></div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>

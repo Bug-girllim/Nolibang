@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] U-S05 수강 신청·대기   (원본: 1_learner/U-S05.dc.html)
+  [연결] EnrollmentController · EN-01~03 (강의 상세 신청 영역 fragment 원본)   → return "enrollment/apply";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - button [onClick] "대기 취소"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>수강 신청·대기 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">나의 학습</p><nav aria-label="나의 학습 메뉴" class="side-ctx"><a class="" th:href="@{/my/learning}">나의 학습 현황</a><a aria-current="page" class="active" th:href="@{/courses/1}">수강 신청·대기<span class="side-sr"> (현재 페이지)</span></a><a class="" th:href="@{/lessons/1(enrollmentId=1)}">차시 영상 학습</a><a class="" th:href="@{/assignments(enrollmentId=3)}">최종 과제·평가 결과</a><a class="" th:href="@{/assignments/1/result}">공식 피드백·복습</a></nav></aside><main class="main"><div class="ph"><div><h2>수강 신청·대기</h2><p>남은 자리 최대 분반 자동 배정 · 단일 대기열(FIFO) · 자리가 나면 1순위 자동 확정</p></div><div class="row"><span class="sid">U-S05</span></div></div><div class="sp"><div class="box"><p class="h3">강의 신청 · 현재 상태</p><p class="mu">색연필화 응용 · 중급 · 필수 3차시 | 남은 자리가 가장 큰 분반 자동 배정 | 확정부터 30일 | 대기자는 앞순서 우선</p><div class="row"><span class="chip dk">현재: <span class="sc-interp">④ 대기 중</span></span></div><dl class="kv"><dt>잔여 자리</dt><dd><span class="sc-interp">0</span>석</dd><dt>강의 대기 인원</dt><dd><span class="sc-interp">3</span>명</dd><dt>내 순번</dt><dd style="font-size: 18px; font-weight: 700;"><span class="sc-interp">1번</span></dd><dt>대기 신청</dt><dd><span class="sc-interp">10.29 14:00</span></dd></dl><div class="row"><button class="btn" type="button">대기 취소</button></div><p class="mu">자리가 나면 <b>대기 1순위가 바로 수강 확정</b>되고 사이트 알림으로 안내해요. 초대·수락 단계는 없으니, 수강을 원하지 않으면 미리 대기를 취소해 주세요.</p></div><div class="box dash"><div class="rowb"><p class="h3">자동 수강 확정</p></div><p class="mu"><span class="sc-interp">대기 1순위가 되고 자리가 나면 이곳에 자동 확정 결과가 표시돼요. 별도로 수락할 필요는 없어요.</span></p></div></div><p class="h3">상태별 안내 (현재 상태 강조)</p><table class="t"><thead><tr><th>상태</th><th>사용자에게 표시</th><th>활성 버튼</th><th>비활성 / 숨김</th></tr></thead><tbody><tr class=""><td>① 신청 가능</td><td>잔여 n석 · 대기 0명</td><td>수강 신청</td><td>대기 신청 숨김</td></tr><tr class=""><td>② 즉시 확정</td><td>남은 자리 최대 분반·담당 강사·30일 기간</td><td>학습 시작</td><td>신청 숨김</td></tr><tr class=""><td>③ 만석 → 대기 신청</td><td>대기 n명</td><td>대기 신청</td><td>수강 신청 숨김</td></tr><tr class="sel"><td>④ 대기 중</td><td>단일 대기열(FIFO) 내 순번</td><td>대기 취소</td><td>신청 숨김</td></tr><tr class=""><td>⑤ 자동 확정</td><td>대기 1순위 → 수강 확정 · 사이트 알림</td><td>학습 시작</td><td>수락·거절 없음</td></tr><tr class=""><td>⑥ 대기 취소 완료</td><td>대기열에서 제외</td><td>다시 대기 신청(마지막 순번)</td><td>—</td></tr><tr class=""><td>⑦ 수강 중 · 취소 가능</td><td>학습 중 · 반려 후 재제출 전</td><td>수강 취소</td><td>—</td></tr><tr class=""><td>⑧ 수강 취소 완료</td><td>자리 반환 → 대기 1순위 자동 확정</td><td>—</td><td>신청·대기(재신청 불가)</td></tr><tr class=""><td>⑨ 수강 중 · 취소 불가</td><td>평가 대기·진행 중</td><td>—</td><td>수강 취소(사유 표시)</td></tr><tr class=""><td>⑩ 기간 만료</td><td>미수료 만료</td><td>—</td><td>신청·대기(재신청 불가)</td></tr><tr class=""><td>⑪ 수료 후</td><td>수료 강의 재수강 불가</td><td>영상 다시 보기</td><td>신청·대기</td></tr></tbody></table></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>

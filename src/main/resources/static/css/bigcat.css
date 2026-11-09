@@ -1,0 +1,18 @@
+/* 디자인 시안에서 추출한 스타일 (bigcat) — 원본 순서대로 화면 <head>에 연결됨 */
+
+.cat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px}
+.bigcat{flex-direction:column;padding:0;gap:0;overflow:hidden;border-radius:14px;text-decoration:none;color:inherit;height:100%}
+.bigcat-pic{position:relative;aspect-ratio:4 / 3;margin:10px 10px 0;border-radius:999px 999px 6px 6px / 46% 46% 6px 6px;overflow:hidden;border:1px solid #E3D6B5;background:#F1EBDD}
+.bigcat-pic img{width:100%;height:100%;object-fit:cover;display:block}
+.bigcat-body{display:flex;flex-direction:column;gap:6px;padding:14px 16px 16px;flex:1}
+.bigcat-body .h3{font-family:var(--serif);font-size:20px;margin:0}
+.bigcat-body .mu{margin:0;font-size:13.5px;line-height:1.55}
+.bigcat-sub{margin:auto 0 0;font-size:12.5px;color:#8E743E}
+@media (max-width:1100px){.cat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.cat-grid{grid-template-columns:minmax(0,1fr)}}
+.soon-dim{position:fixed;inset:0;z-index:1000;background:rgba(34,43,69,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.soon-box{width:min(360px,100%);box-sizing:border-box;background:#FFFDF8;border:2px solid #B59A60;border-radius:12px;box-shadow:0 18px 40px rgba(34,43,69,.25);padding:30px 26px 22px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.soon-box p{margin:0;font-family:"Noto Serif KR",serif;font-weight:700;font-size:20px;color:#222B45}
+.soon-box button{min-height:44px;min-width:120px;border-radius:8px;border:2px solid #B59A60;background:#2C3552;color:#FFFDF8;font-size:15px;font-weight:700;cursor:pointer}
+.soon-box button:hover{background:#3A4666}
+.soon-box button:focus-visible{outline:3px solid rgba(66,92,199,.45);outline-offset:2px}

@@ -1,0 +1,31 @@
+/* 디자인 시안에서 추출한 스타일 (atelier-nbell) — 원본 순서대로 화면 <head>에 연결됨 */
+
+/* ===== 헤더 알림 벨 + 마우스 올리면 바로 뜨는 알림 미리보기 ===== */
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.gnb .nbell{position:relative;display:inline-flex;align-items:center}
+.gnb .gr .nbell-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;color:#222B45;text-decoration:none;transition:background-color .15s ease,color .15s ease}
+.gnb .gr .nbell-btn:hover,.gnb .nbell:hover .nbell-btn,.gnb .nbell:focus-within .nbell-btn{background:#E5F1FB;color:#222B45;text-decoration:none}
+.gnb .nbell-cnt{position:absolute;top:4px;right:2px;margin:0;min-width:18px;height:18px;line-height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;font-size:10.5px;box-shadow:0 0 0 2px #FBF8F0}
+.gnb .nbell:hover .nbell-ico{animation:nbellRing .6s ease}
+@keyframes nbellRing{0%,100%{transform:rotate(0)}20%{transform:rotate(14deg)}45%{transform:rotate(-12deg)}70%{transform:rotate(6deg)}}
+.gnb .nbell-ico{transform-origin:50% 8%}
+.gnb .nbell-pop{position:absolute;top:100%;right:-12px;z-index:300;padding-top:8px;width:360px;max-width:calc(100vw - 24px);visibility:hidden;opacity:0;transform:translateY(-4px);transition:opacity .12s ease,transform .12s ease,visibility 0s linear .12s;pointer-events:none}
+.gnb .nbell:hover .nbell-pop,.gnb .nbell:focus-within .nbell-pop{visibility:visible;opacity:1;transform:none;transition:opacity .12s ease,transform .12s ease;pointer-events:auto}
+.gnb .nbell-card{display:block;background:#FFFDF8;border:1px solid #D8CCB5;border-radius:12px;box-shadow:0 14px 34px rgba(34,43,69,.18);overflow:hidden;font-family:"Noto Sans KR",sans-serif;text-align:left}
+.gnb .nbell-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 10px;border-bottom:1px solid #E8E1D0;font-size:12.5px;color:#68728D}
+.gnb .nbell-hd b{font-family:var(--serif);font-size:15px;color:#222B45}
+.gnb .nbell-list{list-style:none;margin:0;padding:4px 0;max-height:320px;overflow:auto}
+.gnb .gr .nbell-pop a{text-decoration:none}
+.gnb .gr .nbell-it{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 16px;color:#3A4666;font-size:13px;font-weight:400;line-height:1.5}
+.gnb .gr .nbell-it:hover{background:#F1F7FC;color:#222B45;text-decoration:none}
+.gnb .gr .nbell-it.un{background:#FBF6EA}
+.gnb .gr .nbell-it.un:hover{background:#F1F7FC}
+.gnb .nbell-ty{display:flex;align-items:center;gap:6px}
+.gnb .nbell-dot{width:7px;height:7px;border-radius:50%;background:#B45C5C}
+.gnb .nbell-tx{grid-column:1 / -1}
+.gnb .nbell-it.un .nbell-tx{color:#222B45;font-weight:500}
+.gnb .nbell-at{grid-row:1;grid-column:2;font-size:11.5px;color:#68728D}
+.gnb .gr .nbell-all{display:block;padding:11px 16px;border-top:1px solid #E8E1D0;text-align:center;font-size:13px;font-weight:600;color:#222B45}
+.gnb .gr .nbell-all:hover{background:#E5F1FB;color:#222B45;text-decoration:none}
+@media (max-width:560px){.gnb .nbell-pop{position:fixed;top:auto;left:12px;right:12px;width:auto;max-width:none}}
+@media (prefers-reduced-motion:reduce){.gnb .nbell:hover .nbell-ico{animation:none}.gnb .nbell-pop{transition:none}}

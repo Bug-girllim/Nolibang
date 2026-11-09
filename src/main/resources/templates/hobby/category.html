@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] U-S01-A 대분류 취미 탐색   (원본: 1_learner/U-S01-art.dc.html)
+  [연결] HobbyController · HB-01 (대분류별 보기 — 4개 변형의 대표)   → return "hobby/category";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [통합] 같은 디자인의 변형 화면: U-S01-baking, U-S01-craft, U-S01-photo
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - form [onSubmit] "검색"
+    - input [onChange] "취미 이름으로 찾아보기"
+    - a [onClick] "색연필화 색연필로 정물과 풍경을 그리는 취미 운영 중 · 강의 3 수강 "
+    - a [onClick] "디지털 드로잉 태블릿으로 그리는 일러스트 운영 중 · 강의 3 미수강"
+    - button [onClick] "학습자"
+    - button [onClick] "강사"
+    - button [onClick] "관리자"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>미술·드로잉 취미 탐색 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/side-fly.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='hobby')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">취미 탐색</p><nav aria-label="취미 탐색 메뉴" class="side-ctx"><div class="side-hv"><a aria-current="true" class="active" th:href="@{/hobbies}">전체 취미<span class="side-sr"> (현재 위치)</span></a><div aria-label="큰 분야" class="side-fly" role="group"><a aria-current="page" class="active" th:href="@{/hobbies}">미술·드로잉</a><a class="" th:href="@{/hobbies}">요리·베이킹</a></div></div><div class="side-hv"><a class="" th:href="@{/hobbies}">세부 취미 상세</a><div aria-label="세부 취미" class="side-fly" role="group"><a class="" th:href="@{/hobbies/1}">색연필화</a><a class="" th:href="@{/hobbies/2}">디지털 드로잉</a><a class="" th:href="@{/hobbies/3}">디저트 만들기</a></div></div><a class="" th:href="@{/courses(hobbyId=1)}">수준별 강의 목록</a><a class="" th:href="@{/courses(hobbyId=1)}">강의 상세</a></nav></aside><main class="main"><div class="ph bn bn-art"><div><h2>미술·드로잉 취미 탐색</h2><p>색연필과 태블릿으로, 그리는 즐거움을 시작해 보세요. <a class="lk" th:href="@{/hobbies}">전체 취미 보기</a></p></div><div class="row"><span class="sid">U-S01-A</span></div></div><form class="row" role="search"><input aria-label="취미 이름으로 찾아보기" placeholder="미술·드로잉 취미 검색" style="width: 360px; height: 32px;" value=""/><button class="btn" type="submit">검색</button></form><div class="col"><div class="row cat-hd"><p class="h3">미술·드로잉</p><span class="chip">운영 중</span></div><div class="g3 hb-grid"><a class="box click hb" th:href="@{/hobbies/1}"><div aria-label="색연필화 대표 이미지" class="hb-pic pic-pencil" role="img"></div><div class="hb-body"><p class="h4">색연필화</p><p class="mu">색연필로 정물과 풍경을 그리는 취미</p><div class="hb-meta"><span class="chip run">운영 중 · 강의 3</span><span class="chip">수강 중</span></div></div></a><a class="box click hb" th:href="@{/hobbies/2}"><div aria-label="디지털 드로잉 대표 이미지" class="hb-pic pic-digital" role="img"></div><div class="hb-body"><p class="h4">디지털 드로잉</p><p class="mu">태블릿으로 그리는 일러스트</p><div class="hb-meta"><span class="chip run">운영 중 · 강의 3</span><span class="chip ol">미수강</span></div></div></a></div></div></main></div><div th:replace="~{common/layout :: footer}"></div></div><a aria-hidden="true" class="dt-go" tabindex="-1" th:href="@{/hobbies/1}">이동</a></div>
+</div></div>
+</body>
+</html>

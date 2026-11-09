@@ -1,0 +1,15 @@
+/* 디자인 시안에서 추출한 스타일 (a-explore) — 원본 순서대로 화면 <head>에 연결됨 */
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.scope-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 18px}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid #D8CCB5;border-radius:999px;padding:3px;background:#FFFDF8}
+.seg button{min-height:38px;padding:0 16px;border:0;border-radius:999px;background:transparent;color:#3A4666;font-size:13.5px;font-weight:600;cursor:pointer}
+.seg button.on{background:#2C3552;color:#FFFDF8}
+.seg button:focus-visible{outline:3px solid rgba(66,92,199,.45);outline-offset:2px}
+.vis-legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px}
+.vis-legend b{color:#222B45;margin-right:4px}
+.adm-cat{gap:10px}
+.adm-t{width:100%;min-width:760px;border-collapse:separate;border-spacing:0}
+.adm-t th,.adm-t td{text-align:left;vertical-align:middle}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

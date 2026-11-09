@@ -1,0 +1,14 @@
+/* 공통 스타일 (#02) — HTML 시안 반영 전의 최소 스타일 */
+body { margin: 0; font-family: 'Malgun Gothic', sans-serif; color: #222; }
+.site-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid #ddd; }
+.site-header .logo { font-weight: bold; font-size: 1.3em; text-decoration: none; color: #222; }
+.site-header nav { display: flex; gap: 14px; align-items: center; }
+.site-header a { text-decoration: none; color: #333; }
+.inline-form { display: inline; margin: 0; }
+.flash-message { margin: 12px 24px; padding: 10px; background: #e8f5e9; }
+.flash-error { margin: 12px 24px; padding: 10px; background: #fdecea; color: #b71c1c; }
+main { max-width: 960px; margin: 24px auto; padding: 0 24px; }
+.site-footer { padding: 16px 24px; border-top: 1px solid #ddd; color: #777; display: flex; gap: 16px; }
+.login-form label { display: block; margin-top: 12px; }
+.login-form input { width: 100%; max-width: 320px; padding: 8px; box-sizing: border-box; }
+.login-form button { margin-top: 16px; padding: 8px 20px; }

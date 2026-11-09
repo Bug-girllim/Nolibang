@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] T-S06 문의·공개 댓글   (원본: 2_teacher/T-S06.dc.html)
+  [연결] InstructorInquiryController · II-01·II-02   → return "instructor/inquiries";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - button [onClick] "1:1 문의 (답변 대기 1 )"
+    - button [onClick] "공개 작품 댓글"
+    - button [onClick] "색연필화 기초 / 김학습 답변 완료"
+    - button [onClick] "색연필화 기초 / 이하늘 답변 대기"
+    - textarea [onChange] "답변 내용을 입력하세요"
+    - button [onClick] "답변 등록"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>문의·공개 댓글 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='lms')}"></header><div class="lay"><aside th:replace="~{common/layout :: teacherSide(active='T-S06')}"></aside><main class="main"><div class="ph"><div><h2>강사 문의·공개 댓글</h2><p>학습자가 보낸 문의에 답변만 합니다 · 강사의 일방 메시지·알림 발송 기능 없음</p></div><div class="row"><span class="sid">T-S06</span></div></div><div class="tabs" role="tablist"><button aria-selected="true" class="on" role="tab" type="button">1:1 문의 (답변 대기 <span class="sc-interp">1</span>)</button><button aria-selected="false" class="" role="tab" type="button">공개 작품 댓글</button></div><div class="sp2"><div class="box"><p class="h3">담당 학습자 문의</p><p class="mu">현재 담당 분반 학습자의 스레드만</p><button aria-current="true" class="box click k" style="text-align: left;" type="button"><div class="rowb"><p class="h4"><span class="sc-interp">색연필화 기초 / 김학습</span></p><span class="chip"><span class="sc-interp">답변 완료</span></span></div></button><button aria-current="false" class="box click" style="text-align: left;" type="button"><div class="rowb"><p class="h4"><span class="sc-interp">색연필화 기초 / 이하늘</span></p><span class="chip ol"><span class="sc-interp">답변 대기</span></span></div></button></div><div class="box"><p class="h3">문의 답변 — <span class="sc-interp">색연필화 기초 / 김학습</span></p><p class="mu"><span class="sc-interp">색연필화 기초 · 입문 · A분반</span> · <a class="lk" th:href="@{/instructor/students}">학습자 상세</a></p><div class="bubble"><p class="h4"><span class="sc-interp">수강생</span> · <span class="sc-interp">10.28 14:00</span></p><p><span class="sc-interp">2차시의 명암 표현이 어렵습니다.</span></p></div><div class="bubble me"><p class="h4"><span class="sc-interp">강사 강사 A</span> · <span class="sc-interp">10.29 02:00</span></p><p><span class="sc-interp">교재의 두 번째 예시부터 다시 진행해 보세요.</span></p></div><label class="lb" for="ans">답변 입력</label><textarea class="" id="ans" placeholder="답변 내용을 입력하세요" style="width: 100%; box-sizing: border-box; min-height: 80px; padding: 8px 10px;"></textarea><div class="rowb"><span class="mu">글자 수 기준 [미정] · <span class="sc-interp">0</span>자</span><button class="btn dk" type="button"><span class="sc-interp">답변 등록</span></button></div><div class="note">※ 강사가 먼저 일반 메시지나 전체 공지를 전송하는 기능은 없습니다.</div></div></div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] U-S18 1:1 문의   (원본: 1_learner/U-S18.dc.html)
+  [연결] InquiryController · IQ-01·IQ-03   → return "inquiry/list";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - button [onClick] "색연필화 기초 · 입문 답변 완료"
+    - button [onClick] "디저트 기초 · 입문 답변 대기"
+    - button [onClick] "색연필화 심화 · 고급 담당 공백"
+    - button [onClick] "목공 기초 · 입문 문의 없음"
+    - textarea [onChange] "문의 내용을 입력하세요"
+    - button [onClick] "보내기"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1:1 문의 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">마이페이지</p><nav aria-label="마이페이지 메뉴" class="side-ctx"><a class="" th:href="@{/my/learning}">나의 학습</a><a class="" th:href="@{/my/works/growth}">성장 기록</a><a class="" th:href="@{/notifications}">알림함</a><a aria-current="page" class="active" th:href="@{/inquiries}">1:1 문의<span class="side-sr"> (현재 페이지)</span></a><a class="" th:href="@{/my/account}">계정 설정</a></nav></aside><main class="main"><div class="ph"><div><h2>1:1 문의</h2><p>담당 강사 문의 스레드</p></div><div class="row"><span class="sid">U-S18</span></div></div><div class="sp2"><div class="box"><p class="h3">나의 문의 목록</p><p class="mu">강의별 담당 강사 스레드</p><button aria-current="true" class="box click k" style="text-align: left;" type="button"><p class="h4"><span class="sc-interp">색연필화 기초 · 입문</span></p><span class="chip"><span class="sc-interp">답변 완료</span></span></button><button aria-current="false" class="box click" style="text-align: left;" type="button"><p class="h4"><span class="sc-interp">디저트 기초 · 입문</span></p><span class="chip ol"><span class="sc-interp">답변 대기</span></span></button><button aria-current="false" class="box click" style="text-align: left;" type="button"><p class="h4"><span class="sc-interp">색연필화 심화 · 고급</span></p><span class="chip ol"><span class="sc-interp">담당 공백</span></span></button><button aria-current="false" class="box click" style="text-align: left;" type="button"><p class="h4"><span class="sc-interp">목공 기초 · 입문</span></p><span class="chip ol"><span class="sc-interp">문의 없음</span></span></button></div><div class="box"><p class="h3"><span class="sc-interp">색연필화 기초 · 입문</span> 문의</p><p class="mu"><span class="sc-interp">A분반 · 담당 전문 강사 강사 A</span></p><div class="bubble me"><p class="h4"><span class="sc-interp">나</span> · <span class="sc-interp">10.28 14:00</span></p><p><span class="sc-interp">2차시의 명암 표현이 어렵습니다.</span></p></div><div class="bubble"><p class="h4"><span class="sc-interp">담당 강사 강사 A</span> · <span class="sc-interp">10.29 02:00</span></p><p><span class="sc-interp">교재의 두 번째 예시부터 다시 진행해 보세요.</span></p></div><label class="lb" for="q">새 문의 / 답장</label><textarea class="" id="q" placeholder="문의 내용을 입력하세요" style="width: 100%; box-sizing: border-box; min-height: 80px; padding: 8px 10px;"></textarea><div class="rowb"><span class="mu">글자 수 기준 [미정] · <span class="sc-interp">0</span>자</span><button aria-busy="false" class="btn dk" type="button"><span class="sc-interp">보내기</span></button></div></div></div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>

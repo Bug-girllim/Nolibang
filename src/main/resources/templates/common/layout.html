@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [역할] 모든 화면이 같이 쓰는 머리글(gnb)·사이드 메뉴·바닥글 조각 (th:fragment)
+  [담당] 팀원 1 · #02   [원본] 디자인 시안 공통 헤더 (C-02 비로그인 · U-S08 학습자 · T-S01 강사 · A-S01 관리자)
+  [사용법]
+    머리글:  <header th:replace="~{common/layout :: gnb(menu='hobby')}"></header>
+             menu 값: hobby(취미 탐색) · learning(나의 학습) · works(작품 게시판) · lms(강사 LMS) · admin(관리자 운영) · ''(없음)
+    강사 사이드:  <aside th:replace="~{common/layout :: teacherSide(active='T-S03')}"></aside>   (active = 화면 ID)
+    관리자 사이드: <aside th:replace="~{common/layout :: adminSide(active='A-S05')}"></aside>
+    바닥글:  <div th:replace="~{common/layout :: footer}"></div>
+  [필요한 모델 — 모든 화면 공통, @ControllerAdvice + @ModelAttribute로 넣는 방식 제안 (API 명세서 §1-8)]
+    loginUser            로그인 사용자 (null이면 비로그인 머리글). nickname, role(Role enum) 사용
+    unreadCount          안 읽은 알림 수 (NotificationService.countUnread)
+    headerNotifications  머리글 알림 미리보기 목록 — ❓ TODO #17: 모델 이름·NotificationDTO 필드(id·title·body·readAt·createdAt) 확정 시 수정
+  [시안과 다른 점] 시연용 역할 배지·검토 메모·제외 화면 메뉴(내 담당 취미·대분류 관리·세부 취미·콘텐츠 검수·경고 내역) 삭제,
+                  로그아웃은 POST /auth/logout 폼, 샘플 알림은 th:each 한 줄로 교체
+-->
+<body>
+
+<header th:fragment="gnb(menu)" th:remove="tag">
+  <!-- 비로그인 -->
+  <th:block th:if="${loginUser == null}">
+    <header class="gnb"><a class="logo" th:href="@{/}"><img alt="" th:src="@{/images/8ac91dbd3368eb200e1020cc2164e48b.png}"/><span>ATELIER<small>놀이방 · Atelier de loisirs</small></span></a><nav><a th:classappend="${menu == 'hobby'} ? 'active'" th:href="@{/hobbies}">취미 탐색</a><a th:classappend="${menu == 'works'} ? 'active'" th:href="@{/works}">작품 게시판</a></nav><div class="gr"><a th:href="@{/auth/login}">로그인</a><a th:href="@{/signup}">회원가입</a></div></header>
+  </th:block>
+  <!-- 학습자 -->
+  <th:block th:if="${loginUser != null and loginUser.role.name() == 'USER'}">
+    <header class="gnb"><a class="logo" th:href="@{/}"><img alt="" th:src="@{/images/8ac91dbd3368eb200e1020cc2164e48b.png}"/><span>ATELIER<small>놀이방 · Atelier de loisirs</small></span></a><nav><a th:classappend="${menu == 'hobby'} ? 'active'" th:href="@{/hobbies}">취미 탐색</a><a th:classappend="${menu == 'learning'} ? 'active'" th:href="@{/my/learning}">나의 학습</a><a th:classappend="${menu == 'works'} ? 'active'" th:href="@{/works}">작품 게시판</a></nav><div class="gr"><div class="nbell"><a aria-haspopup="true" aria-label="알림함, 안 읽은 알림 2개" class="nbell-btn" th:attr="aria-label='알림함, 안 읽은 알림 ' + ${unreadCount ?: 0} + '개'" th:href="@{/notifications}"><svg aria-hidden="true" class="nbell-ico" fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24" width="22"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span aria-hidden="true" class="cnt nbell-cnt" th:if="${unreadCount != null and unreadCount &gt; 0}" th:text="${unreadCount}">0</span></a><div aria-label="최근 알림" class="nbell-pop" role="region"><div class="nbell-card"><div class="nbell-hd"><b>알림</b><span th:text="'안 읽음 ' + ${unreadCount ?: 0} + '개'">안 읽음 0개</span></div><ul class="nbell-list"><li th:each="n : ${headerNotifications}"><a class="nbell-it" th:classappend="${n.readAt == null} ? 'un'" th:href="@{/notifications/{id}(id=${n.id})}"><span class="nbell-ty"><span class="chip dk" th:text="${n.title}">종류</span><span aria-hidden="true" class="nbell-dot" th:if="${n.readAt == null}"></span><span class="sr" th:if="${n.readAt == null}">안 읽음</span></span><span class="nbell-tx" th:text="${n.body}">알림 내용</span><span class="nbell-at" th:text="${#temporals.format(n.createdAt, 'MM.dd HH:mm')}">시각</span></a></li></ul><a class="nbell-all" th:href="@{/notifications}">알림함 전체 보기</a></div></div></div><a aria-label="프로필" class="gicon" th:href="@{/my/account}" title="프로필"><svg aria-hidden="true" class="gicon-svg" fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="22" xmlns="http://www.w3.org/2000/svg"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></a><span class="mu" th:text="${loginUser.nickname}">닉네임</span><form method="post" style="display:inline;margin:0" th:action="@{/auth/logout}"><a class="lk" href="#" onclick="this.closest('form').submit();return false;">로그아웃</a></form></div></header>
+  </th:block>
+  <!-- 강사 -->
+  <th:block th:if="${loginUser != null and loginUser.role.name() == 'INSTRUCTOR'}">
+    <header class="gnb"><a class="logo" th:href="@{/}"><img alt="" th:src="@{/images/8ac91dbd3368eb200e1020cc2164e48b.png}"/><span>ATELIER<small>놀이방 · Atelier de loisirs</small></span></a><nav><a th:classappend="${menu == 'works'} ? 'active'" th:href="@{/works}">작품 게시판</a><a th:classappend="${menu == 'lms'} ? 'active'" th:href="@{/instructor}">강사 LMS</a></nav><div class="gr"><div class="nbell"><a aria-haspopup="true" aria-label="강사 알림함, 안 읽은 알림 3개" class="nbell-btn" th:attr="aria-label='알림함, 안 읽은 알림 ' + ${unreadCount ?: 0} + '개'" th:href="@{/notifications}"><svg aria-hidden="true" class="nbell-ico" fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24" width="22"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span aria-hidden="true" class="cnt nbell-cnt" th:if="${unreadCount != null and unreadCount &gt; 0}" th:text="${unreadCount}">0</span></a><div aria-label="강사 최근 알림" class="nbell-pop" role="region"><div class="nbell-card"><div class="nbell-hd"><b>강사 알림</b><span th:text="'안 읽음 ' + ${unreadCount ?: 0} + '개'">안 읽음 0개</span></div><ul class="nbell-list"><li th:each="n : ${headerNotifications}"><a class="nbell-it" th:classappend="${n.readAt == null} ? 'un'" th:href="@{/notifications/{id}(id=${n.id})}"><span class="nbell-ty"><span class="chip dk" th:text="${n.title}">종류</span><span aria-hidden="true" class="nbell-dot" th:if="${n.readAt == null}"></span><span class="sr" th:if="${n.readAt == null}">안 읽음</span></span><span class="nbell-tx" th:text="${n.body}">알림 내용</span><span class="nbell-at" th:text="${#temporals.format(n.createdAt, 'MM.dd HH:mm')}">시각</span></a></li></ul><a class="nbell-all" th:href="@{/notifications}">알림함 전체 보기</a></div></div></div><span aria-label="강사 A" class="gicon" role="img" title="강사 A"><svg aria-hidden="true" class="gicon-svg" fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="22" xmlns="http://www.w3.org/2000/svg"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg></span><form method="post" style="display:inline;margin:0" th:action="@{/auth/logout}"><a class="lk" href="#" onclick="this.closest('form').submit();return false;">로그아웃</a></form></div></header>
+  </th:block>
+  <!-- 관리자 -->
+  <th:block th:if="${loginUser != null and loginUser.role.name() == 'ADMIN'}">
+    <header class="gnb"><a class="logo" th:href="@{/}"><img alt="" th:src="@{/images/8ac91dbd3368eb200e1020cc2164e48b.png}"/><span>ATELIER<small>놀이방 · Atelier de loisirs</small></span></a><nav><a th:classappend="${menu == 'hobby'} ? 'active'" th:href="@{/admin/hobbies}">취미 탐색</a><a th:classappend="${menu == 'works'} ? 'active'" th:href="@{/admin/works}">작품 게시판</a><a th:classappend="${menu == 'admin'} ? 'active'" th:href="@{/admin}">관리자 운영</a></nav><div class="gr"><span aria-label="관리자" class="gicon" role="img" title="관리자"><svg aria-hidden="true" class="gicon-svg" fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="22" xmlns="http://www.w3.org/2000/svg"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="M6.376 18.91a6 6 0 0 1 11.249.003"></path><circle cx="12" cy="11" r="4"></circle></svg></span><form method="post" style="display:inline;margin:0" th:action="@{/auth/logout}"><a class="lk" href="#" onclick="this.closest('form').submit();return false;">로그아웃</a></form></div></header>
+  </th:block>
+</header>
+
+<!-- 강사 LMS 사이드 메뉴 (T-S01~T-S09) -->
+<aside class="side" th:fragment="teacherSide(active)"><p class="st">강사 LMS</p><a th:classappend="${active == 'T-S01'} ? 'active'" th:href="@{/instructor}">담당 분반</a><a th:classappend="${active == 'T-S02'} ? 'active'" th:href="@{/instructor/students}">수강생 관리</a><a th:classappend="${active == 'T-S03'} ? 'active'" th:href="@{/instructor/reviews}">평가 관리</a><a th:classappend="${active == 'T-S05'} ? 'active'" th:href="@{/instructor/stats}">강사 통계</a><a th:classappend="${active == 'T-S06'} ? 'active'" th:href="@{/instructor/inquiries}">문의·댓글</a><a th:classappend="${active == 'T-S09'} ? 'active'" th:href="@{/notifications}">알림함</a></aside>
+
+<!-- 관리자 운영 사이드 메뉴 (A-S01~A-S13) -->
+<aside class="side" th:fragment="adminSide(active)"><p class="st">관리자 운영</p><a th:classappend="${active == 'A-S01'} ? 'active'" th:href="@{/admin}">대시보드</a><a th:classappend="${active == 'A-S04'} ? 'active'" th:href="@{/admin/instructors}">강사 계정</a><a th:classappend="${active == 'A-S05'} ? 'active'" th:href="@{/admin/sections}">분반 관리</a><a th:classappend="${active == 'A-S08'} ? 'active'" th:href="@{/admin/works}">작품 숨김</a><a th:classappend="${active == 'A-S12'} ? 'active'" th:href="@{/admin/waitlists}">대기열 조회</a><a th:classappend="${active == 'A-S13'} ? 'active'" th:href="@{/admin/stats}">강사 통계</a></aside>
+
+<!-- 공통 바닥글 -->
+<div class="ft" th:fragment="footer"><span><b>ATELIER</b>  놀이방 · Atelier de loisirs</span></div>
+
+</body>
+</html>

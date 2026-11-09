@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] C-03 회원가입   (원본: 0_common/C-03.dc.html)
+  [연결] SignupController · US-01·02   → return "user/signup";
+  [상태] 2단계 연결 완료 (#04, 팀원 1)
+  [모델] signupDTO(SignupDTO) — GET은 빈 객체, POST 실패 시 입력값 유지(비밀번호 칸은 비움) + 필드별 오류(th:errors)
+  [동작] 다시 만든 것: 가입(POST /signup, 서버 검증·오류 표시), 아이디·닉네임 중복 확인(static/js/signup.js, GET /signup/check-*)
+         남긴 것(이번 범위 밖): 입력하는 동안 실시간 형식 검사·"남은 필수 항목" 안내 — 서버 검증 결과로 대신한다
+  [정리] 약관·만 14세 안내 문구와 "약관 동의로 이동" 링크 삭제(11-06 결정: 약관 화면 없음)
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>회원가입 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw-signup.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme-auth.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='')}"></header><div class="ctr"><div class="ph"><div><h2>회원가입</h2><p>필수 정보 입력과 인증 요청</p></div><div class="row"><span class="sid">C-03</span></div></div><form class="box" method="post" th:action="@{/signup}" th:object="${signupDTO}" novalidate style="width: 640px; align-self: center; padding: 18px 22px;"><p class="h3">회원가입</p><p class="mu">필수 항목(*)을 입력하고 이메일 인증을 진행합니다. 전문 강사 계정은 관리자가 생성합니다.</p><div class="g2"><div class="field"><label class="lb" for="lid">아이디 *</label><div class="row" style="flex-wrap: nowrap;"><input aria-describedby="id-hint" aria-invalid="false" autocomplete="username" class="" th:classappend="${#fields.hasErrors('loginId')} ? 'bad'" id="lid" th:field="*{loginId}" placeholder="영문 또는 영문+숫자"/><button class="btn sm" type="button" id="check-id-btn" th:data-url="@{/signup/check-id}"><span class="sc-interp">중복 확인</span></button></div><p class="mu" id="id-hint" role="status"><span class="sc-interp">중복 확인이 필요합니다.</span></p><p class="err" role="alert" th:if="${#fields.hasErrors('loginId')}" th:errors="*{loginId}"></p><p class="mu" style="margin: 0px;">영문만 또는 영문+숫자 조합 · 한글·특수문자·공백 불가 </p></div><div class="field" style="position: relative;"><label class="lb" for="pw">비밀번호 *</label><div style="position: relative;"><input aria-describedby="pw-rule" aria-invalid="false" autocomplete="new-password" class="" th:classappend="${#fields.hasErrors('password')} ? 'bad'" id="pw" th:field="*{password}" placeholder="비밀번호 입력" type="password"/></div><p class="mu" id="pw-rule" style="font-size: 12px; line-height: 1.5; margin: 4px 0px 0px;">8~16자 · 영문/숫자/특수문자 필수</p><p class="err" role="alert" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></p></div><div class="field"><label class="lb" for="rname">이름(실명) *</label><input aria-describedby="name-hint" aria-invalid="false" autocomplete="name" class="" th:classappend="${#fields.hasErrors('name')} ? 'bad'" id="rname" th:field="*{name}" placeholder="실명 (예: 김놀이)"/><p class="mu" id="name-hint" role="status" style="margin: 4px 0px 0px;">이름은 한글 2~5글자로 입력해 주세요.</p><p class="err" role="alert" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></p><p class="mu">공개되지 않으며 담당 강사·관리자만 열람합니다.</p></div><div class="field"><label class="lb" for="pw2">비밀번호 확인 *</label><div style="position: relative;"><input aria-invalid="false" autocomplete="new-password" class="" th:classappend="${#fields.hasErrors('passwordConfirm')} ? 'bad'" id="pw2" th:field="*{passwordConfirm}" placeholder="비밀번호 다시 입력" type="password"/></div><p class="err" role="alert" th:if="${#fields.hasErrors('passwordConfirm')}" th:errors="*{passwordConfirm}"></p></div><div class="field"><label class="lb" for="em">이메일 *</label><div style="position: relative;"><input aria-invalid="false" autocomplete="email" class="" th:classappend="${#fields.hasErrors('email')} ? 'bad'" id="em" th:field="*{email}" placeholder="이메일 주소" type="email"/></div><p class="err" role="alert" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></p></div><div class="field"><label class="lb" for="nick">닉네임 (선택)</label><div style="position: relative;"><input aria-invalid="false" class="" th:classappend="${#fields.hasErrors('nickname')} ? 'bad'" id="nick" th:field="*{nickname}" placeholder="미입력 시 자동 생성"/></div><div class="row" style="gap: 6px;"><button class="btn sm" type="button" id="check-nick-btn" th:data-url="@{/signup/check-nickname}">닉네임 중복 확인</button><span class="mu" role="status"><span class="sc-interp" id="nick-hint"></span></span></div><p class="err" role="alert" th:if="${#fields.hasErrors('nickname')}" th:errors="*{nickname}"></p><p class="mu">미입력 시 자동 생성 (예: 차분한수달 128)</p></div></div><div class="row"><button class="btn dk" type="submit">이메일 인증 요청</button><a class="btn" th:href="@{/}">입력 취소</a></div><div class="note">※ 회원가입 완료 후 자동 로그인하지 않고 로그인 화면으로 이동합니다.</div></form></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+<script th:src="@{/js/signup.js}"></script>
+</body>
+</html>

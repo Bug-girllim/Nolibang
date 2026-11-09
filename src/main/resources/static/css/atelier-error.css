@@ -1,0 +1,70 @@
+/* 디자인 시안에서 추출한 스타일 (atelier-error) — 원본 순서대로 화면 <head>에 연결됨 */
+
+/* ===== 오류 화면 (E) — 사이트 공통 테마(.btn, .mdl, 색상 변수)를 그대로 사용 ===== */
+.sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.errwrap{position:relative;min-height:calc(100vh - 72px - 74px);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px 44px;overflow:hidden;background:radial-gradient(900px 420px at 50% 38%, rgba(255,253,248,.92), rgba(255,253,248,0) 70%)}
+.errwrap .deco{position:absolute;pointer-events:none;user-select:none;height:auto;z-index:0}
+.errwrap .deco-arch{left:0;top:0;width:210px;opacity:.85}
+.errwrap .deco-books{left:0;bottom:0;width:230px}
+.errwrap .deco-quill{right:0;bottom:0;width:190px}
+.errcard{position:relative;z-index:1;width:100%;max-width:700px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.err-hero{display:flex;align-items:flex-end;justify-content:center;gap:26px}
+.err-code-wrap{display:flex;align-items:center;gap:8px}
+.err-code{margin:0;font-family:"Cormorant Garamond","Noto Serif KR",serif;font-weight:600;font-size:150px;line-height:.86;letter-spacing:.01em;color:#9A7B42;background:linear-gradient(180deg,#B8975A 0%,#8E743E 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.err-laurel{width:44px;height:112px;flex:none}
+.err-laurel.r{transform:scaleX(-1)}
+.err-hermes{width:140px;height:auto;aspect-ratio:499/636;object-fit:contain;flex:none;display:block}
+.err-divider{display:flex;align-items:center;gap:10px;width:300px;margin:22px 0 20px}
+.err-divider i{flex:1;height:1px;background:linear-gradient(90deg,rgba(181,154,96,0),#B59A60)}
+.err-divider i+img+i{background:linear-gradient(90deg,#B59A60,rgba(181,154,96,0))}
+.err-divider img{width:34px;height:17px;object-fit:contain}
+.err-title{margin:0;font-family:var(--serif);font-size:32px;font-weight:700;line-height:1.35;letter-spacing:-.01em;color:#222B45}
+.err-desc{margin:10px 0 0;font-size:15px;line-height:1.6;color:#555F7A}
+.err-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:30px}
+.err-actions .btn{min-width:190px;min-height:48px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease}
+.err-actions .btn:hover:not(:disabled){background:#E5F1FB;border-color:#9DC4E6;color:#222B45;transform:none}
+.err-actions .btn.dk:hover:not(:disabled){background:linear-gradient(#2C3552,#2C3552) padding-box,var(--gilt) center / auto 100% border-box;color:#fff;box-shadow:0 0 0 4px #D3E8F8}
+.err-tag{position:relative;z-index:1;display:flex;align-items:center;gap:14px;margin-top:52px;font-family:var(--serif);font-size:15px;color:#3A4666}
+.err-tag i{display:block;width:120px;height:1px;background:linear-gradient(90deg,rgba(181,154,96,0),#B59A60)}
+.err-tag i:last-child{background:linear-gradient(90deg,#B59A60,rgba(181,154,96,0))}
+@media (max-width:1100px){.errwrap .deco-arch{width:150px;opacity:.5}.errwrap .deco-books{width:170px}.errwrap .deco-quill{width:140px}}
+@media (max-width:640px){
+.errwrap{min-height:0;padding:36px 16px 128px}
+.errwrap .deco-arch{display:none}
+.errwrap .deco-books{width:112px;opacity:.75}
+.errwrap .deco-quill{width:96px;opacity:.75}
+.err-hero{gap:10px}
+.err-code{font-size:84px}
+.err-laurel{width:24px;height:62px}
+.err-hermes{width:96px}
+.err-divider{width:220px;margin:18px 0 16px}
+.err-title{font-size:22px}
+.err-desc{font-size:13.5px}
+.err-actions{width:100%;gap:10px;margin-top:24px}
+.err-actions .btn{min-width:0;flex:1 1 140px}
+.err-tag{margin-top:36px;font-size:13px}
+.err-tag i{width:40px}
+}
+@media (prefers-reduced-motion:reduce){.err-actions .btn{transition:none}}
+/* ===== 오류 모달 ===== */
+.errmdl{max-width:460px;text-align:left}
+.errmdl .mb p{margin:0;font-size:13.5px;line-height:1.65;color:#3A4666}
+.errmdl .mb .sub{font-size:12.5px;color:#8E743E}
+.errmdl .mf .btn{min-height:40px;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer}
+.errmdl .mf .btn:hover:not(:disabled){background:#E5F1FB;border-color:#9DC4E6;color:#222B45;transform:none}
+.errmdl .mf .btn.dk:hover:not(:disabled){background:linear-gradient(#2C3552,#2C3552) padding-box,var(--gilt) center / auto 100% border-box;color:#fff;box-shadow:0 0 0 3px #D3E8F8}
+.errmdl .who{display:flex;gap:14px;align-items:flex-start}
+.errmdl .who img{width:62px;height:auto;aspect-ratio:499/636;object-fit:contain;flex:none}
+.errmdl .who div{display:flex;flex-direction:column;gap:8px}
+.mgal{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:22px;align-items:start}
+.mgal .cell{display:flex;flex-direction:column;gap:10px}
+.mgal .cap{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:#68728D}
+.mgal .cap b{color:#222B45;font-family:var(--serif)}
+.mgal .errmdl{max-height:none}
+.devbar{background:#FFF7E8;border:1px dashed #C9A45E;color:#6E5A2E;border-radius:10px;padding:10px 14px;font-size:12.5px}
+.pvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr));gap:16px}
+.pv{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-decoration:none;color:#222B45}
+.pv:hover{border-color:#9DC4E6;background:#F2F8FD}
+.pv b{font-family:"Cormorant Garamond",serif;font-size:34px;color:#8E743E;line-height:1}
+.pv span{font-size:13px;color:#555F7A}
+.pv code{font-size:11.5px;color:#8E743E}

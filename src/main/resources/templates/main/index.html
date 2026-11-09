@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!-- C-01 · MainController.index (GET /) · 모델: 없음(#08·#11에서 hobbies, continueCourses 추가 예정)
+     layout.html 에는 gnb · teacherSide · adminSide · footer 조각만 있다 (head · header · flash 조각은 없음).
+     그래서 <head>는 이 파일에서 직접 쓰고, 머리글은 gnb(menu='')를 쓴다. 메뉴 활성화 값은 layout.html 상단 주석 참고. -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>홈 · 놀이방</title>
+    <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+    <link rel="stylesheet" th:href="@{/css/tw.css}">
+    <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+    <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+    <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+    <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+</head>
+<body>
+<div id="root"><div class="app">
+    <header th:replace="~{common/layout :: gnb(menu='')}"></header>
+    <main class="main">
+        <h1>놀이방</h1>
+        <p>취미를 배우고, 과제를 제출하고, 작품을 나누는 학습 공간입니다.</p>
+        <a th:href="@{/hobbies}">취미 둘러보기</a>
+    </main>
+    <div th:replace="~{common/layout :: footer}"></div>
+</div></div>
+</body>
+</html>

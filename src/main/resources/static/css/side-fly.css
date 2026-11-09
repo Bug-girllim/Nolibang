@@ -1,0 +1,8 @@
+/* 디자인 시안에서 추출한 스타일 (side-fly) — 원본 순서대로 화면 <head>에 연결됨 */
+
+.side .side-hv{display:block}
+.side .side-hv .side-fly{display:none;margin:0 0 6px 14px;padding:4px 0 4px 8px;border-left:2px solid #E3D6B5}
+.side .side-hv:hover .side-fly,.side .side-hv:focus-within .side-fly{display:block}
+.side .side-fly a{min-height:34px;padding:6px 10px;font-size:13px}
+.side .side-fly a::before{content:"";width:5px;height:5px;border-radius:50%;background:#B59A60;margin-right:8px;flex:none}
+@media (max-width:900px){.side .side-hv{width:100%}}

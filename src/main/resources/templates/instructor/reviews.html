@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] T-S03 평가 대기·진행·완료   (원본: 2_teacher/T-S03.dc.html)
+  [연결] InstructorReviewController · RV-01   → return "instructor/reviews";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - button [onClick] "평가 대기 (2)"
+    - button [onClick] "진행 중 (1)"
+    - button [onClick] "완료 (1)"
+    - select [onChange] "전체 색연필화 기초 · 입문 · A분반 색연필화 응용 · 중급 · A분반"
+    - select [onChange] "전체 마감 임박 (48시간 이하) 기한 초과"
+    - button [onClick] "평가 시작"
+    - a [onClick] "조회"
+    - button [onClick] "평가 시작"
+    - a [onClick] "조회"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>평가 대기·진행·완료 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='lms')}"></header><div class="lay"><aside th:replace="~{common/layout :: teacherSide(active='T-S03')}"></aside><main class="main"><div class="ph"><div><h2>평가 대기·진행·완료</h2><p>평가 마감 = 최초·정식 재제출 + 7일 (수정·시작 취소·강사 변경으로 재설정 안 됨)</p></div><div class="row"><span class="sid">T-S03</span></div></div><div class="tabs" role="tablist"><button aria-selected="true" class="on" role="tab" type="button"><span class="sc-interp">평가 대기 (2)</span></button><button aria-selected="false" class="" role="tab" type="button"><span class="sc-interp">진행 중 (1)</span></button><button aria-selected="false" class="" role="tab" type="button"><span class="sc-interp">완료 (1)</span></button></div><div class="row" style="align-items: flex-end;"><div class="field"><label class="lb" for="f-sec">담당 분반</label><select id="f-sec"><option value="">전체</option><option value="색연필화 기초 · A분반">색연필화 기초 · 입문 · A분반</option><option value="색연필화 응용 · A분반">색연필화 응용 · 중급 · A분반</option><option value="디지털 드로잉 기초 · A분반">디지털 드로잉 기초 · 입문 · A분반</option></select></div><div class="field"><label class="lb" for="f-due">기한</label><select id="f-due"><option value="">전체</option><option value="imm">마감 임박 (48시간 이하)</option><option value="over">기한 초과</option></select></div><span class="mu"><span class="sc-interp">표시 2건</span></span></div><table class="t"><thead><tr><th>과제 / 수강생</th><th>강의·분반</th><th>제출 구분</th><th>제출 일시</th><th>평가 마감</th><th>남은 시간</th><th>상태</th><th>동작</th></tr></thead><tbody><tr><td><span class="sc-interp">디지털 드로잉 기초 — 최종 과제</span> / <span class="sc-interp">최민지</span></td><td><span class="sc-interp">디지털 드로잉 기초 · A분반</span></td><td><span class="sc-interp">최초 제출</span></td><td><span class="sc-interp">10.24 14:00</span></td><td><span class="sc-interp">10.31 14:00</span></td><td><b><span class="sc-interp">초과 2일 0시간</span></b></td><td><span class="chip dk"><span class="sc-interp">기한 초과</span></span></td><td><div class="row"><button class="btn sm dk" type="button">평가 시작</button><a class="btn sm" th:href="@{/instructor/reviews/4}">조회</a></div></td></tr><tr><td><span class="sc-interp">색연필화 기초 — 최종 과제</span> / <span class="sc-interp">이하늘</span></td><td><span class="sc-interp">색연필화 기초 · A분반</span></td><td><span class="sc-interp">최초 제출</span></td><td><span class="sc-interp">10.31 14:00</span></td><td><span class="sc-interp">11.07 14:00</span></td><td><b><span class="sc-interp">5일 0시간</span></b></td><td><span class="chip ol"><span class="sc-interp">대기</span></span></td><td><div class="row"><button class="btn sm dk" type="button">평가 시작</button><a class="btn sm" th:href="@{/instructor/reviews/4}">조회</a></div></td></tr></tbody></table><div class="note">※ 「평가 시작」을 누른 순간 학습자 과제 수정이 잠깁니다. 조회만으로는 잠기지 않습니다. 기한이 지나도 평가할 수 있으며 초과 이력은 기록됩니다.</div><div class="note">※ 취미(카테고리)가 준비 중으로 바뀌어도 이미 제출된 과제는 그대로 평가하며, 수료 조건을 충족하면 수료 승인과 배지를 지급합니다. 수강 기간 안에 정상 제출된 과제는 기간이 지나도 평가가 끝날 때까지 처리합니다.</div><a aria-hidden="true" style="display: none;" tabindex="-1" th:href="@{/instructor/reviews/4}">이동</a></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>

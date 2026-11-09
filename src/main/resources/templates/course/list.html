@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] U-S03 수준별 강의 목록   (원본: 1_learner/U-S03.dc.html)
+  [연결] CourseController · CO-01   → return "course/list";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - button [onClick] "입문"
+    - button [onClick] "중급"
+    - button [onClick] "고급"
+    - select [onChange] "색연필화 디지털 드로잉 디저트 만들기"
+    - a [onClick] "강의 상세"
+    - a [onClick] "이어서 학습"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>수준별 강의 목록 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/side-fly.css}">
+  <link rel="stylesheet" th:href="@{/css/course-image.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='hobby')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">취미 탐색</p><nav aria-label="취미 탐색 메뉴" class="side-ctx"><div class="side-hv"><a class="" th:href="@{/hobbies}">전체 취미</a><div aria-label="큰 분야" class="side-fly" role="group"><a class="" th:href="@{/hobbies}">미술·드로잉</a><a class="" th:href="@{/hobbies}">요리·베이킹</a></div></div><div class="side-hv"><a class="" th:href="@{/hobbies}">세부 취미 상세</a><div aria-label="세부 취미" class="side-fly" role="group"><a class="" th:href="@{/hobbies/1}">색연필화</a><a class="" th:href="@{/hobbies/2}">디지털 드로잉</a><a class="" th:href="@{/hobbies/3}">디저트 만들기</a></div></div><a aria-current="page" class="active" th:href="@{/courses(hobbyId=1)}">수준별 강의 목록<span class="side-sr"> (현재 페이지)</span></a><a class="" th:href="@{/courses(hobbyId=1)}">강의 상세</a></nav></aside><main class="main"><div class="ph"><div><h2>수준별 강의 목록</h2><p>강의 상태·정원·대기 확인</p></div><div class="row"><span class="sid">U-S03</span></div></div><div class="tabs" role="tablist"><button aria-selected="true" class="on" role="tab">입문</button><button aria-selected="false" class="" role="tab">중급</button><button aria-selected="false" class="" role="tab">고급</button></div><div class="field"><label class="lb" for="u3-h">세부 취미</label><select id="u3-h" style="width: 240px;"><option value="색연필화">색연필화</option><option value="디지털 드로잉">디지털 드로잉</option><option value="디저트 만들기">디저트 만들기</option></select></div><p class="h3"><span class="sc-interp">색연필화</span> · <span class="sc-interp">입문</span> 강의</p><div class="box k lv-card"><div aria-label="색연필화 기초 대표 이미지" class="hb-pic lv-pic cimg-cp-basic" role="img"></div><div class="col" style="flex: 1 1 0%; gap: 6px;"><div class="rowb"><p class="h3"><span class="sc-interp">색연필화 기초</span></p><span class="chip run">운영 중</span></div><p class="mu">필수 3차시 · 수강 확정 후 30일 · 분반·담당 강사는 자동 배정</p><div class="row"><span class="chip dk">내 상태: <span class="sc-interp">학습 중 D-12</span></span><span class="chip">총 정원 <span class="sc-interp">20</span>명</span><span class="chip">대기 <span class="sc-interp">0</span>명</span></div></div><div class="col" style="justify-content: center; min-width: 150px;"><a class="btn" th:href="@{/courses/1}">강의 상세</a><a class="btn pri" th:href="@{/lessons/1(enrollmentId=1)}"><span class="sc-interp">이어서 학습</span></a></div></div><div class="note">※ 수료·취소·만료한 강의는 다시 신청할 수 없어요(D-55). 다른 수준 강의는 바로 신청할 수 있습니다. 비공개 강의는 목록에 노출하지 않습니다.</div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] U-S10 작품 상세   (원본: 1_learner/U-S10.dc.html)
+  [연결] WorkBoardController · WB-02   → return "work/detail";
+  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
+         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
+  [통합] 같은 디자인의 변형 화면: U-S02-digital, U-S02-dessert, U-S04-cp-mid, U-S04-cp-adv, U-S04-dd-basic, U-S04-dd-mid, U-S04-dd-adv, U-S04-ds-basic, U-S04-ds-mid, U-S04-ds-adv
+  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
+    - button [onClick] "‹ 이전"
+    - button [onClick] "다음 ›"
+    - button [onClick] "♡ 좋아요 3"
+    - button [onClick] "답글"
+    - button [onClick] "수정"
+    - button [onClick] "삭제"
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>작품 상세 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">작품 게시판</p><nav aria-label="작품 게시판 메뉴" class="side-ctx"><a class="" th:href="@{/works}">작품 목록</a><a aria-current="page" class="active" th:href="@{/works/1}">작품 상세<span class="side-sr"> (현재 페이지)</span></a></nav></aside><main class="main"><div class="ph"><div><h2>작품 상세</h2><p>작품·댓글·좋아요</p></div><div class="row"><a class="btn sm" th:href="@{/works}">← 목록으로</a><span class="sid">U-S10</span></div></div><div class="sp"><div class="col"><div class="img" style="height: 280px;"><span style="position: relative; background: rgb(247, 247, 247); padding: 0px 4px;">작품 이미지 <span class="sc-interp">1</span> / 3</span></div><div class="row"><button class="btn sm" disabled="" type="button">‹ 이전</button><span class="mu"><span class="sc-interp">1</span> / 3</span><button class="btn sm" type="button">다음 ›</button></div></div><div class="box"><p class="h3">레몬 마들렌</p><p class="mu">작성자: 차분한수달 128 · 디저트 만들기 · 입문 · 최종 과제 · 2026.10.08</p><p>작품에 사용한 표현 기법과 제작 과정을 기록합니다.</p><div class="row"><button aria-pressed="false" class="btn" type="button"><span class="sc-interp">♡ 좋아요 3</span></button><a class="lk" href="#" title="이번 범위에서 만들지 않는 화면(U-S13)">작성자 프로필</a></div><p class="mu">실명·로그인 아이디는 표시하지 않습니다. 신고 기능은 제공하지 않습니다(확장).</p></div></div><div class="box"><div class="rowb"><p class="h3">댓글 · 답글 <span class="sc-interp">2</span></p><span class="chip ol"><span class="sc-interp">작성자(차분한수달 128) · 답글 가능</span></span></div><p class="mu">댓글 작성 권한: 해당 취미 배지 보유자 · 취미 권한 강사 · 작품 작성자(답글, 1단계)</p><div class="col" style="gap: 8px;"><div class="col"><p style="margin: 0px;"><span class="sc-interp"></span><b><span class="sc-interp">씩씩한수달 77</span></b><span class="sc-interp"></span>   <span class="sc-interp">색감이 정말 좋아요!</span> <span class="mu"><span class="sc-interp">10.13 14:00</span><span class="sc-interp"></span></span> </p><button class="lk" style="align-self: flex-start;" type="button">답글</button></div><div class="col"><p style="margin: 0px;"><span class="sc-interp">└ </span><b><span class="sc-interp">차분한수달 128</span></b><span class="sc-interp"> (작성자)</span>   <span class="sc-interp">감사합니다 :)</span> <span class="mu"><span class="sc-interp">10.14 14:00</span><span class="sc-interp"></span></span> <button class="lk" type="button">수정</button> · <button class="lk" type="button">삭제</button></p></div></div><div class="note"><span class="sc-interp">작품 작성자는 다른 사람의 댓글에 답글(1단계)만 달 수 있어요. 댓글의 「답글」을 눌러 주세요.</span></div></div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>

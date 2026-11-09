@@ -1,0 +1,50 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.2'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.wanted'
+version = '0.0.1-SNAPSHOT'
+description = 'lms-practice'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // ── 웹 / 화면 (배운 기술: chap07 Spring MVC + 타임리프) ──
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    // ── DB (배운 기술: JPA + MySQL) ──
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // ── 입력 검증 (Bean Validation) ──
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // ── 인증/인가 (배운 기술: Spring Security formLogin) ──
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    // 타임리프 sec:authorize 용 (#02 헤더 메뉴 분기). Boot 4 / Security 7 호환은 #02에서 빌드로 확인
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+
+    // 🟡 미학습 기술 — 이메일 인증(#04)·계정 복구(#06)에서 쓴다. 메일은 대체 수단이 없어 팀이 허용(작업분배 §5)
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // ── 편의 ──
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

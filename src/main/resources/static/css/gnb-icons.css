@@ -1,0 +1,6 @@
+/* 디자인 시안에서 추출한 스타일 (gnb-icons) — 원본 순서대로 화면 <head>에 연결됨 */
+
+/* 상단 역할 아이콘 (Lucide: user · graduation-cap · shield-user, ISC) */
+.gicon,.gnb .gr .gicon{display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;padding:0;border-radius:50%;color:#222B45;text-decoration:none;border:0;transition:background-color .15s ease}
+a.gicon:hover,.gnb .gr a.gicon:hover{background:#E5F1FB;color:#222B45;text-decoration:none}
+.gicon .gicon-svg{width:22px;height:22px;display:block}
