@@ -50,7 +50,10 @@ public class ReviewQueryService {
         LocalDateTime firstSubmittedAt = reviewRoundRepository.findFirstByEnrollmentIdOrderByRoundNoAsc(enrollmentId)
                 .map(ReviewRound::getSubmittedAt)
                 .orElse(null);
-        return new ReviewStatusDTO(latest.get().getId(), latest.get().getStatus(), firstSubmittedAt);
+        // 회차 값은 #13 ofRound(이력 한 줄과 같은 규칙)를 쓰고, C11에서만 쓰는 최초 제출 시각을 더한다
+        ReviewStatusDTO dto = ReviewStatusDTO.ofRound(latest.get());
+        dto.setFirstSubmittedAt(firstSubmittedAt);
+        return dto;
     }
 
     /** 계약 C11: 본인·같은 취미의 최근 승인 피드백 또는 반려 사유 1건 (사용: 팀원 4 #19) */

@@ -312,6 +312,16 @@ public class InstructorAccountService {
         return sb.toString();
     }
 
+    /**
+     * 계약 추가 요청(#18, 팀원 4): 해당 세부 취미의 활동 권한을 가진 강사 id 목록 (회수된 권한 제외).
+     * 호출: CommentService — 공개 댓글이 달리면 취미 담당 강사에게 PUBLIC_COMMENT 알림
+     */
+    @Transactional(readOnly = true)
+    public List<Long> getGrantedInstructorIds(Long hobbyId) {
+        return grantRepository.findByHobbyIdAndIsActiveTrue(hobbyId).stream()
+                .map(InstructorHobbyGrant::getInstructorId).toList();
+    }
+
     private char pick(String source) {
         return source.charAt(random.nextInt(source.length()));
     }

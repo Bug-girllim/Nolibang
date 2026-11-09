@@ -2,21 +2,12 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <!--
   [화면] T-S09 강사 알림함   (원본: 2_teacher/T-S09.dc.html)
-  [연결] NotificationController · NT-01 (강사 알림함 — 학습자 알림함과 통합 검토)   → return "notification/instructor-list";
-  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
-         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
-  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
-    - button [onClick] "모두 읽음"
-    - button [onClick] "전체"
-    - button [onClick] "문의·댓글"
-    - button [onClick] "평가·피드백"
-    - button [onClick] "운영 안내"
-    - a [onClick] "답변하기"
-    - a [onClick] "평가하러 가기"
-    - a [onClick] "댓글 보기"
-    - a [onClick] "평가하러 가기"
-    - a [onClick] "담당 분반 보기"
-    - a [onClick] "담당 취미 보기"
+  [연결] NotificationController · NT-01 (학습자 알림함과 같은 URL /notifications — 강사 역할이면 이 화면)   → return "notification/instructor-list";
+  [상태] 2단계 연결 완료 (#17, 팀원 4)
+  [모델] notifications(List<NotificationDTO>), tab(NotificationTab), tabs(NotificationTab[]), page·totalPages·hasPrev·hasNext, unreadCount(공통), message·errorMessage(flash)
+  [동작] 다시 만든 것: 유형 탭(GET ?tab=, 폼), 모두 읽음(POST), 알림 클릭 → 읽음 + 대상 화면 이동, 이전·다음 페이지 / 남긴 것: 없음
+  [정리한 것] 피드백 마감 임박 알림 행·안내 문구 제거(11-06 팀 결정: 마감 임박은 평가 목록 경고로만 표시), "콘텐츠 검수 · 담당 취미 보기"(T-S08, 만들지 않는 화면) 샘플 제거
+  [❓] 시각은 DB 저장값(UTC) 그대로 표시 — KST 변환 방식은 #01 확정 필요
 -->
 <head>
   <meta charset="UTF-8">
@@ -33,7 +24,7 @@
 </head>
 <body>
 <div id="dc-root"><div class="sc-host">
-<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='lms')}"></header><div class="lay"><aside th:replace="~{common/layout :: teacherSide(active='T-S09')}"></aside><main class="main"><div class="ph"><div><h2>강사 알림함</h2><p>문의·댓글·평가 마감·운영 안내 · 안 읽음 <span class="sc-interp">3</span>개</p></div><div class="row"><button class="btn sm" type="button">모두 읽음</button><span class="sid">T-S09</span></div></div><div class="tabs" role="tablist"><button aria-selected="true" class="on" role="tab" type="button"><span class="sc-interp">전체</span></button><button aria-selected="false" class="" role="tab" type="button"><span class="sc-interp">문의·댓글</span></button><button aria-selected="false" class="" role="tab" type="button"><span class="sc-interp">평가·피드백</span></button><button aria-selected="false" class="" role="tab" type="button"><span class="sc-interp">운영 안내</span></button></div><table class="t"><thead><tr><th>유형</th><th>안내 내용</th><th>날짜</th><th>상태</th><th>이동</th></tr></thead><tbody><tr class="sel"><td><span class="sc-interp">● 새 문의</span></td><td><span class="sc-interp">색연필화 기초 수강생 문의가 새로 들어왔어요. 답변을 기다리고 있어요.</span></td><td><span class="sc-interp">11.04 10:20</span></td><td><span class="chip dk"><span class="sc-interp">안 읽음</span></span></td><td><a class="btn sm" th:href="@{/instructor/inquiries}"><span class="sc-interp">답변하기</span></a></td></tr><tr class="sel"><td><span class="sc-interp">● 피드백 마감</span></td><td><span class="sc-interp">색연필화 심화 최종 과제 피드백 마감이 2일 남았어요. (11.06까지)</span></td><td><span class="sc-interp">11.04 09:00</span></td><td><span class="chip dk"><span class="sc-interp">안 읽음</span></span></td><td><a class="btn sm" th:href="@{/instructor/reviews}"><span class="sc-interp">평가하러 가기</span></a></td></tr><tr class="sel"><td><span class="sc-interp">● 공개 댓글</span></td><td><span class="sc-interp">디지털 드로잉 강의에 새 공개 댓글이 달렸어요.</span></td><td><span class="sc-interp">11.03 18:40</span></td><td><span class="chip dk"><span class="sc-interp">안 읽음</span></span></td><td><a class="btn sm" th:href="@{/instructor/inquiries}"><span class="sc-interp">댓글 보기</span></a></td></tr><tr class=""><td><span class="sc-interp">과제 제출</span></td><td><span class="sc-interp">색연필화 기초 최종 과제가 새로 제출되었어요.</span></td><td><span class="sc-interp">11.03 11:15</span></td><td><span class="chip ol"><span class="sc-interp">읽음</span></span></td><td><a class="btn sm" th:href="@{/instructor/reviews}"><span class="sc-interp">평가하러 가기</span></a></td></tr><tr class=""><td><span class="sc-interp">분반 배정</span></td><td><span class="sc-interp">색연필화 응용 · 중급 분반 담당으로 배정되었어요.</span></td><td><span class="sc-interp">11.02 14:00</span></td><td><span class="chip ol"><span class="sc-interp">읽음</span></span></td><td><a class="btn sm" th:href="@{/instructor}"><span class="sc-interp">담당 분반 보기</span></a></td></tr><tr class=""><td><span class="sc-interp">콘텐츠 검수</span></td><td><span class="sc-interp">디지털 드로잉 3차시 영상이 검수를 통과해 공개되었어요.</span></td><td><span class="sc-interp">11.01 16:30</span></td><td><span class="chip ol"><span class="sc-interp">읽음</span></span></td><td><a class="btn sm" href="#" title="이번 범위에서 만들지 않는 화면(T-S08)"><span class="sc-interp">담당 취미 보기</span></a></td></tr></tbody></table><div class="note">※ 피드백 마감 알림은 마감 2일 전과 당일에 안내됩니다. 알림을 누르면 읽음으로 바뀌고 해당 화면으로 이동합니다.</div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='lms')}"></header><div class="lay"><aside th:replace="~{common/layout :: teacherSide(active='T-S09')}"></aside><main class="main"><div class="ph"><div><h2>강사 알림함</h2><p>문의·댓글·과제 제출·운영 안내 · 안 읽음 <span class="sc-interp" th:text="${unreadCount}">3</span>개</p></div><div class="row"><form method="post" th:action="@{/notifications/read-all}" style="display: inline;"><button class="btn sm" type="submit">모두 읽음</button></form><span class="sid">T-S09</span></div></div><p class="note" th:if="${message != null}" th:text="${message}">안내</p><p class="note" th:if="${errorMessage != null}" th:text="${errorMessage}">오류 안내</p><form method="get" th:action="@{/notifications}" style="display: contents;"><div class="tabs" role="tablist"><button th:each="t : ${tabs}" th:attr="aria-selected=${t == tab}" th:classappend="${t == tab} ? 'on'" aria-selected="false" class="" name="tab" role="tab" type="submit" th:value="${t.name()}"><span class="sc-interp" th:text="${t.label}">전체</span></button></div></form><table class="t"><thead><tr><th>유형</th><th>안내 내용</th><th>날짜</th><th>상태</th><th>이동</th></tr></thead><tbody><tr th:each="n : ${notifications}" th:classappend="${!n.read} ? 'sel'" class=""><td><span class="sc-interp" th:text="${(n.read ? '' : '● ') + n.title}">● 새 문의</span></td><td><span class="sc-interp" th:text="${n.body}">색연필화 기초 수강생 문의가 새로 들어왔어요. 답변을 기다리고 있어요.</span></td><td><span class="sc-interp" th:text="${#temporals.format(n.createdAt, 'MM.dd HH:mm')}">11.04 10:20</span></td><td><span class="chip" th:classappend="${n.read} ? 'ol' : 'dk'"><span class="sc-interp" th:text="${n.read} ? '읽음' : '안 읽음'">안 읽음</span></span></td><td><a class="btn sm" th:href="@{/notifications/{id}(id=${n.id})}"><span class="sc-interp" th:text="${n.actionLabel}">답변하기</span></a></td></tr><tr th:if="${#lists.isEmpty(notifications)}"><td colspan="5">알림이 없어요.</td></tr></tbody></table><div class="row" th:if="${totalPages > 1}"><a class="btn sm" th:if="${hasPrev}" th:href="@{/notifications(tab=${tab.name()},page=${page - 1})}">이전</a><span class="mu" th:text="${(page + 1) + ' / ' + totalPages}">1 / 2</span><a class="btn sm" th:if="${hasNext}" th:href="@{/notifications(tab=${tab.name()},page=${page + 1})}">다음</a></div><div class="note">※ 알림을 누르면 읽음으로 바뀌고 해당 화면으로 이동합니다. 피드백 마감이 가까운 과제는 평가 목록 화면에 경고로 표시돼요.</div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
 </div></div>
 </body>
 </html>
