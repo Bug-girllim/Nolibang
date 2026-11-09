@@ -70,4 +70,25 @@ public class AuthDetails implements UserDetails {
     public boolean isEnabled() {
         return loginUser.getStatus() == UserStatus.ACTIVE;
     }
+
+    /**
+     * 같은 회원(users.id)이면 같은 로그인 사용자로 본다 (#06 한 기기 로그인).
+     * Security의 SessionRegistry는 principal을 Map 키로 써서 "이 회원의 세션 수"를 센다.
+     * 로그인할 때마다 AuthDetails가 새로 만들어지므로, 이 비교가 없으면 매번 다른 사람으로 보여 maximumSessions(1)이 동작하지 않는다.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof AuthDetails other)) {
+            return false;
+        }
+        return getUserId() != null && getUserId().equals(other.getUserId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getUserId() == null ? 0 : getUserId().hashCode();
+    }
 }

@@ -26,6 +26,7 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "회원을 찾을 수 없습니다."),
     PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "비밀번호 변경이 필요합니다."),
     INVALID_NEW_PASSWORD(HttpStatus.BAD_REQUEST, "사용할 수 없는 비밀번호입니다."),
+    PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다."),  // #06 계정 설정 비밀번호 변경
 
     /* 탐색 */
     HOBBY_NOT_FOUND(HttpStatus.NOT_FOUND, "취미를 찾을 수 없습니다."),
