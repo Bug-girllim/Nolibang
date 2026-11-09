@@ -1,16 +1,18 @@
 package com.wanted.lmspractice.domain.work.repository;
 
 import com.wanted.lmspractice.domain.work.entity.WorkVersion;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 /**
- * 작품 버전 조회·저장
- * 담당: 팀원 4 · #16
- * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
+ * [역할] work_versions 표 접근 (Spring Data JPA)
+ * [담당] 팀원 4 · #16
+ * [연결] 호출받음: WorkService
  */
 @Repository
 public interface WorkVersionRepository extends JpaRepository<WorkVersion, Long> {
 
-    // TODO: 쿼리 메서드는 담당 이슈에서 추가
+    /** 다음 version_no 를 정하기 위한 마지막 버전 */
+    Optional<WorkVersion> findTopByWorkIdOrderByVersionNoDesc(Long workId);
 }

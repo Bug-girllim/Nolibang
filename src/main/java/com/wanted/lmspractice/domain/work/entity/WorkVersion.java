@@ -50,4 +50,20 @@ public class WorkVersion {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /** 새 버전 — versionNo 는 작품 안에서 1부터 (UNIQUE work_id+version_no) */
+    public static WorkVersion create(Long workId, int versionNo, String title, String description) {
+        WorkVersion version = new WorkVersion();
+        version.workId = workId;
+        version.versionNo = versionNo;
+        version.title = title;
+        version.description = description;
+        return version;
+    }
+
+    /** 평가 전 수정 — 같은 버전의 제목·설명만 바꾼다 (버전 번호·평가 회차 연결 유지) */
+    public void edit(String title, String description) {
+        this.title = title;
+        this.description = description;
+    }
 }

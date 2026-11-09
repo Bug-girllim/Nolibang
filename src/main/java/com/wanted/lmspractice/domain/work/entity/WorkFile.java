@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.work.entity;
 
+import com.wanted.lmspractice.global.file.StoredFile;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -62,4 +63,17 @@ public class WorkFile {
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;  // DB가 자동 기록
+
+    /** 저장이 끝난 이미지 1장을 버전에 연결 (sortOrder 1~5, 썸네일은 만들지 않아 thumbnail_key = NULL) */
+    public static WorkFile create(Long workVersionId, int sortOrder, StoredFile stored) {
+        WorkFile file = new WorkFile();
+        file.workVersionId = workVersionId;
+        file.sortOrder = sortOrder;
+        file.originalKey = stored.getKey();
+        file.originalName = stored.getOriginalName();
+        file.mimeType = stored.getMimeType();
+        file.sourceSizeBytes = stored.getSizeBytes();
+        file.storedSizeBytes = stored.getSizeBytes();   // 원본 그대로 저장하므로 같은 값
+        return file;
+    }
 }

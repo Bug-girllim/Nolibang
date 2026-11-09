@@ -94,4 +94,36 @@ public class Work {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /**
+     * 최종 과제 작품 생성 — 수강당 1개(works.enrollment_id UNIQUE). 공개 여부는 DB 기본값(PRIVATE)
+     * 호출: WorkService.saveFinalWorkVersion (취미·수준은 강의 값, 호출한 AssignmentService가 넘긴다)
+     */
+    public static Work createFinal(Long authorId, Long enrollmentId, Long hobbyId, CourseLevel level) {
+        Work work = new Work();
+        work.authorId = authorId;
+        work.kind = WorkKind.FINAL;
+        work.enrollmentId = enrollmentId;
+        work.hobbyId = hobbyId;
+        work.level = level;
+        return work;
+    }
+
+    /** 화면에 보여 줄 버전을 바꾼다 (같은 작품의 버전만 — DB 복합 FK가 한 번 더 막는다) */
+    public void display(Long workVersionId) {
+        this.displayVersionId = workVersionId;
+    }
+
+    public boolean isAuthor(Long userId) {
+        return authorId != null && authorId.equals(userId);
+    }
+
+    /** Q-02: 일반 노출 가능 = 공개 + 관리자 숨김 아님 + 삭제 아님 */
+    public boolean isPubliclyVisible() {
+        return visibility == Visibility.PUBLIC && !Boolean.TRUE.equals(adminHidden) && deletedAt == null;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
 }
