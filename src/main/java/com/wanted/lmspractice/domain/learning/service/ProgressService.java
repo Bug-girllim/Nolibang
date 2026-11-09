@@ -12,7 +12,6 @@ import com.wanted.lmspractice.domain.learning.dto.ProgressReportDTO;
 import com.wanted.lmspractice.domain.learning.entity.LessonProgress;
 import com.wanted.lmspractice.domain.learning.policy.VideoAccessPolicy;
 import com.wanted.lmspractice.domain.learning.repository.LessonProgressRepository;
-import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.time.Duration;
@@ -112,7 +111,7 @@ public class ProgressService {
         LessonProgressDTO current = LessonProgressDTO.of(lessonId, lesson.getLessonNo(), lesson.getTitle(),
                 lesson.getDurationSec(), progressByLesson.get(lessonId));
 
-        CourseDetailDTO course = courseService.getCourseDetail(enrollment.getCourseId(), Role.USER);
+        CourseDetailDTO course = courseService.getCourseDetailForEnrolled(enrollment.getCourseId());   // D-20: 준비 중 취미여도 수강 중이면 접근
         return new LessonViewDTO(enrollment.getId(), enrollment.getCourseId(), course.getTitle(), course.getLevel().getLabel(),
                 lessonId, lesson.getLessonNo(), lesson.getTitle(), lesson.getLearningObjective(), lesson.getContentText(),
                 lesson.getDurationSec(), current.getPercent(), current.isCompleted(),

@@ -133,11 +133,11 @@ class GeneralWorkServiceTest {
     }
 
     @Test
-    @DisplayName("예외: 준비 중 취미 → HOBBY_NOT_OPERATING, 비공개 취미 → HOBBY_NOT_FOUND")
+    @DisplayName("예외: 준비 중·비공개 취미는 학습자에게 보이지 않아 HOBBY_NOT_FOUND (새 노출 정책)")
     void hobbyNotOperating() {
         assertThatThrownBy(() -> workService.saveGeneralWork(learner(),
                 form("목공", WOODWORK, CourseLevel.BASIC), oneImage()))
-                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.HOBBY_NOT_OPERATING));
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.HOBBY_NOT_FOUND));
         assertThatThrownBy(() -> workService.saveGeneralWork(learner(),
                 form("사진", PHOTO, CourseLevel.BASIC), oneImage()))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.HOBBY_NOT_FOUND));

@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [연결]
  *  - 호출받음: HobbyController(목록·상세), AdminHobbyController(관리자 전체), CourseCatalogService·CourseService(강의가 속한 취미의 노출 확인)
  *  - 호출함:   CategoryRepository, HobbyRepository
- *  - 규칙:     비공개 취미는 관리자(ADMIN)만 본다. 그 밖의 사용자(비회원·학습자·강사)에게는 "없는 취미"와 똑같이 HOBBY_NOT_FOUND로 보여
+ *  - 규칙:     비공개 취미는 관리자(ADMIN)만, 준비 중 취미는 강사(INSTRUCTOR)·관리자만 본다. 그 밖의 사용자(비회원·학습자)에게는 "없는 취미"와 똑같이 HOBBY_NOT_FOUND로 보여
  *             존재 자체를 숨긴다(API HB-02). 이 서비스는 다른 도메인(강의·수강)을 알지 못한다 — 의존 방향: course → hobby.
  * [기술] 🟢 @Service·@Transactional(readOnly)·Repository 쿼리 메서드
  */
@@ -38,7 +38,7 @@ public class HobbyService {
 
     /**
      * 노출 규칙을 적용한 대분류·세부 취미 목록 (HB-01, 사이드 메뉴).
-     * 비공개 대분류와 그 아래 세부 취미는 관리자에게만 보인다. 비공개 세부 취미도 마찬가지다.
+     * 비공개 대분류와 그 아래 세부 취미는 관리자에게만, 준비 중 대분류·세부 취미는 강사·관리자에게만 보인다(비회원·학습자에게는 보이지 않음).
      * 호출: HobbyController.list·category, CourseController(사이드 메뉴), AdminHobbyController(ADMIN)
      *
      * @param viewerRole 보는 사람의 역할 — 비회원이면 null
@@ -57,7 +57,7 @@ public class HobbyService {
 
     /**
      * 대분류 한 개와 그 아래 세부 취미 (대분류별 보기 U-S01-A).
-     * 보이지 않는 대분류(비공개)는 없는 것과 같이 HOBBY_NOT_FOUND로 처리한다.
+     * 보이지 않는 대분류(비공개, 또는 학습자에게 준비 중)는 없는 것과 같이 HOBBY_NOT_FOUND로 처리한다.
      * 호출: HobbyController.list(categoryId가 있을 때)
      *
      * @throws BusinessException HOBBY_NOT_FOUND
@@ -74,7 +74,7 @@ public class HobbyService {
      * 세부 취미 상세의 기본 정보(수준별 강의 목록은 비어 있음 — CourseCatalogService가 채운다). U-S02.
      * 호출: CourseCatalogService.getHobbyDetail ← HobbyController.detail (GET /hobbies/{hobbyId}, API HB-02)
      *
-     * @throws BusinessException HOBBY_NOT_FOUND — 없는 취미이거나, 비공개 취미를 관리자가 아닌 사람이 연 경우
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 취미이거나, 보이지 않는 취미(비공개는 관리자 전용, 준비 중은 강사·관리자 전용)를 연 경우
      */
     @Transactional(readOnly = true)
     public HobbyDetailDTO getHobby(Long hobbyId, Role viewerRole) {
@@ -155,8 +155,17 @@ public class HobbyService {
         return hobby.getState();
     }
 
-    /** 비공개가 아니거나 관리자면 보인다 */
+    /**
+     * 노출 상태별 열람 가능한 사람 (05 §3 — 새 노출 정책):
+     * 운영 중 = 모두, 준비 중 = 강사·관리자(학습자·비회원에게는 보이지 않음), 비공개 = 관리자만.
+     * 이미 수강 중인 학습자의 학습·기록 접근(D-20)은 이 규칙을 거치지 않는 경로(getHobbiesIgnoringVisibility,
+     * CourseService.getCourseDetailForEnrolled)가 따로 맡는다.
+     */
     private boolean isVisible(ExposureState state, Role viewerRole) {
-        return state != ExposureState.PRIVATE || viewerRole == Role.ADMIN;
+        return switch (state) {
+            case OPERATING -> true;
+            case PREPARING -> viewerRole == Role.INSTRUCTOR || viewerRole == Role.ADMIN;
+            case PRIVATE -> viewerRole == Role.ADMIN;
+        };
     }
 }

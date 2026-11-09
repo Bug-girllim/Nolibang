@@ -40,16 +40,19 @@ class HobbyServiceTest {
     }
 
     @Test
-    @DisplayName("비회원·학습자·강사는 비공개 대분류(사진·영상)를 볼 수 없고, 운영 중·준비 중은 본다")
-    void visibleCategoriesForNonAdmin() {
-        for (Role role : new Role[] {null, Role.USER, Role.INSTRUCTOR}) {
+    @DisplayName("비회원·학습자는 운영 중 대분류만 보고, 강사는 준비 중(공예)까지, 비공개(사진·영상)는 관리자만 본다")
+    void visibleCategoriesByRole() {
+        for (Role role : new Role[] {null, Role.USER}) {
             List<CategoryDTO> categories = hobbyService.getCategories(role);
 
-            assertThat(categories).extracting(CategoryDTO::getName)
-                    .containsExactly("미술·드로잉", "요리·베이킹", "공예");
+            assertThat(categories).as("role=%s", role).extracting(CategoryDTO::getName).containsExactly("미술·드로잉", "요리·베이킹");
             assertThat(categories).extracting(CategoryDTO::getState)
-                    .containsExactly(ExposureState.OPERATING, ExposureState.OPERATING, ExposureState.PREPARING);
+                    .containsExactly(ExposureState.OPERATING, ExposureState.OPERATING);
         }
+        List<CategoryDTO> forInstructor = hobbyService.getCategories(Role.INSTRUCTOR);
+        assertThat(forInstructor).extracting(CategoryDTO::getName).containsExactly("미술·드로잉", "요리·베이킹", "공예");
+        assertThat(forInstructor).extracting(CategoryDTO::getState)
+                .containsExactly(ExposureState.OPERATING, ExposureState.OPERATING, ExposureState.PREPARING);
     }
 
     @Test
@@ -64,13 +67,20 @@ class HobbyServiceTest {
     }
 
     @Test
-    @DisplayName("준비 중 대분류의 세부 취미는 보이지만 운영 중이 아니라서 신청 대상이 아니다")
-    void preparingHobbiesAreVisibleButNotOperating() {
-        CategoryDTO craft = hobbyService.getCategory(3L, Role.USER);
+    @DisplayName("준비 중 대분류(공예)는 강사·관리자에게만 보이고 운영 중이 아니라 신청 대상이 아니다, 학습자·비회원은 HOBBY_NOT_FOUND")
+    void preparingCategoryOnlyForStaff() {
+        for (Role role : new Role[] {Role.INSTRUCTOR, Role.ADMIN}) {
+            CategoryDTO craft = hobbyService.getCategory(3L, role);
 
-        assertThat(craft.getHobbies()).hasSize(4);
-        assertThat(craft.getHobbies()).allSatisfy(hobby -> assertThat(hobby.isOperating()).isFalse());
-        assertThat(craft.getOperatingCount()).isZero();
+            assertThat(craft.getHobbies()).as("role=%s", role).hasSize(4);
+            assertThat(craft.getHobbies()).allSatisfy(hobby -> assertThat(hobby.isOperating()).isFalse());
+            assertThat(craft.getOperatingCount()).isZero();
+        }
+        for (Role role : new Role[] {null, Role.USER}) {
+            assertThatThrownBy(() -> hobbyService.getCategory(3L, role))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.HOBBY_NOT_FOUND));
+        }
     }
 
     @Test
@@ -104,15 +114,22 @@ class HobbyServiceTest {
     }
 
     @Test
-    @DisplayName("운영 중 취미와 준비 중 취미 상세의 상태·운영 여부")
+    @DisplayName("운영 중 취미 상세는 모두, 준비 중 취미 상세는 강사·관리자만 (학습자·비회원은 URL을 직접 열어도 HOBBY_NOT_FOUND)")
     void hobbyDetailState() {
         HobbyDetailDTO operating = hobbyService.getHobby(OPERATING_HOBBY, null);
         assertThat(operating.getName()).isEqualTo("색연필화");
         assertThat(operating.getCategoryName()).isEqualTo("미술·드로잉");
         assertThat(operating.isOperating()).isTrue();
 
-        HobbyDetailDTO preparing = hobbyService.getHobby(PREPARING_HOBBY, Role.USER);
+        HobbyDetailDTO preparing = hobbyService.getHobby(PREPARING_HOBBY, Role.INSTRUCTOR);
         assertThat(preparing.getState()).isEqualTo(ExposureState.PREPARING);
         assertThat(preparing.isOperating()).isFalse();
+        assertThat(hobbyService.getHobby(PREPARING_HOBBY, Role.ADMIN).getState()).isEqualTo(ExposureState.PREPARING);
+
+        for (Role role : new Role[] {null, Role.USER}) {
+            assertThatThrownBy(() -> hobbyService.getHobby(PREPARING_HOBBY, role))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.HOBBY_NOT_FOUND));
+        }
     }
 }
