@@ -112,12 +112,14 @@ class CourseCatalogServiceTest {
     }
 
     @Test
-    @DisplayName("준비 중 취미(목공)는 강의가 없고 신청 불가 — 신청 버튼이 나오지 않는다")
+    @DisplayName("준비 중 취미(목공)는 강사에게만 보이고 강의가 없어 신청 불가, 학습자는 HOBBY_NOT_FOUND")
     void preparingHobbyHasNoApply() {
-        HobbyDetailDTO hobby = courseCatalogService.getHobbyDetail(4L, 2L, Role.USER);
+        HobbyDetailDTO hobby = courseCatalogService.getHobbyDetail(4L, 6L, Role.INSTRUCTOR);
 
         assertThat(hobby.isOperating()).isFalse();
         assertThat(hobby.getLevels()).isEmpty();
+        assertThatThrownBy(() -> courseCatalogService.getHobbyDetail(4L, 2L, Role.USER))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.HOBBY_NOT_FOUND));
     }
 
     @Test

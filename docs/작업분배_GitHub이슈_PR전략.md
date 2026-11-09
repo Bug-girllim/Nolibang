@@ -657,7 +657,7 @@ FR-010·FR-013(P0). 학습자가 취미를 고르고 강의를 확인하는 진�
 ## 클래스별 역할
 - `HobbyController`: `/hobbies`(U-S01 운영·준비 중 대분류), `/hobbies/{id}`(U-S02 세부 취미 상세·수준 3개)
 - `AdminHobbyController`: `/admin/hobbies`(A-S15) 비공개 포함 전체 조회
-- `HobbyService`: 노출 규칙 — 운영 중은 신청 가능, 준비 중은 소개·썸네일만, 비공개는 USER에게 404/403(관리자만), 상위 비공개면 하위도 숨김(05 §3)
+- `HobbyService`: 노출 규칙 — 운영 중은 신청 가능, 준비 중은 강사·관리자에게만 소개·썸네일(학습자·비회원에게는 숨김 — 11-09 변경, 수강 중 학습자 접근은 D-20으로 유지), 비공개는 USER에게 404/403(관리자만), 상위 비공개면 하위도 숨김(05 §3)
 - `CourseController`: `/courses?hobbyId=&level=`(U-S03), `/courses/{id}`(U-S04 목표·준비물·3차시·30일·잔여 정원/대기 인원)
 - `CourseService`: 강의·차시 조회. 잔여 정원·대기 인원은 계약 메서드로 조회
 

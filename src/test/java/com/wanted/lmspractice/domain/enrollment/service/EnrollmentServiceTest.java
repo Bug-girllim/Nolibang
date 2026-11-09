@@ -137,12 +137,12 @@ class EnrollmentServiceTest {
     }
 
     @Test
-    @DisplayName("운영 중이 아닌 취미의 강의는 HOBBY_NOT_OPEN, 없는 강의는 COURSE_NOT_FOUND")
+    @DisplayName("준비 중으로 바뀐 취미의 강의는 학습자에게 보이지 않아 COURSE_NOT_FOUND(신규 신청 불가), 없는 강의도 COURSE_NOT_FOUND")
     void courseMustBeOpen() {
-        sql("UPDATE hobbies SET state = 'PREPARING' WHERE id = 3");  // 디저트 만들기 → 준비 중
+        sql("UPDATE hobbies SET state = 'PREPARING' WHERE id = 3");  // 디저트 만들기 → 준비 중 (학습자에게는 숨김 — 새 노출 정책)
 
         assertThatThrownBy(() -> enrollmentService.apply(LEARNER2, 8L))
-                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.HOBBY_NOT_OPEN));
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.COURSE_NOT_FOUND));
         assertThatThrownBy(() -> enrollmentService.apply(LEARNER2, 9999L))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.COURSE_NOT_FOUND));
     }
