@@ -19,9 +19,13 @@ public class ReviewQueryService {
         return false;
     }
 
-    /** 계약 C11: 최신 평가 상태 (사용: 팀원 2 #11, 팀원 1 #07) */
+    /**
+     * 계약 C11: 최신 평가 상태 (사용: 팀원 2 #11, 팀원 1 #07). 제출한 적이 없으면 status가 null인 DTO(미제출)를 돌려준다.
+     * [#11 변경 — 팀원 3 확인 필요] 스텁이 예외를 던지면 나의 학습 현황 화면이 열리지 않아서, #14 구현 전까지 "미제출"을 돌려주게 했다.
+     */
     public ReviewStatusDTO getLatestStatus(Long enrollmentId) {
-        throw new UnsupportedOperationException("TODO #14");
+        // TODO #14: 구현 (현재는 스텁) — 가장 최근 review_rounds 행으로 reviewRoundId·status·firstSubmittedAt을 채운다
+        return ReviewStatusDTO.notSubmitted();
     }
 
     /** 계약 C11: 본인·같은 취미의 최근 승인 피드백 또는 반려 사유 1건 (사용: 팀원 4 #19) */

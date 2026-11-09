@@ -10,12 +10,13 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * [역할] 차시 한 개의 진도 — 차시 번호·실제 재생 비율·완료 시각. 계약 C10 반환값이자 재생 보고 응답(누적 비율·완료 여부).
- * [담당] 팀원 3 · #12   [화면] U-S06   [API] LE-01, LE-02
- * [연결]
- *  - 만든 곳: ProgressService (getLessonStatuses, getLessonView, report)
- *  - 쓰는 곳: 팀원 2 MyLearningService(#11), 팀원 1 InstructorDashboardService(#07), learning/lesson.html, lesson-progress.js(JSON)
- * [기술] 🟢 DTO 정적 팩토리
+ * 차시별 진도 (계약 C10 반환값)
+ * 담당: 팀원 3 · #12
+ * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
+ *
+ * [#11 추가 — 팀원 3 확인 필요] 나의 학습 현황(U-S08)이 "차시별 진도(비율·완료 여부)"를 보여 주려면 값이 필요해서,
+ * 화면이 쓰는 최소 필드만 먼저 정의했다. 필드 이름이 다르게 정해지면 MyLearningService의 읽는 부분만 같이 고치면 된다.
+ * 진도를 채우는 실제 구현(60% 판정·서버 관측 시간)은 #12의 몫이다.
  */
 @NoArgsConstructor
 @AllArgsConstructor
