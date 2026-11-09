@@ -141,6 +141,9 @@ public class CourseService {
     @Transactional(readOnly = true)
     public List<Lesson> getLessonsOfCourse(Long courseId) {
         return lessonRepository.findByCourseIdOrderByLessonNoAsc(courseId);
+    }
+
+    /**
      * 강의 이름만 — 노출 규칙 없이 id로 찾는다(이미 수강·대기 중인 사람에게 보내는 안내 문구용).
      * 호출: SeatService.fillVacancies (#09 대기 자동 확정 알림 본문)
      * @throws BusinessException COURSE_NOT_FOUND — 없는 강의
