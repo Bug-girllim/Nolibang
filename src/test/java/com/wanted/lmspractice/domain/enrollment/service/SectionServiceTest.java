@@ -225,7 +225,12 @@ class SectionServiceTest {
     @Test
     @DisplayName("만료: 만석 강의의 수강 건이 만료되면 반환된 자리로 대기 1순위가 자동 확정된다")
     void autoConfirmOnExpiry() {
-        // e5(learner2 · 강의 4 분반 5 · 만석)를 40일 전 확정으로 바꾼다
+        // e5(learner2 · 강의 4 분반 5 · 만석)의 과제는 시드에서 평가 진행 중(평가 회차 4)이라 만료가 보류된다(05 §4-2, #14 hasPendingReview).
+        // 이 시나리오는 "평가가 끝난 뒤 기간이 지난" 경우이므로 회차 4를 반려로 마무리한다(CHECK: 반려 사유 50자 이상·평가자·확정 시각 필수).
+        entityManager.createNativeQuery("UPDATE review_rounds SET status = 'REJECTED', draft_body = NULL, draft_author_id = NULL, "
+                        + "draft_updated_at = NULL, feedback_body = REPEAT('가', 60), reviewer_id = 6, finalized_at = UTC_TIMESTAMP(6) WHERE id = 4")
+                .executeUpdate();
+        // e5 를 40일 전 확정으로 바꾼다
         entityManager.createNativeQuery("UPDATE enrollments SET confirmed_at = UTC_TIMESTAMP(6) - INTERVAL 40 DAY, "
                         + "expires_at = UTC_TIMESTAMP(6) - INTERVAL 10 DAY WHERE id = 5")
                 .executeUpdate();
@@ -238,6 +243,22 @@ class SectionServiceTest {
         assertThat(waitlistService.getWaitlist(COURSE_DIGITAL_BASIC)).isEmpty();
         assertThat(waitlistService.getRecentConfirmed(COURSE_DIGITAL_BASIC))
                 .extracting(WaitlistDTO::getLoginId).containsExactly("learner3");
+    }
+
+    @Test
+    @DisplayName("만료 보류: 평가 대기·진행 중인 과제가 있는 수강 건은 기간이 지나도 만료되지 않고 대기열도 그대로다 (05 §4-2)")
+    void pendingReviewBlocksExpiry() {
+        // e5 의 과제는 시드에서 평가 진행 중(평가 회차 4). 기간만 지난 상태로 만든다
+        entityManager.createNativeQuery("UPDATE enrollments SET confirmed_at = UTC_TIMESTAMP(6) - INTERVAL 40 DAY, "
+                        + "expires_at = UTC_TIMESTAMP(6) - INTERVAL 10 DAY WHERE id = 5")
+                .executeUpdate();
+        entityManager.clear();
+
+        expiryScheduler.expire();
+
+        entityManager.clear();
+        assertThat(enrollmentRepository.findById(5L).orElseThrow().getStatus()).isEqualTo(EnrollmentStatus.ACTIVE);
+        assertThat(waitlistService.getWaitlist(COURSE_DIGITAL_BASIC)).hasSize(1);   // 자리가 반환되지 않아 대기자는 그대로
     }
 
     // ───────────────────────── 대기열 조회 ─────────────────────────
