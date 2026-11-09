@@ -10,6 +10,7 @@ import com.wanted.lmspractice.domain.enrollment.dto.EnrollmentStatusDTO;
 import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDetailDTO;
 import com.wanted.lmspractice.domain.user.entity.Role;
+import com.wanted.lmspractice.domain.user.repository.UserRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.List;
@@ -32,6 +33,8 @@ class CourseCatalogServiceTest {
     // 시드 id: 취미 1 색연필화, 2 디지털 드로잉, 4 목공(준비 중) / 강의 1 색연필화 기초, 4 디지털 드로잉 기초(만석)
     @Autowired
     private CourseCatalogService courseCatalogService;
+    @Autowired
+    private UserRepository userRepository;
 
     private ErrorCode codeOf(Throwable e) {
         return ((BusinessException) e).getErrorCode();
@@ -148,5 +151,65 @@ class CourseCatalogServiceTest {
         assertThat(pencil.getTotalCourseCount()).isEqualTo(3);
         assertThat(pencil.getLessonCount()).isEqualTo(9);
         assertThat(categories.get(0).getOpenCourseCount()).isEqualTo(6);  // 미술·드로잉: 색연필화 3 + 디지털 드로잉 3
+    }
+
+    // ───────────── [이어서 학습]·[다시 보기]가 열 차시 (시드 learner: 수강 1·2·3, 차시 id는 lesson_no 역순) ─────────────
+
+    private Long learnerId() {
+        return userRepository.findByLoginId("learner").orElseThrow().getId();
+    }
+
+    private CourseDTO cardOf(Long courseId, List<CourseDTO> cards) {
+        return cards.stream().filter(card -> card.getId().equals(courseId)).findFirst().orElseThrow();
+    }
+
+    @Test
+    @DisplayName("수강 중인 강의 카드: 한 차시만 끝냈으면 그다음 차시를 이어서 연다 (강의 2: 1차시=6 완료, 2차시=5)")
+    void learningCardContinuesAtNextLesson() {
+        List<CourseDTO> cards = courseCatalogService.getCourses(1L, null, learnerId(), Role.USER);
+
+        CourseDTO course2 = cardOf(2L, cards);
+        assertThat(course2.getEnrollStatus().getState()).isEqualTo(EnrollmentStatusDTO.LEARNING);
+        assertThat(course2.getContinueLessonId()).isEqualTo(5L);
+    }
+
+    @Test
+    @DisplayName("3차시를 모두 끝낸 수강 중 카드는 마지막 차시(3차시=7)를 연다 (강의 3)")
+    void allLessonsDoneOpensLastLesson() {
+        List<CourseDTO> cards = courseCatalogService.getCourses(1L, null, learnerId(), Role.USER);
+
+        assertThat(cardOf(3L, cards).getContinueLessonId()).isEqualTo(7L);
+    }
+
+    @Test
+    @DisplayName("수료한 강의 카드는 다시 보기용 차시가 채워진다 (강의 1, 마지막 차시=1)")
+    void completedCardHasReplayLesson() {
+        List<CourseDTO> cards = courseCatalogService.getCourses(1L, null, learnerId(), Role.USER);
+
+        CourseDTO course1 = cardOf(1L, cards);
+        assertThat(course1.getEnrollStatus().getState()).isEqualTo(EnrollmentStatusDTO.COMPLETED);
+        assertThat(course1.getContinueLessonId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("비회원·수강 기록이 없는 학습자의 카드에는 이어서 볼 차시가 없다")
+    void noContinueLessonWithoutEnrollment() {
+        assertThat(courseCatalogService.getCourses(1L, null, null, null))
+                .allSatisfy(card -> assertThat(card.getContinueLessonId()).isNull());
+        Long newbie = userRepository.findByLoginId("newbie").orElseThrow().getId();
+        assertThat(courseCatalogService.getCourses(1L, null, newbie, Role.USER))
+                .allSatisfy(card -> assertThat(card.getContinueLessonId()).isNull());
+    }
+
+    @Test
+    @DisplayName("강의 상세의 신청 영역도 같은 차시를 연다 (강의 2 → 5, 비회원 → null)")
+    void detailContinueLesson() {
+        CourseDetailDTO course = courseCatalogService.getCourseDetail(2L, Role.USER);
+        EnrollmentStatusDTO status = courseCatalogService.getEnrollStatus(course, learnerId(), Role.USER);
+
+        assertThat(courseCatalogService.getContinueLessonId(course, status)).isEqualTo(5L);
+
+        EnrollmentStatusDTO anonymous = courseCatalogService.getEnrollStatus(course, null, null);
+        assertThat(courseCatalogService.getContinueLessonId(course, anonymous)).isNull();
     }
 }

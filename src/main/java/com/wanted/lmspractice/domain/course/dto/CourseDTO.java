@@ -39,6 +39,8 @@ public class CourseDTO {
     private SeatSummaryDTO seats;
     /** 내 신청 상태 (수강 도메인 계약으로 조회, 비회원은 LOGIN_REQUIRED) */
     private EnrollmentStatusDTO enrollStatus;
+    /** [이어서 학습]·[다시 보기]가 열 차시 id — 수강 중·수료 상태일 때만 채워진다 (그 밖에는 null) */
+    private Long continueLessonId;
 
     /** Course 엔티티 → 표시용 DTO (seats·enrollStatus는 CourseCatalogService가 채운다). hobbyCode는 이미지 매핑용 */
     public static CourseDTO from(Course course, String hobbyCode) {
@@ -50,6 +52,7 @@ public class CourseDTO {
                 course.getDescription(),
                 HobbyPicStyle.coursePicClass(hobbyCode, course.getLevel()),
                 HobbyPicStyle.levelImage(hobbyCode, course.getLevel()),
+                null,
                 null,
                 null);
     }

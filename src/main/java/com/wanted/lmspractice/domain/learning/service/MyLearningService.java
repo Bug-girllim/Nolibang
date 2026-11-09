@@ -1,6 +1,7 @@
 package com.wanted.lmspractice.domain.learning.service;
 
 import com.wanted.lmspractice.domain.course.dto.CourseBriefDTO;
+import com.wanted.lmspractice.domain.course.entity.Lesson;
 import com.wanted.lmspractice.domain.course.service.CourseService;
 import com.wanted.lmspractice.domain.enrollment.dto.MyEnrollmentDTO;
 import com.wanted.lmspractice.domain.enrollment.dto.MyWaitlistDTO;
@@ -11,6 +12,7 @@ import com.wanted.lmspractice.domain.learning.dto.LearningState;
 import com.wanted.lmspractice.domain.learning.dto.LessonProgressDTO;
 import com.wanted.lmspractice.domain.learning.dto.MyCourseDTO;
 import com.wanted.lmspractice.domain.learning.dto.MyLearningDTO;
+import com.wanted.lmspractice.domain.learning.policy.ContinueLessonPolicy;
 import com.wanted.lmspractice.domain.review.dto.ReviewStatusDTO;
 import com.wanted.lmspractice.domain.review.service.ReviewQueryService;
 import java.time.Duration;
@@ -21,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -104,7 +107,9 @@ public class MyLearningService {
     /** 수강 건 카드: 강의 소개 + 분반·기간 + 차시 진도 + 평가 상태로 화면 상태를 정한다 */
     private MyCourseDTO toEnrollmentCard(MyEnrollmentDTO enrollment, CourseBriefDTO brief, LocalDateTime now) {
         Long enrollmentId = enrollment.getEnrollmentId();
-        List<LessonProgressDTO> lessons = progressService.getLessonStatuses(enrollmentId);
+        List<Lesson> courseLessons = courseService.getLessonsOfCourse(brief.getCourseId());  // 1·2·3차시 순서
+        List<LessonProgressDTO> progress = progressService.getLessonStatuses(enrollmentId);
+        List<LessonProgressDTO> lessons = withEveryLesson(courseLessons, progress);
         ReviewStatusDTO review = reviewQueryService.getLatestStatus(enrollmentId);
         boolean anyLessonCompleted = lessons.stream().anyMatch(LessonProgressDTO::isCompleted);
 
@@ -120,7 +125,7 @@ public class MyLearningService {
         card.setWaitlistAppliedAt(enrollment.getWaitlistAppliedAt());
         card.setLessons(lessons);
         card.setReview(review);
-        card.setContinueLessonId(continueLessonId(lessons));
+        card.setContinueLessonId(ContinueLessonPolicy.pick(courseLessons.stream().map(Lesson::getId).toList(), progress));
         if (state.isActive()) {
             card.setRemainingDays(remainingDays(enrollment.getExpiresAt(), now));
             card.setAllLessonsCompleted(progressService.isAllCompleted(enrollmentId));  // [최종 과제] 버튼 활성 조건 (C10)
@@ -141,16 +146,17 @@ public class MyLearningService {
         return card;
     }
 
-    /** 아직 안 끝낸 첫 차시, 모두 끝났으면 마지막 차시. 차시 정보가 없으면 null (이어서 학습 버튼이 갈 곳) */
-    private Long continueLessonId(List<LessonProgressDTO> lessons) {
-        if (lessons.isEmpty()) {
-            return null;
-        }
-        return lessons.stream()
-                .filter(lesson -> !lesson.isCompleted())
-                .findFirst()
-                .orElse(lessons.get(lessons.size() - 1))
-                .getLessonId();
+    /**
+     * 강의의 모든 차시(1·2·3차시 순서)에 진도를 채워 돌려준다. 진도 계약(C10)은 재생 기록이 있는 차시만 주므로,
+     * 기록이 없는 차시는 0%·미완료로 채워서 카드의 "차시" 칸에 3차시가 항상 보이게 한다.
+     */
+    private List<LessonProgressDTO> withEveryLesson(List<Lesson> courseLessons, List<LessonProgressDTO> progress) {
+        Map<Long, LessonProgressDTO> byLessonId = progress.stream()
+                .collect(Collectors.toMap(LessonProgressDTO::getLessonId, lesson -> lesson, (first, second) -> first));
+        return courseLessons.stream()
+                .map(lesson -> byLessonId.getOrDefault(lesson.getId(),
+                        new LessonProgressDTO(lesson.getId(), lesson.getLessonNo(), lesson.getTitle(), 0, null, false)))
+                .toList();
     }
 
     /** 수강 종료까지 남은 일수 — 하루 단위로 올림하고 0 아래로는 내려가지 않는다 (D-day 표시: 확정+30일 기준, API ML-01) */

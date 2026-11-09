@@ -117,6 +117,31 @@ class MyLearningServiceTest {
     }
 
     @Test
+    @DisplayName("차시 칸에는 재생 기록이 없는 차시도 0%·미완료로 포함되어 항상 3차시가 보인다 (수강 2: 완료·재생 중·기록 없음)")
+    void everyLessonIsListed() {
+        MyCourseDTO card = myLearningService.getMyCourses(userId("learner"), LearningFilter.ALL).stream()
+                .filter(c -> c.getEnrollmentId().equals(2L)).findFirst().orElseThrow();
+
+        assertThat(card.getLessons()).extracting(lesson -> lesson.getLessonNo()).containsExactly(1, 2, 3);
+        assertThat(card.getLessons()).extracting(lesson -> lesson.isCompleted()).containsExactly(true, false, false);
+        assertThat(card.getLessons().get(2).getPercent()).isZero();  // 3차시는 한 번도 재생하지 않아 기록이 없다
+    }
+
+    @Test
+    @DisplayName("이어서 학습은 처음으로 안 끝낸 차시를 연다 — 수강 2는 2차시(id 5), 막 확정돼 기록이 하나도 없는 수강 6은 1차시(id 3)")
+    void continueLessonCard() {
+        MyCourseDTO partway = myLearningService.getMyCourses(userId("learner"), LearningFilter.ALL).stream()
+                .filter(c -> c.getEnrollmentId().equals(2L)).findFirst().orElseThrow();
+        assertThat(partway.getContinueLessonId()).isEqualTo(5L);
+
+        // 이전에는 진도 기록이 없으면 이어서 학습 버튼이 비활성이었다(차시를 고를 목록이 비어서)
+        MyCourseDTO brandNew = myLearningService.getMyCourses(userId("learner3"), LearningFilter.ALL).stream()
+                .filter(c -> c.getEnrollmentId() != null && c.getEnrollmentId().equals(6L)).findFirst().orElseThrow();
+        assertThat(brandNew.getContinueLessonId()).isEqualTo(3L);
+        assertThat(brandNew.getLessons()).hasSize(3).allSatisfy(lesson -> assertThat(lesson.isCompleted()).isFalse());
+    }
+
+    @Test
     @DisplayName("기록이 없는 학습자는 빈 목록이다 (newbie)")
     void noRecords() {
         MyLearningDTO newbie = myLearningService.getMyLearning(userId("newbie"), LearningFilter.ALL);
