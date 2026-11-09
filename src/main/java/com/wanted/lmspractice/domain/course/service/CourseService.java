@@ -13,7 +13,9 @@ import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 2 · #08   [화면] U-S03·U-S04, A-S15   [기획] D-08(비회원도 강의 상세까지 열람), D-59(강의는 시드 데이터라 조회만)
  *       [API] CO-01·CO-02
  * [연결]
- *  - 호출받음: CourseCatalogService(강의 목록·상세·관리자 집계)
+ *  - 호출받음: CourseCatalogService(강의 목록·상세·관리자 집계·#10 관리자 강의 선택), SectionService(#10 강의 확인·취미 id)
  *  - 호출함:   CourseRepository, LessonRepository, HobbyService(강의가 속한 취미를 이 사람이 볼 수 있는지 확인)
  *  - 규칙:     비공개 취미의 강의·닫힌(CLOSED) 강의는 관리자만 본다. 그 밖의 사람에게는 "없는 강의"로 응답해 존재를 숨긴다.
  *  - 의존 방향: course → hobby. 수강 도메인(EnrollmentService·SeatService)은 여기서 부르지 않는다 — #09의 신청 로직이
@@ -81,6 +83,19 @@ public class CourseService {
                 .map(LessonDTO::from)
                 .toList();
         return CourseDetailDTO.from(course, hobby.getName(), lessons);
+    }
+
+    /**
+     * 관리자용 전체 강의 목록(닫힌 강의·비공개 취미 포함) — 취미·수준 순서 (#10 SE-01·WL-01 모델 courses, 강의 선택용).
+     * 호출: CourseCatalogService.getAdminCourses
+     */
+    @Transactional(readOnly = true)
+    public List<CourseDTO> getAllCoursesForAdmin() {
+        Map<Long, String> hobbyCodes = new HashMap<>();  // 같은 취미를 여러 번 조회하지 않도록
+        return courseRepository.findAllByOrderByHobbyIdAscLevelAsc().stream()
+                .map(course -> CourseDTO.from(course, hobbyCodes.computeIfAbsent(course.getHobbyId(),
+                        hobbyId -> hobbyService.getHobbySummary(hobbyId, Role.ADMIN).getCode())))
+                .toList();
     }
 
     /**
