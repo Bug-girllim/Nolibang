@@ -95,6 +95,69 @@ public class User {
     }
 
     /**
+     * 강사 계정 생성용 정적 팩토리 — 관리자가 임시 비밀번호로 즉시 활성 계정을 만든다 (FR-012, D-51: 메일 발송 없음).
+     * 호출: InstructorAccountService.create (#05)
+     * 첫 로그인에서 비밀번호를 바꾸도록 mustChangePassword = true. 닉네임은 받지 않는다(DB CHECK: USER 역할만 필수).
+     *
+     * @param tempPasswordHash 임시 비밀번호를 BCrypt로 암호화한 값 (평문을 넘기지 않는다)
+     */
+    public static User createInstructor(String loginId, String tempPasswordHash, String realName, String email) {
+        User user = new User();
+        user.loginId = loginId;
+        user.passwordHash = tempPasswordHash;
+        user.realName = realName;
+        user.email = email;
+        user.role = Role.INSTRUCTOR;
+        user.status = UserStatus.ACTIVE;   // 이메일 인증 없이 바로 로그인 가능(D-51)
+        user.mustChangePassword = Boolean.TRUE;
+        return user;
+    }
+
+    /**
+     * 임시 비밀번호 재발급 — 새 임시 비밀번호로 바꾸고 다시 첫 로그인 변경을 강제한다 (AI-03, 07 C-09 "이전 변경 무효").
+     * 호출: InstructorAccountService.reissue (#05)
+     */
+    public void reissueTemporaryPassword(String tempPasswordHash) {
+        this.passwordHash = tempPasswordHash;
+        this.mustChangePassword = Boolean.TRUE;
+    }
+
+    /**
+     * 첫 로그인 비밀번호 변경 완료 — 새 비밀번호로 바꾸고 변경 강제를 해제한다 (AU-14).
+     * 호출: InstructorAccountService.changeInitialPassword (#05)
+     * 이미 바꾼 계정이 이 경로로 다시 바꾸는 것은 막는다(일반 비밀번호 변경은 #06 계정 설정).
+     */
+    public void completeInitialPasswordChange(String newPasswordHash) {
+        if (!requiresPasswordChange()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        this.passwordHash = newPasswordHash;
+        this.mustChangePassword = Boolean.FALSE;
+    }
+
+    /** 임시 비밀번호 상태인지 (PasswordChangeInterceptor·AuthSuccessHandler는 세션 값 LoginUserDTO로 판단) */
+    public boolean requiresPasswordChange() {
+        return Boolean.TRUE.equals(mustChangePassword);
+    }
+
+    /**
+     * 활성/비활성 변경 (AI-04). 비활성 계정은 로그인 불가(AuthDetails.isEnabled).
+     * 이메일 인증 전(PENDING_EMAIL) 계정은 인증 절차를 건너뛰게 되므로 바꿀 수 없다.
+     * 호출: InstructorAccountService.changeStatus (#05)
+     */
+    public void changeActive(boolean active) {
+        if (status == UserStatus.PENDING_EMAIL) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        this.status = active ? UserStatus.ACTIVE : UserStatus.INACTIVE;
+    }
+
+    /** 강사 계정인지 (관리자 강사 관리 화면에서 다른 역할 id로 접근하는 것을 막는다) */
+    public boolean isInstructor() {
+        return role == Role.INSTRUCTOR;
+    }
+
+    /**
      * 이메일 인증 완료 처리 — PENDING_EMAIL → ACTIVE (AU-05).
      * 이미 인증됐거나 비활성인 계정은 인증 대상이 아니므로 INVALID_TOKEN으로 막는다(상태 전이 검사는 Entity 안에서).
      * 호출: EmailVerificationService.verify
