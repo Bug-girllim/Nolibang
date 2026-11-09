@@ -3,7 +3,9 @@ package com.wanted.lmspractice.domain.review.controller;
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.review.dto.AssignmentSubmitDTO;
 import com.wanted.lmspractice.domain.review.dto.AssignmentViewDTO;
+import com.wanted.lmspractice.domain.review.dto.ReviewDetailDTO;
 import com.wanted.lmspractice.domain.review.service.AssignmentService;
+import com.wanted.lmspractice.domain.review.service.ReviewResultService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.GlobalExceptionHandler;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,16 +29,19 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * [역할] 최종 과제 화면(AS-01)·최초 제출(AS-02)·평가 전 수정(AS-03)·반려 후 재제출(AS-04) 요청을 받아 서비스에 넘기고,
- *        결과를 flash 안내와 함께 과제 화면으로 redirect한다(PRG). 평가 결과 화면(AS-05)은 #15에서 이 컨트롤러에 추가한다.
- * [담당] 팀원 3 · #13 (#15)   [화면] U-S07 — templates/review/assignment.html   [기획] FR-021·022·026, D-41   [API] AS-01~AS-04
+ *        결과를 flash 안내와 함께 과제 화면으로 redirect한다(PRG). 평가 결과·공식 피드백 화면(AS-05)도 이 컨트롤러가 맡는다(#15).
+ * [담당] 팀원 3 · #13 (#15)   [화면] U-S07 — templates/review/assignment.html, U-S14 — templates/review/result.html
+ *       [기획] FR-021·022·026, D-41   [API] AS-01~AS-05
  * [연결]
- *  - 호출받음: 브라우저 (SecurityConfig: /assignments/** = 학습자(USER)만), 진입 링크: 나의 학습 현황·차시 화면 [최종 실습으로]
- *  - 호출함:   AssignmentService(getAssignmentView·submit·edit·resubmit), GlobalExceptionHandler(404·403·500은 공통 오류 화면)
- *  - 모델:     assignment(AssignmentViewDTO), state(AssignmentState), rounds(List&lt;ReviewStatusDTO&gt;), lateWarning(boolean),
+ *  - 호출받음: 브라우저 (SecurityConfig: /assignments/** = 학습자(USER)만), 진입 링크: 나의 학습 현황·차시 화면 [최종 실습으로], 평가 알림
+ *  - 호출함:   AssignmentService(#13 getAssignmentView·submit·edit·resubmit), ReviewResultService(#15 getResult),
+ *             GlobalExceptionHandler(404·403·500은 공통 오류 화면)
+ *  - 모델:     (AS-01) assignment(AssignmentViewDTO), state(AssignmentState), rounds(List&lt;ReviewStatusDTO&gt;), lateWarning(boolean),
  *             form(AssignmentSubmitDTO) — state·rounds·lateWarning·form은 API 명세 모델 이름 그대로
- *  - 이동:     성공·업무 오류(400·409) 모두 redirect:/assignments?enrollmentId={id} (+ flash message / errorMessage)
+ *             (AS-05) review(ReviewDetailDTO), badges, canResubmit
+ *  - 이동:     AS-02~04 성공·업무 오류(400·409) 모두 redirect:/assignments?enrollmentId={id} (+ flash message / errorMessage)
  * [기술] 🟢 @Controller·@GetMapping·@PostMapping, 🟢 @Valid + BindingResult(같은 화면 다시 그림), 🟢 List&lt;MultipartFile&gt;,
- *        🟢 RedirectAttributes(flash), 🟢 @ExceptionHandler(이 컨트롤러 전용 — EnrollmentController와 같은 방식)
+ *        🟢 RedirectAttributes(flash), 🟢 @ExceptionHandler(이 컨트롤러 전용 — EnrollmentController와 같은 방식), 🟢 @AuthenticationPrincipal
  * ❓ 50MB를 넘는 파일은 컨트롤러에 오기 전에 Spring(multipart max-file-size)이 막아 공통 500 화면이 된다
  *    — GlobalExceptionHandler에서 FILE_TOO_LARGE로 바꾸는 처리가 필요하다(팀원 1 요청).
  */
@@ -51,6 +56,7 @@ public class AssignmentController {
     private static final String MSG_RESUBMITTED = "재제출되었습니다. 새 평가 마감은 제출 시각부터 7일입니다.";
 
     private final AssignmentService assignmentService;
+    private final ReviewResultService reviewResultService;
     private final GlobalExceptionHandler globalExceptionHandler;
 
     /**
@@ -129,9 +135,24 @@ public class AssignmentController {
     }
 
     /**
+     * [#15] 평가 결과·공식 피드백 (API AS-05, 화면 U-S14) — 알림 REVIEW_APPROVED/REVIEW_REJECTED 클릭 시에도 이 화면으로 온다.
+     * 모델: review(ReviewDetailDTO), badges(승인 시 획득 배지), canResubmit(반려 + 기간 내)
+     */
+    @GetMapping("/{reviewRoundId}/result")
+    public String result(@AuthenticationPrincipal AuthDetails auth,
+                         @PathVariable Long reviewRoundId,
+                         Model model) {
+        ReviewDetailDTO review = reviewResultService.getResult(auth.getUserId(), reviewRoundId);
+        model.addAttribute("review", review);
+        model.addAttribute("badges", review.getBadges());
+        model.addAttribute("canResubmit", review.isCanResubmit());
+        return "review/result";
+    }
+
+    /**
      * 이 컨트롤러의 업무 오류 처리 — API 명세에서 "flash"로 정한 오류(400·409: 3차시 미완료, 이미 제출, 이미지 수·형식·크기,
      * 평가 중 수정 잠금, 재제출 불가 등)는 과제 화면으로 redirect하며 errorMessage로 안내한다(E-MODALS "평가 중 과제 잠금"도 flash로 대신).
-     * 그 밖(404 없는·남의 수강 건과 회차, 403 기간 만료, 500)과 화면 조회(GET) 중 오류는 공통 오류 화면 규칙을 그대로 쓴다.
+     * 그 밖(404 없는·남의 수강 건과 회차, 403 기간 만료, 500)과 화면 조회(GET — AS-01·AS-05) 중 오류는 공통 오류 화면 규칙을 그대로 쓴다.
      * 돌아갈 곳은 폼의 enrollmentId — 숫자가 아니면 공통 오류 화면.
      */
     @ExceptionHandler(BusinessException.class)

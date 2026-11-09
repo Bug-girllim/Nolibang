@@ -10,9 +10,9 @@ import org.springframework.stereotype.Repository;
 
 /**
  * [역할] review_rounds 표 접근 — 수강 건의 제출 회차 이력, 제출·재제출·수정 전 잠금 읽기
- * [담당] 팀원 3 · #13 (평가 목록·통계용 조회는 #14에서 추가)
+ * [담당] 팀원 3 · #13 (#15 결과 화면 조회 추가, 평가 목록·통계용 조회는 #14에서 추가)
  * [연결]
- *  - 호출받음: AssignmentService(화면 이력·제출·재제출·수정)
+ *  - 호출받음: AssignmentService(#13 화면 이력·제출·재제출·수정), ReviewResultService(#15 결과 화면)
  * [기술] 🟢 쿼리 메서드(findBy…OrderBy…), 🟢 @Query(nativeQuery = true) + FOR UPDATE
  */
 @Repository
@@ -23,6 +23,9 @@ public interface ReviewRoundRepository extends JpaRepository<ReviewRound, Long> 
      * 호출: AssignmentService.getAssignmentView
      */
     List<ReviewRound> findByEnrollmentIdOrderByRoundNoDesc(Long enrollmentId);
+
+    /** [#15 추가] 한 수강 건의 평가 회차 전체 (회차 순) — 결과 화면의 제출·평가 이력, 최신 회차 판단 */
+    List<ReviewRound> findByEnrollmentIdOrderByRoundNoAsc(Long enrollmentId);
 
     /**
      * 수강 건의 제출 회차를 최근 회차부터 잠그며 최신 값으로 읽는다.
