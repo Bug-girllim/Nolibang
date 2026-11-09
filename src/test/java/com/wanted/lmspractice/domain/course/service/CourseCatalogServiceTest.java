@@ -84,13 +84,14 @@ class CourseCatalogServiceTest {
     }
 
     @Test
-    @DisplayName("내 신청 상태: 비회원은 로그인 안내, 강사·관리자는 학습자 전용, 학습자는 수강 도메인(#09 스텁)의 결과")
+    @DisplayName("내 신청 상태: 비회원은 로그인 안내, 강사·관리자는 학습자 전용, 학습자는 수강 도메인(#09)의 결과")
     void enrollStatusByViewer() {
         assertThat(stateOf(null, null)).isEqualTo(EnrollmentStatusDTO.LOGIN_REQUIRED);
         assertThat(stateOf(6L, Role.INSTRUCTOR)).isEqualTo(EnrollmentStatusDTO.NOT_LEARNER);
         assertThat(stateOf(1L, Role.ADMIN)).isEqualTo(EnrollmentStatusDTO.NOT_LEARNER);
-        // #09 구현 전 스텁은 개인 수강 기록을 보지 않고 정원 현황만으로 정한다(빈자리 → CAN_APPLY). #09가 실제 상태를 돌려주면 이 기대값을 바꾼다.
-        assertThat(stateOf(2L, Role.USER)).isEqualTo(EnrollmentStatusDTO.CAN_APPLY);
+        // #09: 개인 기록을 먼저 본다 — learner2(3)는 강의 1 기록이 없어 빈자리로 신청 가능, learner(2)는 강의 1을 수료(e1)
+        assertThat(stateOf(3L, Role.USER)).isEqualTo(EnrollmentStatusDTO.CAN_APPLY);
+        assertThat(stateOf(2L, Role.USER)).isEqualTo(EnrollmentStatusDTO.COMPLETED);
     }
 
     @Test
