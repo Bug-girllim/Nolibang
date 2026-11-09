@@ -4,6 +4,7 @@ import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.course.dto.CourseDetailDTO;
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.course.service.CourseCatalogService;
+import com.wanted.lmspractice.domain.enrollment.dto.EnrollmentStatusDTO;
 import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
@@ -67,15 +68,18 @@ public class CourseController {
     /**
      * 강의 상세 — 목표·준비물·필수 3차시·최종 과제·수강 기간·정원 현황. 없는 강의는 COURSE_NOT_FOUND(404).
      * 호출: GET /courses/{courseId} (API CO-02)
-     * 모델: course(CourseDetailDTO), enrollStatus(EnrollmentStatusDTO — 신청 영역)
+     * 모델: course(CourseDetailDTO), enrollStatus(EnrollmentStatusDTO — 신청 영역),
+     *       continueLessonId(이어서 학습·다시 보기가 열 차시 id — 수강 중·수료일 때만, 그 밖에는 null)
      */
     @GetMapping("/{courseId}")
     public String detail(@PathVariable Long courseId,
                          @AuthenticationPrincipal AuthDetails details,
                          Model model) {
         CourseDetailDTO course = courseCatalogService.getCourseDetail(courseId, roleOf(details));
+        EnrollmentStatusDTO enrollStatus = courseCatalogService.getEnrollStatus(course, userIdOf(details), roleOf(details));
         model.addAttribute("course", course);
-        model.addAttribute("enrollStatus", courseCatalogService.getEnrollStatus(course, userIdOf(details), roleOf(details)));
+        model.addAttribute("enrollStatus", enrollStatus);
+        model.addAttribute("continueLessonId", courseCatalogService.getContinueLessonId(course, enrollStatus));
         model.addAttribute("sideActive", "course");
         model.addAttribute("sideHobbyId", course.getHobbyId());
         return "course/detail";

@@ -6,8 +6,9 @@
   [상태] 2단계 연결 완료 (#11, 팀원 2)
   [모델] learning(MyLearningDTO: courses·요약 숫자 5개), selectedFilter(LearningFilter), filters(탭 목록)
          카드 한 장 = MyCourseDTO (상태 state, 분반·기간·차시 진도 lessons·평가 review, 버튼 판단용 isCancellable·isSubmittable 등)
-  [동작] 다시 만든 것: 상태 탭(GET ?status=), 카드 상태별 버튼, 수강 취소(POST /enrollments/{id}/cancel — 확인 창)·대기 취소(POST …/waitlist/{id}/cancel) — 두 POST의 처리는 #09
-         남긴 것(다른 이슈): 이어서 학습·다시 보기는 #12(/lessons), 최종 과제는 #13(/assignments), 피드백 결과는 #15(/assignments/{id}/result) 화면이 생겨야 열린다
+  [동작] 다시 만든 것: 상태 탭(GET ?status=), 카드 상태별 버튼, 수강 취소(POST /enrollments/{id}/cancel — 확인 창)·대기 취소(POST …/waitlist/{id}/cancel) — 두 POST는 #09,
+         이어서 학습·다시 보기(/lessons/{차시}?enrollmentId=) — #12. 이어서 볼 차시는 차시 순서대로 처음으로 안 끝낸 차시(ContinueLessonPolicy)
+         남긴 것(다른 이슈): 최종 과제는 #13(/assignments), 피드백 결과는 #15(/assignments/{id}/result) 화면이 생겨야 열린다
   [정리] 시안의 "담당 강사" 칸은 API 명세 MyCourseDTO에 없고 강사 이름을 읽는 계약도 없어 뺐다. "성장 기록" 버튼은 #19 범위라 뺐다.
          사이드 메뉴의 예시 id 링크(차시 영상·최종 과제·피드백)는 수강 id 없이는 갈 곳이 없어 지우고 취미 탐색 링크로 바꿨다.
 -->
