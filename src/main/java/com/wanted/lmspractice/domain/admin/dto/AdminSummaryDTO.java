@@ -1,22 +1,33 @@
 package com.wanted.lmspractice.domain.admin.dto;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
 
 /**
- * 관리자 홈 요약 숫자
- * 담당: 팀원 1 · #07
- * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
+ * [역할] 관리자 홈(A-S01) KPI 5개 + "확인이 필요한 운영 항목"
+ * [담당] 팀원 1 · #07   [화면] A-S01   [기획] D-59
+ * [연결] AdminDashboardService.getSummary → AdminHomeController → admin/home.html
  */
-@NoArgsConstructor
-// @AllArgsConstructor  // TODO: 필드 추가 후 다시 활성화
 @Getter
-@Setter
-@ToString
+@AllArgsConstructor
 public class AdminSummaryDTO {
 
-    // TODO #07: 필드 정의
+    private final int courseCount;
+    private final int lessonCount;
+    private final int activeEnrollmentCount;
+    private final int pendingReviewCount;
+    private final int waitingCount;
+    private final int vacantSectionCount;
+    private final List<Alert> alerts;
+
+    /** 운영 확인 항목 한 줄. linkPath가 null이면 이동 버튼 없이 안내만 표시한다. */
+    @Getter
+    @AllArgsConstructor
+    public static class Alert {
+        private final String item;
+        private final String content;
+        private final String linkPath;
+        private final String linkLabel;
+    }
 }
