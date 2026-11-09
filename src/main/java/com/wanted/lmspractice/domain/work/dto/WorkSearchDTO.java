@@ -23,6 +23,7 @@ public class WorkSearchDTO {
 
     public static final String SORT_LATEST = "latest";
     public static final String SORT_LIKES = "likes";
+    public static final String SORT_COMMENTS = "comments";   // 관리자 게시판 전용 정렬(댓글 많은 순)
     public static final String SCOPE_MINE = "mine";   // 강사: 내 담당 취미 작품만 (기본)
     public static final String SCOPE_ALL = "all";     // 강사: 전체 공개 작품
 
@@ -35,6 +36,8 @@ public class WorkSearchDTO {
     private int page;
     private String scope = SCOPE_MINE;
     private boolean myCommented;
+    /** 관리자 목록(AW-01): true 숨김만 / false 공개 중만 / null 전체 */
+    private Boolean hidden;
 
     public boolean isSortByLikes() {
         return SORT_LIKES.equals(sort);

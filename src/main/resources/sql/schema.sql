@@ -635,3 +635,25 @@ ALTER TABLE course_sections
     ADD COLUMN name VARCHAR(30) NULL AFTER section_no,
     ADD UNIQUE KEY uq_sections_name (course_id,name);
 
+
+-- ---------------------------------------------------------------------
+-- H5. 작품 숨김·복구 조치 이력 (#20, A-S08 "조치 이력" · U-S16 작성자 사유 확인)
+--   works 는 "지금" 숨김 상태(admin_hidden·hidden_*)만 가지므로, 숨김·복구를 할 때마다 한 줄씩 남긴다.
+--   action 'HIDE'/'RESTORE', reason = 숨김 사유 또는 복구 사유(F-10 ⑤). 행은 지우거나 고치지 않는다(이력).
+--   표가 없으면 #20(관리자 작품 숨김·복구)과 U-S16 화면이 동작하지 않는다 → 새로 schema.sql 을 적용하거나 이 블록만 실행.
+-- ---------------------------------------------------------------------
+CREATE TABLE work_moderation_logs (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    work_id BIGINT UNSIGNED NOT NULL,
+    action VARCHAR(20) NOT NULL,
+    reason VARCHAR(1000) NOT NULL,
+    admin_id BIGINT UNSIGNED NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    KEY idx_modlogs_work (work_id,id),
+    KEY idx_modlogs_created (created_at,id),
+    CONSTRAINT fk_modlogs_work FOREIGN KEY (work_id) REFERENCES works (id),
+    CONSTRAINT fk_modlogs_admin FOREIGN KEY (admin_id) REFERENCES users (id),
+    CONSTRAINT ck_modlogs_action CHECK (action IN ('HIDE','RESTORE')),
+    CONSTRAINT ck_modlogs_reason CHECK (CHAR_LENGTH(TRIM(reason)) > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
