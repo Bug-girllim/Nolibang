@@ -7,6 +7,7 @@ import com.wanted.lmspractice.domain.course.dto.LessonDTO;
 import com.wanted.lmspractice.domain.course.entity.Course;
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.course.entity.CourseStatus;
+import com.wanted.lmspractice.domain.course.entity.Lesson;
 import com.wanted.lmspractice.domain.course.repository.CourseRepository;
 import com.wanted.lmspractice.domain.course.repository.LessonRepository;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
@@ -122,6 +123,24 @@ public class CourseService {
     }
 
     /**
+     * [#12 요청] 차시 한 건 조회 — 영상 길이·영상 경로가 필요한 #12(ProgressService)가 부른다.
+     * 팀원 2 소유 파일에 팀원 3이 추가한 최소 메서드(계약 추가 요청 — 확인·수정은 팀원 2).
+     * 호출: ProgressService (재생 보고, 영상 접근, 차시 화면)
+     * @throws BusinessException LESSON_NOT_FOUND
+     */
+    @Transactional(readOnly = true)
+    public Lesson getLesson(Long lessonId) {
+        return lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.LESSON_NOT_FOUND));
+    }
+
+    /**
+     * [#12 요청] 한 강의의 차시 목록(1·2·3차시 순서). 호출: ProgressService (차시 목록·3차시 완료 판정)
+     * 팀원 2 소유 파일에 팀원 3이 추가한 최소 메서드(계약 추가 요청).
+     */
+    @Transactional(readOnly = true)
+    public List<Lesson> getLessonsOfCourse(Long courseId) {
+        return lessonRepository.findByCourseIdOrderByLessonNoAsc(courseId);
      * 강의 이름만 — 노출 규칙 없이 id로 찾는다(이미 수강·대기 중인 사람에게 보내는 안내 문구용).
      * 호출: SeatService.fillVacancies (#09 대기 자동 확정 알림 본문)
      * @throws BusinessException COURSE_NOT_FOUND — 없는 강의

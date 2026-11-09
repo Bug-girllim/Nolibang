@@ -1,5 +1,8 @@
 package com.wanted.lmspractice.domain.learning.dto;
 
+import com.wanted.lmspractice.domain.learning.entity.LessonProgress;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,11 +26,20 @@ import lombok.ToString;
 public class LessonProgressDTO {
 
     private Long lessonId;
-    /** 1~3차시 */
     private Integer lessonNo;
     private String title;
-    /** 진도 비율 0~100 (인정 재생 시간 ÷ 영상 길이) */
-    private int progressPercent;
-    /** 실제 재생 60% 이상으로 완료 처리됐는지 (FR-020) */
+    /** 실제 재생 비율(0~100). 완료 기준(60%)과 별개로 서버가 기록한 실제 값이다. */
+    private int percent;
+    private LocalDateTime completedAt;
     private boolean completed;
+
+    /** progress가 null이면(아직 재생한 적 없음) 0%·미완료 */
+    public static LessonProgressDTO of(Long lessonId, Integer lessonNo, String title, BigDecimal durationSec,
+                                       LessonProgress progress) {
+        if (progress == null) {
+            return new LessonProgressDTO(lessonId, lessonNo, title, 0, null, false);
+        }
+        return new LessonProgressDTO(lessonId, lessonNo, title, progress.percent(durationSec),
+                progress.getCompletedAt(), progress.isCompleted());
+    }
 }
