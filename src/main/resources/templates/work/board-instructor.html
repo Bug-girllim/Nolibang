@@ -2,31 +2,12 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <!--
   [화면] T-S10 작품 게시판 (강사)   (원본: 2_teacher/T-S10.dc.html)
-  [연결] WorkBoardController · WB-01 (강사용 표시 — 학습자 게시판과 통합 검토)   → return "work/board-instructor";
-  [상태] 1단계 자동 변환본 — 디자인만 옮김. 글자·숫자·목록은 시안 샘플 값이며 담당 이슈에서 th:text·th:each 등으로 바인딩한다.
-         링크의 id 값(예: /courses/2)은 시드 데이터 기준 예시값이다.
-  [시안에서 동작하던 요소] 변환 후 동작하지 않음 → 필요한 것만 서버 요청(form·redirect) 또는 짧은 JS로 다시 구현
-    - button [onClick] "내 담당 취미 작품"
-    - button [onClick] "전체 공개 작품"
-    - input [onChange] ""
-    - button [onClick] "전체 작품"
-    - button [onClick] "최종 과제"
-    - button [onClick] "일반 작품"
-    - form [onSubmit] "검색 세부 취미 전체 색연필화 디지털 드로잉 디저트 만들기 수준 전체 입"
-    - input [onChange] "제목 또는 닉네임"
-    - select [onChange] "전체 색연필화 디지털 드로잉 디저트 만들기"
-    - select [onChange] "전체 입문 중급 고급"
-    - select [onChange] "최신 공개순 좋아요순"
-    - button [onClick] "♡ 좋아요"
-    - button [onClick] "댓글 남기기"
-    - button [onClick] "♡ 좋아요"
-    - button [onClick] "댓글 남기기"
-    - button [onClick] "♡ 좋아요"
-    - button [onClick] "댓글 남기기"
-    - button [onClick] "♡ 좋아요"
-    - button [onClick] "댓글 남기기"
-    - button [onClick] "♡ 좋아요"
-    - button [onClick] "댓글 남기기"
+  [연결] WorkBoardController · WB-01 (강사용 표시 — 같은 주소 /works 를 강사가 열면 이 템플릿)   → return "work/board-instructor";
+  [상태] 2단계 연결 완료 (#18, 팀원 4)
+  [모델] works(WorkPageDTO), cond(WorkSearchDTO: scope·myCommented 포함), hobbies, levels, instructorName, grantedHobbyNames
+  [동작] 다시 만든 것: 보기 범위(scope=mine/all)·"내가 댓글 남긴 작품만"(myCommented)·탭(kind)·검색·필터·정렬 = GET 폼, 이전/다음 쪽,
+         좋아요 = static/js/work-like.js(POST /works/{id}/like, JSON) 🟡 / "댓글 남기기" = 작품 상세의 댓글 입력창으로 이동하는 링크
+         남긴 것: 없음
 -->
 <head>
   <meta charset="UTF-8">
@@ -45,7 +26,49 @@
 </head>
 <body>
 <div id="dc-root"><div class="sc-host">
-<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside th:replace="~{common/layout :: teacherSide(active='T-S10')}"></aside><main class="main"><div class="ph bn bn-gallery"><div><h2>작품 게시판</h2><p>담당 취미 학습자들의 공개 작품을 둘러보고, 댓글로 응원과 조언을 남겨 보세요.</p></div><div class="row"><span class="chip dk">강사 보기</span><span class="sid">T-S10</span></div></div><div class="scope-bar"><div aria-label="보기 범위" class="seg" role="group"><button aria-pressed="true" class="on" type="button">내 담당 취미 작품</button><button aria-pressed="false" class="" type="button">전체 공개 작품</button></div><label class="chk"><input type="checkbox"/> 내가 댓글 남긴 작품만</label></div><div class="warn grant"><b><span class="sc-interp">강사 A</span> · 담당 세부 취미</b> <span class="sc-interp">색연필화 · 디지털 드로잉 · 목공</span><br/><span class="mu">담당 취미의 공개 작품에만 댓글·답글을 남길 수 있어요. 다른 취미 작품은 열람만 가능해요.</span></div><div class="tabs" role="tablist"><button aria-selected="true" class="on" role="tab" type="button"><span class="sc-interp">전체 작품</span></button><button aria-selected="false" class="" role="tab" type="button"><span class="sc-interp">최종 과제</span></button><button aria-selected="false" class="" role="tab" type="button"><span class="sc-interp">일반 작품</span></button></div><form class="row fpanel" role="search" style="align-items: flex-end;"><div class="field"><label class="lb" for="b-q">검색</label><input id="b-q" placeholder="제목 또는 닉네임" style="width: 240px;" value=""/></div><div class="field"><label class="lb" for="b-h">세부 취미</label><select id="b-h"><option value="">전체</option><option value="색연필화">색연필화</option><option value="디지털 드로잉">디지털 드로잉</option><option value="디저트 만들기">디저트 만들기</option></select></div><div class="field"><label class="lb" for="b-l">수준</label><select id="b-l"><option value="">전체</option><option value="입문">입문</option><option value="중급">중급</option><option value="고급">고급</option></select></div><div class="field"><label class="lb" for="b-s">정렬</label><select id="b-s"><option value="new">최신 공개순</option><option value="like">좋아요순</option></select></div><button class="btn" type="submit">검색</button></form><p class="h3">공개 작품 <span class="sc-interp">5</span></p><div class="g3 gal-grid"><div class="box art tcard"><a aria-label="야경 일러스트 작품 상세 보기" class="art-link" th:href="@{/works/1}"><div class="art-frame"><div aria-label="야경 일러스트" class="art-pic ex-night" role="img"></div><span class="ex-tag">예시 이미지</span></div><div class="art-body"><p class="h4"><span class="sc-interp">야경 일러스트</span></p><p class="mu"><span class="sc-interp">디지털 드로잉</span> · <span class="sc-interp">입문</span> · <span class="sc-interp">최종 과제</span></p><p class="mu"><span class="sc-interp">차분한수달 128</span></p></div></a><div class="art-meta"><span class="chip dk"><span class="sc-interp">담당 취미 · 댓글 가능</span></span></div><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp">4</span></span><span>댓글 <span class="sc-interp">1</span></span></div><div class="art-act"><button aria-pressed="false" class="btn sm" type="button"><span class="sc-interp">♡ 좋아요</span></button><button class="btn sm dk" type="button">댓글 남기기</button><a class="lk" th:href="@{/instructor/reviews}">평가 관리 보기</a></div></div><div class="box art tcard"><a aria-label="커피 드로잉 작품 상세 보기" class="art-link" th:href="@{/works/1}"><div class="art-frame"><div aria-label="커피 드로잉" class="art-pic ex-drawing" role="img"></div><span class="ex-tag">예시 이미지</span></div><div class="art-body"><p class="h4"><span class="sc-interp">커피 드로잉</span></p><p class="mu"><span class="sc-interp">색연필화</span> · <span class="sc-interp">입문</span> · <span class="sc-interp">일반 작품</span></p><p class="mu"><span class="sc-interp">용감한펭귄 7</span></p></div></a><div class="art-meta"><span class="chip dk"><span class="sc-interp">담당 취미 · 댓글 가능</span></span></div><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp">0</span></span><span>댓글 <span class="sc-interp">0</span></span></div><div class="art-act"><button aria-pressed="false" class="btn sm" type="button"><span class="sc-interp">♡ 좋아요</span></button><button class="btn sm dk" type="button">댓글 남기기</button></div></div><div class="box art tcard"><a aria-label="색연필 풍경 작품 상세 보기" class="art-link" th:href="@{/works/1}"><div class="art-frame"><div aria-label="색연필 풍경" class="art-pic ex-pencil-land" role="img"></div><span class="ex-tag">예시 이미지</span></div><div class="art-body"><p class="h4"><span class="sc-interp">색연필 풍경</span></p><p class="mu"><span class="sc-interp">색연필화</span> · <span class="sc-interp">입문</span> · <span class="sc-interp">일반 작품</span></p><p class="mu"><span class="sc-interp">느긋한고래 21</span></p></div></a><div class="art-meta"><span class="chip dk"><span class="sc-interp">담당 취미 · 댓글 가능</span></span><span class="chip dk">내 댓글 <span class="sc-interp">1</span></span></div><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp">1</span></span><span>댓글 <span class="sc-interp">1</span></span></div><div class="art-act"><button aria-pressed="false" class="btn sm" type="button"><span class="sc-interp">♡ 좋아요</span></button><button class="btn sm dk" type="button">댓글 남기기</button></div></div><div class="box art tcard"><a aria-label="캐릭터 스케치 작품 상세 보기" class="art-link" th:href="@{/works/1}"><div class="art-frame"><div aria-label="캐릭터 스케치" class="art-pic ex-char" role="img"></div><span class="ex-tag">예시 이미지</span></div><div class="art-body"><p class="h4"><span class="sc-interp">캐릭터 스케치</span></p><p class="mu"><span class="sc-interp">디지털 드로잉</span> · <span class="sc-interp">입문</span> · <span class="sc-interp">일반 작품</span></p><p class="mu"><span class="sc-interp">씩씩한수달 77</span></p></div></a><div class="art-meta"><span class="chip dk"><span class="sc-interp">담당 취미 · 댓글 가능</span></span></div><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp">1</span></span><span>댓글 <span class="sc-interp">0</span></span></div><div class="art-act"><button aria-pressed="false" class="btn sm" type="button"><span class="sc-interp">♡ 좋아요</span></button><button class="btn sm dk" type="button">댓글 남기기</button></div></div><div class="box art tcard"><a aria-label="풍경 스케치 작품 상세 보기" class="art-link" th:href="@{/works/1}"><div class="art-frame"><div aria-label="풍경 스케치" class="art-pic ex-land" role="img"></div><span class="ex-tag">예시 이미지</span></div><div class="art-body"><p class="h4"><span class="sc-interp">풍경 스케치</span></p><p class="mu"><span class="sc-interp">색연필화</span> · <span class="sc-interp">입문</span> · <span class="sc-interp">일반 작품</span></p><p class="mu"><span class="sc-interp">느긋한고래 21</span></p></div></a><div class="art-meta"><span class="chip dk"><span class="sc-interp">담당 취미 · 댓글 가능</span></span></div><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp">0</span></span><span>댓글 <span class="sc-interp">0</span></span></div><div class="art-act"><button aria-pressed="false" class="btn sm" type="button"><span class="sc-interp">♡ 좋아요</span></button><button class="btn sm dk" type="button">댓글 남기기</button></div></div></div><ul class="ul mu"><li>강사는 작품을 등록하지 않아요. 담당 취미의 공개 작품에 댓글·답글·좋아요를 남길 수 있어요.</li><li>작성자는 닉네임으로만 표시되고 실명·로그인 아이디는 보이지 않아요.</li><li>작품 숨김·복구는 관리자 권한이에요. 숨김·비공개 작품은 목록에 나오지 않아요.</li><li>작품 이미지는 예시 데이터예요.</li></ul></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside th:replace="~{common/layout :: teacherSide(active='T-S10')}"></aside><main class="main"><div class="ph bn bn-gallery"><div><h2>작품 게시판</h2><p>담당 취미 학습자들의 공개 작품을 둘러보고, 댓글로 응원과 조언을 남겨 보세요.</p></div><div class="row"><span class="chip dk">강사 보기</span><span class="sid">T-S10</span></div></div>
+<form class="scope-bar" method="get" th:action="@{/works}">
+  <input type="hidden" name="kind" th:value="${cond.kind}"/>
+  <input type="hidden" name="keyword" th:value="${cond.keyword}"/>
+  <input type="hidden" name="hobbyId" th:value="${cond.hobbyId}"/>
+  <input type="hidden" name="level" th:value="${cond.level}"/>
+  <input type="hidden" name="sort" th:value="${cond.sort}"/>
+  <div aria-label="보기 범위" class="seg" role="group"><button type="submit" name="scope" value="mine" th:class="${cond.scope != 'all'} ? 'on' : ''" th:attr="aria-pressed=${cond.scope != 'all'}">내 담당 취미 작품</button><button type="submit" name="scope" value="all" th:class="${cond.scope == 'all'} ? 'on' : ''" th:attr="aria-pressed=${cond.scope == 'all'}">전체 공개 작품</button></div>
+  <!-- 🟡 미학습: 체크 즉시 조회하려는 한 줄 인라인 JS — 배운 기술(폼 제출)로 대신하면 체크 후 버튼을 한 번 더 눌러야 해서 사용 -->
+  <label class="chk"><input type="checkbox" name="myCommented" value="true" th:checked="${cond.myCommented}" onchange="this.form.submit()"/> 내가 댓글 남긴 작품만</label>
+</form>
+<div class="warn grant"><b><span class="sc-interp" th:text="${instructorName}">강사 A</span> · 담당 세부 취미</b> <span class="sc-interp" th:text="${#lists.isEmpty(grantedHobbyNames)} ? '아직 담당 취미가 없어요' : ${#strings.listJoin(grantedHobbyNames, ' · ')}">색연필화 · 디지털 드로잉 · 목공</span><br/><span class="mu">담당 취미의 공개 작품에만 댓글·답글을 남길 수 있어요. 다른 취미 작품은 열람만 가능해요.</span></div>
+<form class="tabs" role="tablist" method="get" th:action="@{/works}">
+  <input type="hidden" name="scope" th:value="${cond.scope}"/>
+  <input type="hidden" name="myCommented" th:value="${cond.myCommented}"/>
+  <input type="hidden" name="keyword" th:value="${cond.keyword}"/>
+  <input type="hidden" name="hobbyId" th:value="${cond.hobbyId}"/>
+  <input type="hidden" name="level" th:value="${cond.level}"/>
+  <input type="hidden" name="sort" th:value="${cond.sort}"/>
+  <button type="submit" role="tab" name="kind" value="" th:class="${cond.kind == null} ? 'on' : ''" th:attr="aria-selected=${cond.kind == null}"><span class="sc-interp">전체 작품</span></button>
+  <button type="submit" role="tab" name="kind" value="FINAL" th:class="${cond.kind != null and cond.kind.name() == 'FINAL'} ? 'on' : ''" th:attr="aria-selected=${cond.kind != null and cond.kind.name() == 'FINAL'}"><span class="sc-interp">최종 과제</span></button>
+  <button type="submit" role="tab" name="kind" value="GENERAL" th:class="${cond.kind != null and cond.kind.name() == 'GENERAL'} ? 'on' : ''" th:attr="aria-selected=${cond.kind != null and cond.kind.name() == 'GENERAL'}"><span class="sc-interp">일반 작품</span></button>
+</form>
+<form class="row fpanel" role="search" method="get" th:action="@{/works}" style="align-items: flex-end;">
+  <input type="hidden" name="kind" th:value="${cond.kind}"/>
+  <input type="hidden" name="scope" th:value="${cond.scope}"/>
+  <input type="hidden" name="myCommented" th:value="${cond.myCommented}"/>
+  <div class="field"><label class="lb" for="b-q">검색</label><input id="b-q" name="keyword" placeholder="제목 또는 닉네임" style="width: 240px;" th:value="${cond.keyword}" value=""/></div>
+  <div class="field"><label class="lb" for="b-h">세부 취미</label><select id="b-h" name="hobbyId"><option value="">전체</option><option th:each="h : ${hobbies}" th:value="${h.id}" th:selected="${cond.hobbyId != null and cond.hobbyId == h.id}" th:text="${h.name}">색연필화</option></select></div>
+  <div class="field"><label class="lb" for="b-l">수준</label><select id="b-l" name="level"><option value="">전체</option><option th:each="lv : ${levels}" th:value="${lv.name()}" th:selected="${cond.level == lv}" th:text="${lv.label}">입문</option></select></div>
+  <div class="field"><label class="lb" for="b-s">정렬</label><select id="b-s" name="sort"><option value="latest" th:selected="${!cond.sortByLikes}">최신 공개순</option><option value="likes" th:selected="${cond.sortByLikes}">좋아요순</option></select></div>
+  <button class="btn" type="submit">검색</button>
+</form>
+<p class="h3">공개 작품 <span class="sc-interp" th:text="${works.totalCount}">5</span></p>
+<div class="g3 gal-grid" th:unless="${#lists.isEmpty(works.items)}"><div class="box art tcard" th:each="w : ${works.items}"><a class="art-link" th:attr="aria-label=${w.title + ' 작품 상세 보기'}" th:href="@{/works/{id}(id=${w.workId})}"><div class="art-frame"><div class="art-pic" role="img" th:attr="aria-label=${w.title}" th:style="${w.thumbnailFileId != null} ? 'background-image:url(' + @{/files/works/{fid}(fid=${w.thumbnailFileId})} + ');background-size:cover;background-position:center' : null"></div></div><div class="art-body"><p class="h4"><span class="sc-interp" th:text="${w.title}">야경 일러스트</span></p><p class="mu"><span class="sc-interp" th:text="${w.hobbyName}">디지털 드로잉</span> · <span class="sc-interp" th:text="${w.level.label}">입문</span> · <span class="sc-interp" th:text="${w.kind.name() == 'FINAL'} ? '최종 과제' : '일반 작품'">최종 과제</span></p><p class="mu"><span class="sc-interp" th:text="${w.authorNickname}">차분한수달 128</span></p></div></a><div class="art-meta"><span class="chip dk" th:if="${w.commentable}"><span class="sc-interp">담당 취미 · 댓글 가능</span></span><span class="chip" th:unless="${w.commentable}"><span class="sc-interp">열람만 가능</span></span><span class="chip dk" th:if="${w.myCommentCount > 0}">내 댓글 <span class="sc-interp" th:text="${w.myCommentCount}">1</span></span></div><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp" data-like-count th:text="${w.likeCount}">4</span></span><span>댓글 <span class="sc-interp" th:text="${w.commentCount}">1</span></span></div><div class="art-act"><button class="btn sm" type="button" data-work-like th:attr="data-like-url=@{/works/{id}/like(id=${w.workId})},aria-pressed=${w.liked}"><span class="sc-interp like-label" th:text="${w.liked} ? '♥ 좋아요' : '♡ 좋아요'">♡ 좋아요</span></button><a class="btn sm dk" th:if="${w.commentable}" th:href="@{/works/{id}(id=${w.workId})} + '#comment-form'">댓글 남기기</a><a class="lk" th:if="${w.commentable and w.kind.name() == 'FINAL'}" th:href="@{/instructor/reviews}">평가 관리 보기</a></div></div></div>
+<p class="mu" th:if="${#lists.isEmpty(works.items)}">조건에 맞는 공개 작품이 없어요.</p>
+<div class="row" th:if="${works.hasPrevious or works.hasNext}" style="justify-content: center; gap: 12px;">
+  <a class="btn sm" th:if="${works.hasPrevious}" th:href="@{/works(page=${works.page - 1}, kind=${cond.kind}, scope=${cond.scope}, myCommented=${cond.myCommented}, keyword=${cond.keyword}, hobbyId=${cond.hobbyId}, level=${cond.level}, sort=${cond.sort})}">← 이전</a>
+  <span class="mu"><span th:text="${works.page + 1}">1</span> 쪽</span>
+  <a class="btn sm" th:if="${works.hasNext}" th:href="@{/works(page=${works.page + 1}, kind=${cond.kind}, scope=${cond.scope}, myCommented=${cond.myCommented}, keyword=${cond.keyword}, hobbyId=${cond.hobbyId}, level=${cond.level}, sort=${cond.sort})}">다음 →</a>
+</div>
+<ul class="ul mu"><li>강사는 작품을 등록하지 않아요. 담당 취미의 공개 작품에 댓글·답글·좋아요를 남길 수 있어요.</li><li>작성자는 닉네임으로만 표시되고 실명·로그인 아이디는 보이지 않아요.</li><li>작품 숨김·복구는 관리자 권한이에요. 숨김·비공개 작품은 목록에 나오지 않아요.</li></ul></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
 </div></div>
+<script th:src="@{/js/work-like.js}"></script>
 </body>
 </html>

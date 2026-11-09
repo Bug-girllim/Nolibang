@@ -23,6 +23,9 @@ public interface InstructorHobbyGrantRepository extends JpaRepository<Instructor
     /** 여러 강사의 유효한 권한을 한 번에 조회 (강사 목록 화면 — 강사마다 따로 조회하지 않으려고) */
     List<InstructorHobbyGrant> findByInstructorIdInAndIsActiveTrue(Collection<Long> instructorIds);
 
+    /** 한 취미의 유효한 권한 보유 강사 (#18 공개 댓글 알림 대상) */
+    List<InstructorHobbyGrant> findByHobbyIdAndIsActiveTrue(Long hobbyId);
+
     /** 계약 C3 hasHobbyGrant의 실제 조회 */
     boolean existsByInstructorIdAndHobbyIdAndIsActiveTrue(Long instructorId, Long hobbyId);
 }
