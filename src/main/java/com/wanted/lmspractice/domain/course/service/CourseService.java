@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.course.service;
 
+import com.wanted.lmspractice.domain.course.dto.CourseBriefDTO;
 import com.wanted.lmspractice.domain.course.dto.CourseDTO;
 import com.wanted.lmspractice.domain.course.dto.CourseDetailDTO;
 import com.wanted.lmspractice.domain.course.dto.LessonDTO;
@@ -13,7 +14,10 @@ import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -81,6 +85,26 @@ public class CourseService {
                 .map(LessonDTO::from)
                 .toList();
         return CourseDetailDTO.from(course, hobby.getName(), lessons);
+    }
+
+    /**
+     * 강의 여러 개의 한 줄 소개(강의명·수준·취미 이름·취미 운영 여부)를 노출 규칙 없이 읽는다 — 본인 수강 기록 화면용.
+     * 준비 중으로 바뀐 취미·닫힌 강의도 이미 수강 중이면 계속 보여야 하므로(D-20) 걸러내지 않는다.
+     * 호출: MyLearningService.getMyLearning (GET /my/learning, API ML-01)
+     *
+     * @return 강의 id → CourseBriefDTO (없는 id는 빠진다)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, CourseBriefDTO> getCourseBriefs(Collection<Long> courseIds) {
+        List<Course> courses = courseRepository.findAllById(courseIds);
+        Map<Long, HobbyDTO> hobbies = hobbyService.getHobbiesIgnoringVisibility(
+                courses.stream().map(Course::getHobbyId).distinct().toList());
+        return courses.stream()
+                .filter(course -> hobbies.containsKey(course.getHobbyId()))
+                .collect(Collectors.toMap(Course::getId, course -> {
+                    HobbyDTO hobby = hobbies.get(course.getHobbyId());
+                    return CourseBriefDTO.from(course, hobby.getName(), hobby.isOperating());
+                }));
     }
 
     /**
