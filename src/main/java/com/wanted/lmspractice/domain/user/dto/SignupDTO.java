@@ -46,8 +46,8 @@ public class SignupDTO {
 
     /** 8~16자, 영문·숫자·특수문자를 모두 포함(화면 안내문 기준, API ❓ "세 종류 모두 필수" 확인 필요), 공백 불가 */
     @NotBlank(message = "비밀번호를 입력해 주세요.")
-    @Size(min = PASSWORD_MIN, max = PASSWORD_MAX, message = PASSWORD_SIZE_MESSAGE)
-    @Pattern(regexp = PASSWORD_REGEXP, message = PASSWORD_MESSAGE)
+    @Size(min = PasswordRule.MIN, max = PasswordRule.MAX, message = PasswordRule.SIZE_MESSAGE)
+    @Pattern(regexp = PasswordRule.REGEX, message = PasswordRule.REGEX_MESSAGE)
     private String password;
 
     /** password와 같아야 한다 — 일치 여부는 두 값을 비교해야 해서 SignupController가 BindingResult로 확인한다 */

@@ -188,4 +188,29 @@ public class User {
         this.firstLoginAt = now;
         return true;
     }
+
+    /**
+     * 닉네임 변경 (U-S17). 정리·중복 확인은 호출한 쪽(UserService + NicknamePolicy)이 끝낸 값만 넘긴다.
+     * 호출: UserService.changeNickname (#06)
+     */
+    public void changeNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    /**
+     * 비밀번호 변경 — 계정 설정(현재 비밀번호 확인 후)·이메일 인증을 거친 재설정(C-05)에서 쓴다.
+     * 본인이 직접 새 비밀번호를 정한 것이므로 "임시 비밀번호 변경 필요" 표시도 함께 내린다(FR-012와 충돌하지 않음).
+     * 호출: UserService.changePassword·resetPassword (#06)
+     *
+     * @param newPasswordHash 이미 BCrypt로 암호화된 값 (평문을 넘기지 않는다)
+     */
+    public void changePassword(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+        this.mustChangePassword = Boolean.FALSE;
+    }
+
+    /** 로그인할 수 있는 활성 계정인지 (#06 계정 복구 대상 판단 — 미인증·비활성 계정에는 복구 메일을 보내지 않는다) */
+    public boolean isActive() {
+        return status == UserStatus.ACTIVE;
+    }
 }

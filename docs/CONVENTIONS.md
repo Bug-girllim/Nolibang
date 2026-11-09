@@ -78,7 +78,7 @@ DB `CHECK` 값과 **글자까지 같아야** 한다. 바꾸려면 DB(`schema.sql
 `global/exception/ErrorCode.java`에 정의됨. **이후 추가는 팀원 1에게 요청한다.**
 
 - 공통: INVALID_INPUT, ACCESS_DENIED, NOT_FOUND, INTERNAL_ERROR
-- 계정: DUPLICATE_LOGIN_ID, DUPLICATE_EMAIL, DUPLICATE_NICKNAME, EMAIL_NOT_VERIFIED, INVALID_TOKEN, TOKEN_EXPIRED, USER_NOT_FOUND, PASSWORD_CHANGE_REQUIRED, INVALID_NEW_PASSWORD
+- 계정: DUPLICATE_LOGIN_ID, DUPLICATE_EMAIL, DUPLICATE_NICKNAME, EMAIL_NOT_VERIFIED, INVALID_TOKEN, TOKEN_EXPIRED, USER_NOT_FOUND, PASSWORD_CHANGE_REQUIRED, INVALID_NEW_PASSWORD, PASSWORD_MISMATCH(#06 현재 비밀번호 불일치)
 - 탐색: HOBBY_NOT_FOUND, HOBBY_NOT_OPEN, COURSE_NOT_FOUND, LESSON_NOT_FOUND
 - 수강: ALREADY_ENROLLED, ALREADY_WAITING, CANNOT_REAPPLY, NO_ASSIGNABLE_SECTION, ENROLLMENT_NOT_FOUND, ENROLLMENT_EXPIRED, CANCEL_NOT_ALLOWED_DURING_REVIEW, SECTION_NOT_FOUND, CAPACITY_OUT_OF_RANGE, CAPACITY_BELOW_ACTIVE, INSTRUCTOR_NOT_GRANTED
 - 학습: VIDEO_ACCESS_DENIED
@@ -159,7 +159,7 @@ DB `CHECK` 값과 **글자까지 같아야** 한다. 바꾸려면 DB(`schema.sql
 | 13 | 만료 스케줄러 실행 주기 | **매시간 정각**(30일 기한이라 시 단위로 충분) | 팀원 2 | #10 시작 전 | #10 |
 | 14 | 페이지 크기(게시판·알림·평가 목록) | **12개**(목록), 알림 **20개** | 팀원 4 | #18 시작 전 | #17·#18·#20 |
 | 15 | 숨김·복구 사유 최소 길이, 문의 글자 수 | 숨김 사유 **10자 이상**(상한 1000), 문의 제목 200 / 본문 TEXT(DB 최대값 기준) | 팀원 4 | #20·#21 시작 전 | #20·#21 |
-| 16 | 아이디 찾기·비밀번호 재설정 입력값 | **아이디+이메일** 일치 확인(재설정), 이메일만(아이디 찾기) | 팀원 1 | #06 시작 전 | #06 |
+| 16 | 아이디 찾기·비밀번호 재설정 입력값 | #06 구현: 두 탭 모두 **이메일만**(이슈 시그니처 `sendRecovery(email, purpose)`·C-05 시안 기준). 미가입 이메일도 같은 안내(존재 숨김) | 팀원 1 | #06 시작 전 | #06 |
 | 17 | 계정 설정에서 수정 가능한 항목 | 닉네임·비밀번호 변경 | 팀원 1 | #06 시작 전 | #06 |
 | 18 | 승인 과제 수정·삭제(D-63) | **구현하지 않음**(제출·재제출 버전 저장만) | 팀 | — | #13·#19 |
 | 19 | 세부 기본값(CHANGELOG 11-05): 동률 시 분반 번호순, 정원은 현재 수강 미만 축소 불가, 첫 로그인 변경 강제, 평가 대기·진행 중 취소 불가 | **이 값으로 설계** | 팀 | 이슈 시작 전 | #05·#09·#10 |
@@ -186,3 +186,4 @@ DB `CHECK` 값과 **글자까지 같아야** 한다. 바꾸려면 DB(`schema.sql
 | 날짜 | 내용 | 작성 |
 |---|---|---|
 | 2026-11-09 | 초안 작성 (#04 진행 중 정해진 값 포함, 제안값은 💡) | 팀원 1 |
+| 2026-11-09 | #06: ErrorCode PASSWORD_MISMATCH 추가, §10 #16 구현값 기록, 비밀번호 규칙 상수 `user/dto/PasswordRule`로 통일 | 팀원 1 |
