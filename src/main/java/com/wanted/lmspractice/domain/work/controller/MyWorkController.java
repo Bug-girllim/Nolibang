@@ -1,10 +1,12 @@
 package com.wanted.lmspractice.domain.work.controller;
 
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.work.dto.ModerationViewDTO;
 import com.wanted.lmspractice.domain.work.dto.WorkFormDTO;
 import com.wanted.lmspractice.domain.work.dto.WorkFormOptionsDTO;
 import com.wanted.lmspractice.domain.work.entity.Visibility;
 import com.wanted.lmspractice.domain.work.service.GrowthService;
+import com.wanted.lmspractice.domain.work.service.WorkModerationService;
 import com.wanted.lmspractice.domain.work.service.WorkService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.GlobalExceptionHandler;
@@ -29,7 +31,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
  * [역할] 일반 작품 등록·수정(U-S11), 공개 설정, 한 줄 회고, 개인 성장 타임라인(U-S12) 요청을 받아 서비스에 넘긴다(PRG).
- * [담당] 팀원 4 · #19 (MW-08 숨김 사유 U-S16은 #20에서 이 컨트롤러에 추가)
+ * [담당] 팀원 4 · #19 + #20(MW-08 숨김 사유 U-S16 — moderation 메서드, WorkModerationService.getAuthorView 호출)
  *       [화면] U-S11 — templates/work/form.html, U-S12 — templates/work/growth.html   [기획] FR-027·028   [API] MW-01~MW-07
  * [연결]
  *  - 호출받음: 브라우저 (SecurityConfig: /my/** = 학습자(USER)만), 진입 링크: 사이드 메뉴 "성장 기록", 타임라인의 [일반 작품 등록]·[수정]
@@ -41,24 +43,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  *             업무 오류 중 400(제목·이미지·취미·수준) → 입력하던 폼으로 redirect + flash errorMessage
  * [기술] 🟢 @Controller·@GetMapping·@PostMapping, 🟢 @Valid + BindingResult(같은 화면 다시 그림), 🟢 List&lt;MultipartFile&gt;,
  *        🟢 RedirectAttributes(flash), 🟢 @ExceptionHandler(이 컨트롤러 전용 — AssignmentController와 같은 방식), 🟢 @AuthenticationPrincipal
-import com.wanted.lmspractice.domain.work.dto.ModerationViewDTO;
-import com.wanted.lmspractice.domain.work.service.WorkModerationService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-
-/**
- * [역할] 내 작품 화면 — 일반 작품 등록(U-S11), 성장 타임라인(U-S12)은 #19, 관리자 조치 사유 확인(U-S16)은 #20
- * [담당] 팀원 4 · #19 (#20 은 U-S16 메서드만 추가)   [API] MW-08
- * [연결]
- *  - 호출받음: 브라우저 GET /my/works/{workId}/moderation (학습자 — SecurityConfig /my/**)
- *  - 호출함:   WorkModerationService.getAuthorView (본인 작품만, 숨김·복구 이력)
- * [참고] #19 구현 때 이 클래스에 서비스·핸들러를 이어서 추가한다(필드 추가 시 @RequiredArgsConstructor 가 생성자를 만들어 준다).
  */
 @Controller
 @RequestMapping("/my/works")
