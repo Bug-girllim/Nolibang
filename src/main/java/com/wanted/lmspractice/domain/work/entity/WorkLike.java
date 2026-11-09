@@ -39,4 +39,12 @@ public class WorkLike {
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;  // DB가 자동 기록
+
+    /** 좋아요 1건 (작품당 1회 — PK work_id+user_id) */
+    public static WorkLike create(Long workId, Long userId) {
+        WorkLike like = new WorkLike();
+        like.workId = workId;
+        like.userId = userId;
+        return like;
+    }
 }

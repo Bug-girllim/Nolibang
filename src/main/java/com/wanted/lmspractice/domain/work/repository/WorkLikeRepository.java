@@ -6,13 +6,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 /**
- * WorkLike 테이블 접근 (Spring Data JPA)
- * 담당: 팀원 4 · #18
- * (💡 제안 구조 — 상세 구현은 해당 이슈에서)
- * 복합 기본키 → ID 타입은 WorkLikeId (findById(new WorkLikeId(…)) 로 조회)
+ * [역할] work_likes 표 접근 (Spring Data JPA, 복합 키 WorkLikeId)
+ * [담당] 팀원 4 · #18
+ * [연결] 호출받음: CommentService(좋아요 토글), WorkBoardService(상세의 좋아요 수·내가 눌렀는지)
  */
 @Repository
 public interface WorkLikeRepository extends JpaRepository<WorkLike, WorkLikeId> {
 
-    // TODO: 쿼리 메서드는 담당 이슈에서 추가
+    long countByWorkId(Long workId);
+
+    boolean existsByWorkIdAndUserId(Long workId, Long userId);
 }

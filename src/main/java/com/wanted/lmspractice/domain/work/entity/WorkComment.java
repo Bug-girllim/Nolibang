@@ -59,4 +59,41 @@ public class WorkComment {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /** 자발 삭제된 댓글의 본문 대체 문구 (API CM-C3) */
+    public static final String DELETED_BODY = "삭제된 댓글입니다";
+
+    /** 댓글(parentId == null) 또는 1단계 답글 작성 — "답글의 답글 금지"는 서비스가 먼저 검사한다 */
+    public static WorkComment create(Long workId, Long parentId, Long authorId, String body) {
+        WorkComment comment = new WorkComment();
+        comment.workId = workId;
+        comment.parentId = parentId;
+        comment.authorId = authorId;
+        comment.body = body;
+        return comment;
+    }
+
+    public boolean isAuthor(Long userId) {
+        return authorId != null && authorId.equals(userId);
+    }
+
+    public boolean isReply() {
+        return parentId != null;
+    }
+
+    public boolean isDeleted() {
+        return status == CommentStatus.DELETED;
+    }
+
+    /** 본문 수정 — 삭제된 댓글은 서비스가 막는다 */
+    public void edit(String body) {
+        this.body = body;
+    }
+
+    /** 소프트 삭제 — 본문을 지우고 상태만 DELETED (DB CHECK: DELETED 이면 deleted_at 필수). 답글은 그대로 남는다 */
+    public void delete(LocalDateTime now) {
+        this.status = CommentStatus.DELETED;
+        this.deletedAt = now;
+        this.body = DELETED_BODY;
+    }
 }
