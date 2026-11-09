@@ -16,9 +16,10 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
  * [담당] 팀원 1 · #02, #06(sessionManagement)   [API] §1-3, AU-02, AU-03
  * [연결]
  *  - 호출받음: Spring Security 필터 체인(모든 요청)
- *  - 호출함:   AuthService(UserDetailsService Bean을 자동 사용), 오류 화면 /error/403(MainController)
+ *  - 호출함:   AuthService(UserDetailsService Bean을 자동 사용), 오류 화면 /error/403·/error/401·/error/401-expired·/error/401-duplicate(MainController)
  *  - 연결됨:   #04 AuthSuccessHandler·AuthFailHandler (formLogin)
- *  - 연결됨:   #06 maximumSessions(1) → 만료 시 /auth/login?expired (AuthController가 안내 문구 표시)
+ *  - 연결됨:   #06 maximumSessions(1) → 다른 기기 로그인으로 끝난 세션은 /error/401-duplicate (E-DUP)
+ *  - 연결됨:   로그인 필요 → /error/401 (E-401), 세션 시간 만료 → /error/401-expired (E-SESSION)
  *  - 규칙:     다른 팀원은 이 파일을 직접 고치지 않고 팀원 1에게 요청한다
  * [기술] 🟢 SecurityFilterChain, formLogin, BCrypt, 🟢 sessionManagement(Security 과목)
  */
@@ -71,16 +72,22 @@ public class SecurityConfig {
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID"))
                 // 권한 없음 → 403 오류 화면 (필터에서 나는 예외는 @ControllerAdvice가 못 잡는다)
-                .exceptionHandling(ex -> ex.accessDeniedPage("/error/403"))
+                // 비로그인 접근 → 로그인 필요 안내 화면 /error/401 (시안 E-401, "로그인하기" 버튼이 /auth/login으로 안내)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendRedirect(request.getContextPath() + "/error/401"))
+                        .accessDeniedPage("/error/403"))
                 // ❓ API 명세 §1-5: CSRF 결정 전까지 수업 방식(disable). 켜면 fetch(JSON) 요청에 토큰 헤더 필요
                 .csrf(csrf -> csrf.disable())
                 // #06 한 기기 로그인(U-S17·C-06): 같은 계정이 새로 로그인하면 기존 세션을 만료시킨다.
-                // 기존 브라우저는 다음 요청에서 로그인 화면(?expired)으로 이동해 "다른 기기에서 로그인" 안내를 본다(AuthController).
+                // 기존 브라우저는 다음 요청에서 "다른 기기에서 로그인되어 로그아웃되었습니다" 안내 화면(E-DUP)으로 이동한다.
                 // 무요청 1시간 후 만료는 application.yaml의 server.servlet.session.timeout: 60m가 맡는다.
                 .sessionManagement(session -> session
+                        // 시간 만료·서버 재시작 등으로 세션 쿠키가 더는 유효하지 않을 때 → 세션 만료 안내 화면(E-SESSION)
+                        .invalidSessionUrl("/error/401-expired")
                         .maximumSessions(1)                       // 회원당 세션 1개 (AuthDetails.equals가 users.id로 비교)
                         .maxSessionsPreventsLogin(false)          // 새 로그인을 막지 않고 이전 세션을 만료
-                        .expiredUrl("/auth/login?expired"));
+                        .expiredUrl("/error/401-duplicate"));
         return http.build();
     }
 

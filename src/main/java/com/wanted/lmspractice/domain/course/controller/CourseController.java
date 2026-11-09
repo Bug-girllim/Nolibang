@@ -1,6 +1,7 @@
 package com.wanted.lmspractice.domain.course.controller;
 
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.course.dto.CourseDTO;
 import com.wanted.lmspractice.domain.course.dto.CourseDetailDTO;
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.course.service.CourseCatalogService;
@@ -44,23 +45,45 @@ public class CourseController {
         return hobbyService.getCategories(roleOf(details));
     }
 
+    /** 강의 목록 한 덩어리 — 세부 취미 하나와 그 취미의 (수준 필터가 적용된) 강의들. 화면은 이 덩어리를 차례로 그린다 */
+    public record CourseGroup(HobbyDTO hobby, List<CourseDTO> courses) { }
+
     /**
-     * 수준별 강의 목록. hobbyId가 없으면 400(MissingServletRequestParameterException), level이 없으면 전체 수준.
+     * 수준별 강의 목록. hobbyId가 없으면 보이는 모든 세부 취미(전체 취미)의 강의를, 있으면 그 취미의 강의만 보여 준다.
+     * level이 없으면 전체 수준. 수준 탭·세부 취미 선택은 서로의 선택(level·hobbyId)을 유지한 채 이동한다.
      * 호출: GET /courses?hobbyId=&level= (API CO-01)
-     * 모델: hobby(HobbyDTO), courses(List&lt;CourseDTO&gt; — 정원·대기·내 신청 상태 포함), selectedLevel(CourseLevel 또는 null), levels(수준 탭용)
+     * 모델: groups(List&lt;CourseGroup&gt; — 취미별 강의, 정원·대기·내 신청 상태 포함), hobby(HobbyDTO, 전체 취미면 null),
+     *       selectedLevel(CourseLevel 또는 null), levels(수준 탭용)
      */
     @GetMapping
-    public String list(@RequestParam Long hobbyId,
+    public String list(@RequestParam(required = false) Long hobbyId,
                        @RequestParam(required = false) CourseLevel level,
                        @AuthenticationPrincipal AuthDetails details,
                        Model model) {
-        HobbyDTO hobby = hobbyService.getHobbySummary(hobbyId, roleOf(details));
+        Role role = roleOf(details);
+        Long userId = userIdOf(details);
+        List<CourseGroup> groups;
+        HobbyDTO hobby = null;
+        Long sideCategoryId = null;
+        if (hobbyId != null) {
+            hobby = hobbyService.getHobbySummary(hobbyId, role);  // 보이지 않는 취미면 HOBBY_NOT_FOUND
+            groups = List.of(new CourseGroup(hobby, courseCatalogService.getCourses(hobbyId, level, userId, role)));
+            sideCategoryId = hobby.getCategoryId();
+        } else {
+            // 전체 취미: 사이드 메뉴와 같은 "보이는 세부 취미"만, 메뉴 순서대로
+            groups = hobbyService.getCategories(role).stream()
+                    .flatMap(category -> category.getHobbies().stream())
+                    .map(item -> new CourseGroup(hobbyService.getHobbySummary(item.getId(), role),
+                            courseCatalogService.getCourses(item.getId(), level, userId, role)))
+                    .filter(group -> !group.courses().isEmpty())
+                    .toList();
+        }
+        model.addAttribute("groups", groups);
         model.addAttribute("hobby", hobby);
-        model.addAttribute("courses", courseCatalogService.getCourses(hobbyId, level, userIdOf(details), roleOf(details)));
         model.addAttribute("selectedLevel", level);
         model.addAttribute("levels", CourseLevel.values());
         model.addAttribute("sideActive", "courses");
-        model.addAttribute("sideCategoryId", hobby.getCategoryId());
+        model.addAttribute("sideCategoryId", sideCategoryId);
         model.addAttribute("sideHobbyId", hobbyId);
         return "course/list";
     }

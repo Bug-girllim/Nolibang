@@ -1,6 +1,7 @@
 # HTML 시안 → Thymeleaf 자동 변환 결과 (1단계)
 
 > 2026-11-09 · 원본: `html/nolibang-lms-html.zip` (디자인 시안 75화면)
+> 2026-11-09 시안 갱신 반영: 옛 C-06 `error/access.html`을 지우고 401 화면 3개(E-401·E-SESSION·E-DUP)로 대체. 시안의 C번호가 하나씩 앞당겨짐(C-08=강사 비밀번호 변경, C-09=개인정보, C-10=공통 UI).
 > 결과 위치: `lms-practice/src/main/resources/templates/`, `static/css/`, `static/images/`
 > **1단계 = 디자인만 옮긴 상태.** 화면의 글자·숫자·목록은 시안의 샘플 값이다. 실제 데이터 연결(2단계)은 각 담당 이슈에서 한다.
 
@@ -34,7 +35,9 @@
 | C-03 회원가입 | `user/signup.html` | SignupController · US-01 | 8 |
 | C-04 이메일 인증 (발송 안내·결과 화면 공용) | `auth/verify-result.html` | EmailVerifyController · AU-04·AU-05 | 0 |
 | C-05 아이디 찾기·비밀번호 재설정 | `auth/recovery.html` | AccountRecoveryController · AU-07 | 4 |
-| C-06 접근·만료 안내 | `error/access.html` | GlobalExceptionHandler · Security (403·세션 만료 안내) | 10 |
+| E-401 로그인 필요 | `error/401.html` | Security 인증 실패 처리 (연결은 보안 설정 이슈) | 0 |
+| E-SESSION 세션 만료 | `error/401-expired.html` | 위와 같음 | 0 |
+| E-DUP 중복 로그인 종료 | `error/401-duplicate.html` | 위와 같음 (한 기기 로그인) | 0 |
 | C-09 강사 첫 로그인 비밀번호 변경 | `auth/instructor-password.html` | InstructorSetupController · AU-13 | 2 |
 | C-10 개인정보 처리방침 | `main/privacy.html` | MainController · (API 추가 필요: GET /privacy) | 0 |
 | C-11 공통 UI 상태 컴포넌트 | `common/ui-states.html` | 컨트롤러 없음 — 공통 UI 상태(빈 화면·토스트 등) 참고용 | 6 |
