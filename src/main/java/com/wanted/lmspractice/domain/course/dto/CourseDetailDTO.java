@@ -3,6 +3,7 @@ package com.wanted.lmspractice.domain.course.dto;
 import com.wanted.lmspractice.domain.course.entity.Course;
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.enrollment.dto.SeatSummaryDTO;
+import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
 import java.util.Arrays;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -26,8 +27,8 @@ import lombok.ToString;
 @ToString
 public class CourseDetailDTO {
 
-    /** 수강 확정 후 수강 기간(일). 기획 확정값 — DB CHECK(expires_at = confirmed_at + 30일)와 같다 */
-    public static final int ENROLLMENT_DAYS = 30;
+    /** 수강 확정 후 수강 기간(일) — 값은 수강 도메인 Enrollment.ENROLLMENT_DAYS 한 곳에서 정한다(#09, DB CHECK +30일과 같음) */
+    public static final int ENROLLMENT_DAYS = Enrollment.ENROLLMENT_DAYS;
 
     private Long id;
     private Long hobbyId;
