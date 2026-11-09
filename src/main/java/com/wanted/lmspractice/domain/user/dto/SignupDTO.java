@@ -27,17 +27,27 @@ import lombok.ToString;
 @ToString(exclude = {"password", "passwordConfirm"})
 public class SignupDTO {
 
+    /*
+     * 아이디·비밀번호 규칙 상수 — 강사 생성(InstructorCreateDTO, #05)·강사 새 비밀번호(PasswordChangeDTO, #05)·
+     * 비밀번호 재설정(#06)이 같은 규칙을 쓰므로 한곳에 둔다(어노테이션 값이라 컴파일 상수여야 한다).
+     */
+    public static final String LOGIN_ID_REGEXP = "^(?=.*[A-Za-z])[A-Za-z0-9]{4,20}$";
+    public static final String LOGIN_ID_MESSAGE = "아이디는 영문 또는 영문+숫자 4~20자로 입력해 주세요. (한글·특수문자·공백 불가)";
+    public static final int PASSWORD_MIN = 8;
+    public static final int PASSWORD_MAX = 16;
+    public static final String PASSWORD_SIZE_MESSAGE = "비밀번호는 8~16자로 입력해 주세요.";
+    public static final String PASSWORD_REGEXP = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[^A-Za-z0-9\\s])\\S+$";
+    public static final String PASSWORD_MESSAGE = "비밀번호는 영문·숫자·특수문자를 모두 포함하고 공백이 없어야 해요.";
+
     /** 영문 또는 영문+숫자(숫자만은 불가). 길이 4~20은 ❓ 임시값(API US-02: 길이 미정, #01 확정 필요) */
     @NotBlank(message = "아이디를 입력해 주세요.")
-    @Pattern(regexp = "^(?=.*[A-Za-z])[A-Za-z0-9]{4,20}$",
-            message = "아이디는 영문 또는 영문+숫자 4~20자로 입력해 주세요. (한글·특수문자·공백 불가)")
+    @Pattern(regexp = LOGIN_ID_REGEXP, message = LOGIN_ID_MESSAGE)
     private String loginId;
 
     /** 8~16자, 영문·숫자·특수문자를 모두 포함(화면 안내문 기준, API ❓ "세 종류 모두 필수" 확인 필요), 공백 불가 */
     @NotBlank(message = "비밀번호를 입력해 주세요.")
-    @Size(min = 8, max = 16, message = "비밀번호는 8~16자로 입력해 주세요.")
-    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[^A-Za-z0-9\\s])\\S+$",
-            message = "비밀번호는 영문·숫자·특수문자를 모두 포함하고 공백이 없어야 해요.")
+    @Size(min = PASSWORD_MIN, max = PASSWORD_MAX, message = PASSWORD_SIZE_MESSAGE)
+    @Pattern(regexp = PASSWORD_REGEXP, message = PASSWORD_MESSAGE)
     private String password;
 
     /** password와 같아야 한다 — 일치 여부는 두 값을 비교해야 해서 SignupController가 BindingResult로 확인한다 */

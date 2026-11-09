@@ -40,9 +40,48 @@ public class InstructorHobbyGrant {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = Boolean.TRUE;  // DB 기본값과 같은 초기값
 
-    @Column(name = "granted_at", nullable = false, insertable = false)
-    private LocalDateTime grantedAt;  // 생성 시 DB 기본값(현재 시각), 이후 변경 가능
+    /*
+     * 부여 시각 — create()에서 직접 넣는다. DB 기본값(insertable = false)에 맡기면 메모리 값이 null로 남아,
+     * 같은 트랜잭션에서 회수(revoke)할 때 UPDATE가 granted_at = NULL을 보내 NOT NULL 제약에 걸린다(#05 테스트에서 확인).
+     */
+    @Column(name = "granted_at", nullable = false)
+    private LocalDateTime grantedAt;
 
     @Column(name = "revoked_at")
     private LocalDateTime revokedAt;
+
+    /**
+     * 새 권한 부여 (AI-05).
+     * 호출: InstructorAccountService.grantHobby·create (#05)
+     *
+     * @param now 부여 시각 (regrant·revoke와 같이 서비스가 LocalDateTime.now()로 넘긴다 — UTC 변환은 Hibernate jdbc.time_zone)
+     */
+    public static InstructorHobbyGrant create(Long instructorId, Long hobbyId, LocalDateTime now) {
+        InstructorHobbyGrant grant = new InstructorHobbyGrant();
+        grant.instructorId = instructorId;
+        grant.hobbyId = hobbyId;
+        grant.grantedAt = now;
+        return grant;
+    }
+
+    /** 현재 유효한 권한인지 (회수되면 false — 행은 이력으로 남긴다) */
+    public boolean isGranted() {
+        return Boolean.TRUE.equals(isActive);
+    }
+
+    /**
+     * 회수했던 권한을 다시 부여 — 기본키(instructor_id, hobby_id)가 같아 새 행을 만들 수 없으므로 기존 행을 되살린다.
+     * 호출: InstructorAccountService.grantHobby (#05)
+     */
+    public void regrant(LocalDateTime now) {
+        this.isActive = Boolean.TRUE;
+        this.grantedAt = now;
+        this.revokedAt = null;
+    }
+
+    /** 권한 회수 (AI-06). 호출: InstructorAccountService.revokeHobby (#05) */
+    public void revoke(LocalDateTime now) {
+        this.isActive = Boolean.FALSE;
+        this.revokedAt = now;
+    }
 }
