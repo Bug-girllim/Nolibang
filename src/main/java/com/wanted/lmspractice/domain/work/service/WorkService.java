@@ -2,14 +2,22 @@ package com.wanted.lmspractice.domain.work.service;
 
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
+import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
+import com.wanted.lmspractice.domain.hobby.service.HobbyService;
+import com.wanted.lmspractice.domain.review.dto.FeedbackRefDTO;
+import com.wanted.lmspractice.domain.review.service.ReviewQueryService;
 import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.domain.work.dto.WorkDTO;
 import com.wanted.lmspractice.domain.work.dto.WorkFileDTO;
+import com.wanted.lmspractice.domain.work.dto.WorkFormDTO;
+import com.wanted.lmspractice.domain.work.dto.WorkFormOptionsDTO;
+import com.wanted.lmspractice.domain.work.entity.Visibility;
 import com.wanted.lmspractice.domain.work.entity.Work;
 import com.wanted.lmspractice.domain.work.entity.WorkFile;
 import com.wanted.lmspractice.domain.work.entity.WorkKind;
 import com.wanted.lmspractice.domain.work.entity.WorkVersion;
 import com.wanted.lmspractice.domain.work.policy.WorkAccessPolicy;
+import com.wanted.lmspractice.domain.work.policy.WorkLevelPolicy;
 import com.wanted.lmspractice.domain.work.repository.WorkFileRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkVersionRepository;
@@ -17,6 +25,7 @@ import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import com.wanted.lmspractice.global.file.FileStorage;
 import com.wanted.lmspractice.global.file.StoredFile;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +34,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * [역할] 작품 저장·수정(최종 과제)과 이미지·작품 열람 — 파일 저장은 FileStorage, 열람 권한은 WorkAccessPolicy
- * [담당] 팀원 4 · #16 (#19 일반 작품 저장은 이 서비스에 이어서 추가)   [기획] FR-022, D-18·D-22, NFR-01·05
+ * [역할] 작품 저장·수정(최종 과제·일반 작품)과 이미지·작품 열람 — 파일 저장은 FileStorage, 열람 권한은 WorkAccessPolicy
+ * [담당] 팀원 4 · #16, #19(일반 작품 등록·수정·공개 설정)   [기획] FR-022·027, D-17·D-18·D-22·D-29, NFR-01·05
  * [연결]
- *  - 호출받음: AssignmentService(#13, 계약 C8 저장·수정), WorkFileController(이미지 출력), #18·#14 화면(getWork)
- *  - 호출함:   EnrollmentService.getOwnedEnrollment(본인 수강 확인), FileStorage, WorkAccessPolicy, Work·WorkVersion·WorkFile Repository
+ *  - 호출받음: AssignmentService(#13, 계약 C8 저장·수정), WorkFileController(이미지 출력), #18·#14 화면(getWork),
+ *             MyWorkController(#19, MW-01~05)
+ *  - 호출함:   EnrollmentService.getOwnedEnrollment(본인 수강 확인), FileStorage, WorkAccessPolicy, Work·WorkVersion·WorkFile Repository,
+ *             (#19) HobbyService(운영 중 취미), WorkLevelPolicy(수준 태그 ← BadgeService C12), ReviewQueryService.findLatestFeedbackForReference(C11)
  *  - 계약:     C8 saveFinalWorkVersion / updateFinalWorkVersion — 시그니처 변경 금지
  * [DB 구조] works → work_versions(제목·설명) → work_files(이미지 1~5장). works.display_version_id = 지금 보여 줄 버전.
  * [원칙] DB와 파일은 같은 트랜잭션이 아니다(DEV_REVIEW §2-10). 그래서 "파일 먼저 저장 → DB 저장, DB가 실패하면 저장한 파일 삭제"
@@ -44,13 +55,17 @@ public class WorkService {
     public static final int MIN_IMAGES = 1;   // D-18
     public static final int MAX_IMAGES = 5;   // D-18·D-22
     private static final int MAX_TITLE_LENGTH = 200;   // work_versions.title VARCHAR(200)
+    private static final int FIRST_VERSION_NO = 1;     // 일반 작품은 버전 1개(이전 시도 보관은 보류)
 
     private final WorkRepository workRepository;
     private final WorkVersionRepository workVersionRepository;
     private final WorkFileRepository workFileRepository;
     private final FileStorage fileStorage;
     private final WorkAccessPolicy workAccessPolicy;
+    private final WorkLevelPolicy workLevelPolicy;
     private final EnrollmentService enrollmentService;
+    private final HobbyService hobbyService;
+    private final ReviewQueryService reviewQueryService;
 
     /**
      * 계약 C8: 최종 과제 제출 버전 저장 (호출: AssignmentService — 최초 제출·반려 후 재제출)
@@ -101,6 +116,173 @@ public class WorkService {
                 .filter(w -> w.isAuthor(userId) && w.getKind() == WorkKind.FINAL)
                 .orElseThrow(() -> new BusinessException(ErrorCode.WORK_NOT_FOUND));
 
+        editVersion(version, title, description, images);
+    }
+
+    // ───────────────────────── #19 일반 작품 ─────────────────────────
+
+    /**
+     * 일반 작품 등록 (FR-027, API MW-02) — 수강·평가와 무관하므로 수료 상태에 영향이 없다.
+     * 흐름: 입력 검증 → 운영 중 취미(D-29) → 수준 태그(WorkLevelPolicy) → 참고 피드백 본인 여부(D-17)
+     *       → 이미지 저장 → 작품·버전 1·이미지 연결 → 표시본 지정. DB가 실패하면 저장한 파일을 지운다(최종 과제 저장과 같은 순서).
+     * 호출: MyWorkController.create (POST /my/works)
+     *
+     * @param images 빈 파일 칸(선택 안 함)은 무시하고 1~5장이어야 한다
+     * @return 새 works.id
+     * @throws BusinessException INVALID_INPUT(제목·회고), HOBBY_NOT_FOUND, HOBBY_NOT_OPERATING, LEVEL_TAG_NOT_ALLOWED,
+     *         ACCESS_DENIED(내 최근 공식 피드백이 아닌 것을 연결), INVALID_IMAGE_COUNT·INVALID_IMAGE_FILE·FILE_TOO_LARGE·FILE_SAVE_FAILED
+     */
+    @Transactional
+    public Long saveGeneralWork(Long userId, WorkFormDTO dto, List<MultipartFile> images) {
+        List<MultipartFile> files = selectedFiles(images);
+        validateTitle(dto.getTitle());
+        validateImageCount(files);
+        checkGeneralWorkRules(userId, dto, null);
+
+        List<StoredFile> stored = fileStorage.storeAll(files);       // 파일이 먼저 — 실패하면 storeAll 이 정리하고 던진다
+        try {
+            Work work = workRepository.save(Work.createGeneral(userId, dto.getHobbyId(), dto.getLevel(),
+                    dto.getVisibility(), dto.getReflection(), dto.getReferenceReviewId(), LocalDateTime.now()));
+            WorkVersion version = workVersionRepository.save(
+                    WorkVersion.create(work.getId(), FIRST_VERSION_NO, dto.getTitle().strip(), dto.getDescription()));
+            saveFiles(version.getId(), stored);
+            work.display(version.getId());
+            return work.getId();
+        } catch (RuntimeException e) {
+            fileStorage.deleteAllQuietly(stored);                     // DB 쪽 실패 — 방금 저장한 파일을 남기지 않는다(F-05)
+            throw e;
+        }
+    }
+
+    /**
+     * 일반 작품 수정 화면의 기존 값 (API MW-03)
+     * 호출: MyWorkController.editForm (GET /my/works/{workId}/edit)
+     * @throws BusinessException WORK_NOT_FOUND (없음·남의 작품·최종 과제 — 최종 과제는 AS-03에서 수정)
+     */
+    @Transactional(readOnly = true)
+    public WorkFormDTO getGeneralWorkForm(Long userId, Long workId) {
+        Work work = getOwnedGeneralWork(userId, workId);
+        return WorkFormDTO.from(work, getDisplayVersion(work));
+    }
+
+    /**
+     * 일반 작품 수정 (API MW-04) — 지금 보여 줄 버전을 그대로 고친다(이전 시도 보관은 이번 범위 밖).
+     * 수준 태그는 수정 시점의 배지로 다시 검사한다. created_at 이 바뀌지 않아 타임라인 순서가 유지되고, 관리자 숨김은 풀리지 않는다.
+     * images 를 하나도 고르지 않으면 기존 이미지를 유지하고, 고르면 전체 교체한다(최종 과제 수정과 같은 순서).
+     * 호출: MyWorkController.edit (POST /my/works/{workId}/edit)
+     * @throws BusinessException WORK_NOT_FOUND + saveGeneralWork 와 같은 예외
+     */
+    @Transactional
+    public void updateGeneralWork(Long userId, Long workId, WorkFormDTO dto, List<MultipartFile> images) {
+        Work work = getOwnedGeneralWork(userId, workId);
+        validateTitle(dto.getTitle());
+        checkGeneralWorkRules(userId, dto, work);
+
+        work.editGeneral(dto.getHobbyId(), dto.getLevel(), dto.getVisibility(), dto.getReflection(),
+                dto.getReferenceReviewId(), LocalDateTime.now());
+        editVersion(getDisplayVersion(work), dto.getTitle(), dto.getDescription(), selectedFiles(images));
+    }
+
+    /**
+     * 공개 설정 변경 (API MW-05) — 일반 작품·최종 과제 모두 작성자 본인만.
+     * 관리자 숨김 중이면 공개로 바꿔도 노출되지 않는다(Work.isPubliclyVisible).
+     * 호출: MyWorkController.changeVisibility (POST /my/works/{workId}/visibility)
+     * @throws BusinessException WORK_NOT_FOUND (없음·남의 작품 — 존재를 숨김)
+     */
+    @Transactional
+    public void changeVisibility(Long userId, Long workId, Visibility visibility) {
+        Work work = workRepository.findById(workId)
+                .filter(w -> w.isOwnedActiveBy(userId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.WORK_NOT_FOUND));
+        work.changeVisibility(visibility, LocalDateTime.now());
+    }
+
+    /**
+     * 일반 작품 폼 선택지 (API MW-01 모델 hobbies·allowedLevels·reference)
+     * 호출: MyWorkController (등록·수정 화면, 입력 오류로 다시 그릴 때)
+     * @param hobbyId 폼에서 고른 취미 — 없으면 수준은 입문만, 참고 피드백은 없음
+     */
+    @Transactional(readOnly = true)
+    public WorkFormOptionsDTO getFormOptions(Long userId, Long hobbyId) {
+        List<HobbyDTO> operating = hobbyService.getCategories(Role.USER).stream()
+                .flatMap(category -> category.getHobbies().stream())
+                .filter(HobbyDTO::isOperating)                        // D-29: 운영 중 취미만
+                .toList();
+        FeedbackRefDTO reference = hobbyId == null ? null
+                : reviewQueryService.findLatestFeedbackForReference(userId, hobbyId).orElse(null);
+        return new WorkFormOptionsDTO(operating, workLevelPolicy.allowedLevels(userId, hobbyId), reference);
+    }
+
+    // 일반 작품 등록·수정 공통 업무 규칙. current 는 수정 중인 작품(등록이면 null)
+    private void checkGeneralWorkRules(Long userId, WorkFormDTO dto, Work current) {
+        checkOperatingHobby(dto.getHobbyId());
+        workLevelPolicy.checkAllowed(userId, dto.getHobbyId(), dto.getLevel());
+        checkReference(userId, dto.getHobbyId(), dto.getReferenceReviewId(), current);
+    }
+
+    // D-29: 운영 중인 세부 취미만. 학습자에게 보이지 않는(비공개) 취미는 HobbyService 가 HOBBY_NOT_FOUND 를 던진다
+    private void checkOperatingHobby(Long hobbyId) {
+        if (hobbyId == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        if (!hobbyService.getHobbySummary(hobbyId, Role.USER).isOperating()) {
+            throw new BusinessException(ErrorCode.HOBBY_NOT_OPERATING);
+        }
+    }
+
+    /**
+     * D-17·D-47: 참고 피드백은 "내 같은 취미의 최근 공식 피드백 1건"만 연결할 수 있다.
+     * 수정 때는 이미 연결해 둔 피드백을 그대로 두는 것도 허용한다(취미를 바꾸지 않은 경우만 — 그 사이 더 최근 피드백이 생겨도 유지).
+     * 그 밖의 id(남의 피드백·다른 취미·예전 피드백)는 ACCESS_DENIED (API MW-02).
+     */
+    private void checkReference(Long userId, Long hobbyId, Long referenceReviewId, Work current) {
+        if (referenceReviewId == null) {
+            return;
+        }
+        boolean keepsCurrent = current != null
+                && referenceReviewId.equals(current.getReferenceReviewId())
+                && hobbyId.equals(current.getHobbyId());
+        if (keepsCurrent) {
+            return;
+        }
+        boolean isLatestOwn = reviewQueryService.findLatestFeedbackForReference(userId, hobbyId)
+                .map(ref -> referenceReviewId.equals(ref.getReviewRoundId()))
+                .orElse(false);
+        if (!isLatestOwn) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+    }
+
+    // 본인 일반 작품만 — 없거나 남의 것·최종 과제·삭제된 작품이면 존재를 숨기고 404
+    private Work getOwnedGeneralWork(Long userId, Long workId) {
+        return workRepository.findById(workId)
+                .filter(w -> w.isOwnedActiveBy(userId) && w.isGeneral())
+                .orElseThrow(() -> new BusinessException(ErrorCode.WORK_NOT_FOUND));
+    }
+
+    private WorkVersion getDisplayVersion(Work work) {
+        if (work.getDisplayVersionId() == null) {
+            throw new BusinessException(ErrorCode.WORK_NOT_FOUND);
+        }
+        return workVersionRepository.findById(work.getDisplayVersionId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.WORK_NOT_FOUND));
+    }
+
+    // 파일 칸에서 아무것도 고르지 않으면 브라우저가 빈 파일 1개를 보낸다 — 실제로 고른 파일만 남긴다
+    private List<MultipartFile> selectedFiles(List<MultipartFile> images) {
+        if (images == null) {
+            return List.of();
+        }
+        return images.stream().filter(file -> file != null && !file.isEmpty()).toList();
+    }
+
+    // ───────────────────────── 공통 ─────────────────────────
+
+    /**
+     * 같은 버전의 제목·설명 수정 + (이미지를 골랐으면) 이미지 전체 교체. 최종 과제 수정(C8)과 일반 작품 수정(MW-04)이 함께 쓴다.
+     * 교체 순서: 새 파일 저장 성공 → DB의 이미지 행 교체 → 이전 파일 삭제. 새 파일 저장이 실패하면 이전 이미지는 그대로다.
+     */
+    private void editVersion(WorkVersion version, String title, String description, List<MultipartFile> images) {
         boolean replaceImages = images != null && !images.isEmpty();
         if (replaceImages) {
             validateImageCount(images);
