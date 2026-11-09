@@ -150,6 +150,10 @@ class EnrollmentServiceTest {
     @Test
     @DisplayName("수강 취소 → 자리 반환 → 대기 1순위 자동 확정, 취소한 강의는 재신청 불가(D-55)")
     void cancelFillsFirstWaiterAndBlocksReapply() {
+        // [#14 수정 — 팀원 2 확인 필요] 시드 e5는 평가 진행 중(r4)이라 hasPendingReview 구현 후 취소가 거부된다(CANCEL_NOT_ALLOWED_DURING_REVIEW).
+        // 이 테스트의 목적(취소 → 자리 반환)에 맞게 r4를 "기간 안 반려"로 끝난 상태로 바꾼 뒤 취소한다
+        sql("UPDATE review_rounds SET status = 'REJECTED', reviewer_id = 6, feedback_body = REPEAT('가', 50), "
+                + "finalized_at = started_at WHERE id = 4");
         enrollmentService.cancel(LEARNER2, 5L);  // 강의 4의 learner2 수강(e5) 취소
 
         Enrollment cancelled = enrollmentRepository.findById(5L).orElseThrow();
