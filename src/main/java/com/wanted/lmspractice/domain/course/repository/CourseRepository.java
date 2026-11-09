@@ -29,7 +29,4 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     /** 한 세부 취미의 공개(OPEN) 강의 수 (관리자 A-S15) */
     long countByHobbyIdAndStatus(Long hobbyId, CourseStatus status);
-
-    /** 전체 강의를 취미·수준 순서로 (관리자 분반 관리·대기열 조회의 강의 선택 A-S05·A-S12, #10) */
-    List<Course> findAllByOrderByHobbyIdAscLevelAsc();
 }

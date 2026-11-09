@@ -20,8 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] 탐색 화면에 필요한 "강의 + 정원·대기 + 내 신청 상태"를 한데 모아 화면용 DTO로 조립한다 (조회 전용)
  * [담당] 팀원 2 · #08   [화면] U-S02·U-S03·U-S04, A-S15   [API] HB-02·HB-03·CO-01·CO-02
  * [연결]
- *  - 호출받음: HobbyController(취미 상세), CourseController(강의 목록·상세), AdminHobbyController(관리자 집계),
- *             AdminSectionController·AdminWaitlistController(#10 관리자 강의 선택 — getAdminCourses)
+ *  - 호출받음: HobbyController(취미 상세), CourseController(강의 목록·상세), AdminHobbyController(관리자 집계)
  *  - 호출함:   HobbyService(취미·노출 규칙), CourseService(강의 데이터),
  *             SeatService.getSeatSummary(정원·대기 — 수강 도메인 조회 계약), EnrollmentService.getStatusForUser(내 신청 상태 — #09 계약)
  *  - 왜 따로 두나: CourseService가 수강 도메인을 직접 부르면, #09에서 EnrollmentService가 강의·취미 확인을 위해 CourseService를 쓰는 순간
@@ -87,17 +86,6 @@ public class CourseCatalogService {
     public EnrollmentStatusDTO getEnrollStatus(CourseDetailDTO course, Long userIdOrNull, Role viewerRole) {
         boolean hobbyOperating = hobbyService.getHobbySummary(course.getHobbyId(), viewerRole).isOperating();
         return statusFor(course.getId(), hobbyOperating, userIdOrNull, viewerRole);
-    }
-
-    /**
-     * 관리자 강의 선택 목록 — 전체 강의(닫힌 강의 포함)에 정원 현황(남은 자리·대기 인원)을 붙인다 (#10 SE-01·WL-01 모델 courses).
-     * 호출: AdminSectionController.list, AdminWaitlistController.list
-     */
-    @Transactional(readOnly = true)
-    public List<CourseDTO> getAdminCourses() {
-        List<CourseDTO> courses = courseService.getAllCoursesForAdmin();
-        courses.forEach(course -> course.setSeats(seatService.getSeatSummary(course.getId())));
-        return courses;
     }
 
     /**
