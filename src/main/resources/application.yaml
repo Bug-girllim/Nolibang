@@ -52,6 +52,24 @@ spring:
     cache: false
 
   # ==================================================
+  # 4-1. 정적 파일(css·js·images) 캐시
+  # Spring Security가 모든 응답에 붙이는 Cache-Control: no-store가 정적 파일까지 덮어써서 브라우저가
+  # 페이지를 옮길 때마다 CSS·이미지를 다시 받았다. 기간을 지정하면 Security가 덮어쓰지 않는다.
+  # 파일 내용이 바뀌면 주소가 바뀌도록(내용 해시) 버전을 붙여서 오래 캐시해도 낡은 파일이 남지 않는다.
+  # ==================================================
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          max-age: 7d
+          cache-public: true
+      chain:
+        strategy:
+          content:
+            enabled: true
+            paths: /css/**,/js/**,/images/**
+
+  # ==================================================
   # 5. Gmail SMTP 이메일 인증
   # ==================================================
   # Gmail 2단계 인증 및 앱 비밀번호 필요
