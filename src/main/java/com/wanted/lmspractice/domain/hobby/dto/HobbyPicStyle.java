@@ -46,12 +46,26 @@ public final class HobbyPicStyle {
             "digital-drawing", "dd",
             "dessert", "ds");
 
-    /** 색연필화 상세 화면의 대표 이미지·수준별 예시 작품 (시안에 있는 이미지) */
-    private static final String PENCIL_HERO = "/images/d1e12edec2f86abce9c49eb326397d4d.jpg";
-    private static final Map<CourseLevel, String> PENCIL_LEVEL_IMAGES = Map.of(
-            CourseLevel.BASIC, "/images/e09f09b947e5652cba60b1aa39b3c64f.webp",
-            CourseLevel.INTERMEDIATE, "/images/cbfd6d2d8616e5aa93b535d0d5f33b84.webp",
-            CourseLevel.ADVANCED, "/images/4bf1934989ed611648e241ac7ec10379.webp");
+    /** 세부 취미 상세 화면의 대표 이미지 (세부 취미 code → 이미지 경로). 색연필화는 시안 이미지, 나머지는 static/images/hobby 의 변환본 */
+    private static final Map<String, String> HERO_IMAGES = Map.of(
+            "colored-pencil", "/images/d1e12edec2f86abce9c49eb326397d4d.jpg",
+            "digital-drawing", "/images/hobby/digital-drawing-hero.jpg",
+            "dessert", "/images/hobby/dessert-hero.jpg");
+
+    /** 세부 취미 상세 화면의 수준별 예시 작품 이미지 (세부 취미 code → 수준 → 이미지 경로) */
+    private static final Map<String, Map<CourseLevel, String>> LEVEL_IMAGES = Map.of(
+            "colored-pencil", Map.of(
+                    CourseLevel.BASIC, "/images/e09f09b947e5652cba60b1aa39b3c64f.webp",
+                    CourseLevel.INTERMEDIATE, "/images/cbfd6d2d8616e5aa93b535d0d5f33b84.webp",
+                    CourseLevel.ADVANCED, "/images/4bf1934989ed611648e241ac7ec10379.webp"),
+            "digital-drawing", Map.of(
+                    CourseLevel.BASIC, "/images/hobby/digital-drawing-basic.jpg",
+                    CourseLevel.INTERMEDIATE, "/images/hobby/digital-drawing-intermediate.jpg",
+                    CourseLevel.ADVANCED, "/images/hobby/digital-drawing-advanced.jpg"),
+            "dessert", Map.of(
+                    CourseLevel.BASIC, "/images/hobby/dessert-basic.jpg",
+                    CourseLevel.INTERMEDIATE, "/images/hobby/dessert-intermediate.jpg",
+                    CourseLevel.ADVANCED, "/images/hobby/dessert-advanced.jpg"));
 
     private HobbyPicStyle() {
     }
@@ -73,12 +87,13 @@ public final class HobbyPicStyle {
 
     /** 세부 취미 상세 화면 대표 이미지 경로. 없으면 null */
     public static String heroImage(String hobbyCode) {
-        return "colored-pencil".equals(hobbyCode) ? PENCIL_HERO : null;
+        return HERO_IMAGES.get(hobbyCode);
     }
 
     /** 세부 취미 상세 화면의 수준별 예시 작품 이미지 경로. 없으면 null */
     public static String levelImage(String hobbyCode, CourseLevel level) {
-        return "colored-pencil".equals(hobbyCode) ? PENCIL_LEVEL_IMAGES.get(level) : null;
+        Map<CourseLevel, String> images = LEVEL_IMAGES.get(hobbyCode);
+        return images == null ? null : images.get(level);
     }
 
     /** 강의 목록 카드의 그림 스타일 클래스 (예: cimg-cp-basic). 없으면 빈 문자열 */
