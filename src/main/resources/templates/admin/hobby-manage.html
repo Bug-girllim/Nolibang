@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <!--
-  [화면] A-S02 대분류 관리 · A-S03 세부 취미 · A-S06 콘텐츠 검수 (관리자, 조회 전용)
+  [화면] A-S02 대분류 관리 · A-S03 세부 취미 · A-S06 콘텐츠 검수 (관리자)
   [연결] AdminHobbyController → return "admin/hobby-manage";  view 값: categories(A-S02) · hobbies(A-S03) · review(A-S06)
   [담당] 팀원 2 · #08
-  [모델] view, categories(List<CategoryDTO>, A-S02·A-S03), courses(List<CourseDTO>)·hobbyNames(Map<id,이름>, A-S06)
-  [동작] D-59(11-06 팀 결정): 대분류·세부 취미·강의 등록·수정과 검수는 시드 데이터로 대체한다. 그래서 세 화면 모두 현황 조회만 하고,
-         등록·수정·상태 변경 버튼은 두지 않는다. 메뉴는 common/layout.html의 adminMenu 조각.
+  [모델] view, categories(List<CategoryDTO>), states(ExposureState[]), showCreateForm,
+         categoryFormDTO(A-S02 추가 폼) · hobbyFormDTO(A-S03 추가 폼), courses·hobbyNames(A-S06), message(flash)
+  [동작] [대분류 추가]·[세부 취미 추가] 버튼 = ?create=true 로 입력 패널을 펼친다(분반 관리 A-S05와 같은 방식, JS 없음).
+         POST /admin/categories, /admin/sub-hobbies → 성공하면 목록으로 돌아와 안내 문구, 실패하면 입력값을 유지한 채 칸 아래 오류.
+         수정·삭제와 콘텐츠 검수 처리는 하지 않는다(D-59, 11-06 팀 결정). 메뉴는 common/layout.html의 adminMenu 조각.
 -->
 <head>
   <meta charset="UTF-8">
@@ -30,18 +32,23 @@
 
 <!-- A-S02 대분류 관리 -->
 <th:block th:if="${view == 'categories'}">
-<div class="ph"><div><h2>대분류 관리</h2><p>대분류별 노출 상태와 세부 취미·공개 강의 현황을 확인해요. (조회 전용)</p></div><div class="row"><span class="chip dk">관리자 보기</span><span class="sid">A-S02</span></div></div>
+<div class="ph"><div><h2>대분류 관리</h2><p>대분류별 노출 상태와 세부 취미·공개 강의 현황을 확인하고, 새 대분류를 추가해요.</p></div><div class="row"><a class="btn dk" th:unless="${showCreateForm}" th:href="@{/admin/categories(create=true)}">+ 대분류 추가</a><span class="sid">A-S02</span></div></div>
+<p class="note" role="status" th:if="${message != null}" th:text="${message}">대분류를 추가했어요.</p>
+<form class="box k" method="post" th:if="${showCreateForm}" th:action="@{/admin/categories}" th:object="${categoryFormDTO}"><p class="h3">새 대분류 추가</p><div class="g3"><div class="field"><label class="lb" for="cn">대분류 이름 *</label><input id="cn" type="text" maxlength="100" th:field="*{name}" placeholder="예: 음악·악기" th:attr="aria-invalid=${#fields.hasErrors('name')}"><p class="err" style="margin: 4px 0 0;" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">같은 이름의 대분류가 이미 있어요.</p></div><div class="field"><label class="lb" for="cs">노출 상태 *</label><select id="cs" th:field="*{state}"><option th:each="s : ${states}" th:value="${s}" th:text="${s.label}">비공개</option></select><p class="err" style="margin: 4px 0 0;" th:if="${#fields.hasErrors('state')}" th:errors="*{state}">노출 상태를 선택해 주세요.</p></div></div><p class="mu" style="margin: 0;">운영 중: 모두에게 보여요 · 준비 중: 강사·관리자에게만 보여요 · 비공개: 관리자에게만 보여요. 처음에는 비공개로 만들고 세부 취미·강의를 채운 뒤 바꾸는 것을 권해요.</p><div class="row"><button type="submit" class="btn dk">대분류 추가</button><a class="btn" th:href="@{/admin/categories}">취소</a></div></form>
 <div class="box" style="overflow-x: auto;"><table class="t adm-t"><thead><tr><th>대분류</th><th>상태</th><th>세부 취미</th><th>운영 중 세부 취미</th><th>공개 강의</th><th>관리</th></tr></thead><tbody>
-<tr th:each="category : ${categories}"><td><b th:text="${category.name}">미술·드로잉</b></td><td><span class="chip" th:classappend="${category.state.name() == 'OPERATING'} ? 'dk' : (${category.state.name() == 'PREPARING'} ? 'prep-pill')" th:text="${category.stateLabel}">운영 중</span></td><td th:text="${category.hobbyCount}">2</td><td th:text="${category.operatingCount}">2</td><td th:text="${category.openCourseCount}">6</td><td style="white-space: nowrap;"><a class="btn sm" th:href="@{/admin/sub-hobbies}">세부 취미 보기</a></td></tr>
+<tr th:each="category : ${categories}"><td><b th:text="${category.name}">미술·드로잉</b></td><td><span class="chip" th:classappend="${category.state.name() == 'OPERATING'} ? 'dk' : (${category.state.name() == 'PREPARING'} ? 'prep-pill')" th:text="${category.stateLabel}">운영 중</span></td><td th:text="${category.hobbyCount}">2</td><td th:text="${category.operatingCount}">2</td><td th:text="${category.openCourseCount}">6</td><td style="white-space: nowrap;"><a class="btn sm" th:href="@{/admin/sub-hobbies(create=true, categoryId=${category.id})}">+ 세부 취미 추가</a></td></tr>
 <tr th:if="${#lists.isEmpty(categories)}"><td class="mu" colspan="6">등록된 대분류가 없어요.</td></tr>
 </tbody></table></div>
 </th:block>
 
 <!-- A-S03 세부 취미 -->
 <th:block th:if="${view == 'hobbies'}">
-<div class="ph"><div><h2>세부 취미</h2><p>모든 세부 취미의 노출 상태와 강의·차시 구성을 한 표로 확인해요. (조회 전용)</p></div><div class="row"><span class="chip dk">관리자 보기</span><span class="sid">A-S03</span></div></div>
+<div class="ph"><div><h2>세부 취미</h2><p>모든 세부 취미의 노출 상태와 강의·차시 구성을 확인하고, 새 세부 취미를 추가해요.</p></div><div class="row"><a class="btn dk" th:unless="${showCreateForm}" th:href="@{/admin/sub-hobbies(create=true)}">+ 세부 취미 추가</a><span class="sid">A-S03</span></div></div>
+<p class="note" role="status" th:if="${message != null}" th:text="${message}">세부 취미를 추가했어요.</p>
+<form class="box k" method="post" th:if="${showCreateForm}" th:action="@{/admin/sub-hobbies}" th:object="${hobbyFormDTO}"><p class="h3">새 세부 취미 추가</p><div class="g3"><div class="field"><label class="lb" for="hc">대분류 *</label><select id="hc" th:field="*{categoryId}" th:attr="aria-invalid=${#fields.hasErrors('categoryId')}"><option value="">선택</option><option th:each="c : ${categories}" th:value="${c.id}" th:text="|${c.name} (${c.stateLabel})|">미술·드로잉 (운영 중)</option></select><p class="err" style="margin: 4px 0 0;" th:if="${#fields.hasErrors('categoryId')}" th:errors="*{categoryId}">대분류를 선택해 주세요.</p></div><div class="field"><label class="lb" for="hn">세부 취미 이름 *</label><input id="hn" type="text" maxlength="100" th:field="*{name}" placeholder="예: 수채화" th:attr="aria-invalid=${#fields.hasErrors('name')}"><p class="err" style="margin: 4px 0 0;" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">이 대분류에 같은 이름의 세부 취미가 이미 있어요.</p></div><div class="field"><label class="lb" for="hs">노출 상태 *</label><select id="hs" th:field="*{state}"><option th:each="s : ${states}" th:value="${s}" th:text="${s.label}">비공개</option></select><p class="err" style="margin: 4px 0 0;" th:if="${#fields.hasErrors('state')}" th:errors="*{state}">노출 상태를 선택해 주세요.</p></div></div><div class="field"><label class="lb" for="hd">소개 (선택, 1000자 이하)</label><textarea id="hd" rows="3" maxlength="1000" th:field="*{description}" placeholder="세부 취미 상세 화면에 보이는 짧은 소개"></textarea><p class="err" style="margin: 4px 0 0;" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">소개는 1000자 이하로 입력해 주세요.</p></div><p class="mu" style="margin: 0;">대분류가 비공개·준비 중이면 세부 취미를 운영 중으로 만들어도 학습자에게는 보이지 않아요. 강의는 없는 상태로 만들어져요.</p><div class="row"><button type="submit" class="btn dk">세부 취미 추가</button><a class="btn" th:href="@{/admin/sub-hobbies}">취소</a></div></form>
 <div class="box" style="overflow-x: auto;"><table class="t adm-t"><thead><tr><th>대분류</th><th>세부 취미</th><th>상태</th><th>강의 (공개/전체)</th><th>차시</th><th>관리</th></tr></thead><tbody>
 <th:block th:each="category : ${categories}"><tr th:each="hobby : ${category.hobbies}"><td th:text="${category.name}">미술·드로잉</td><td><b th:text="${hobby.name}">색연필화</b></td><td><span class="chip" th:classappend="${hobby.state.name() == 'OPERATING'} ? 'dk' : (${hobby.state.name() == 'PREPARING'} ? 'prep-pill')" th:text="${hobby.stateLabel}">운영 중</span></td><td><span th:text="${hobby.openCourseCount}">3</span> / <span th:text="${hobby.totalCourseCount}">3</span></td><td th:text="${hobby.lessonCount}">9</td><td style="white-space: nowrap;"><a class="btn sm" th:if="${hobby.totalCourseCount > 0}" th:href="@{/hobbies/{id}(id=${hobby.id})}">상세 보기</a></td></tr></th:block>
+<tr th:if="${#aggregates.sum(categories.![hobbyCount]) == 0}"><td class="mu" colspan="6">등록된 세부 취미가 없어요.</td></tr>
 </tbody></table></div>
 </th:block>
 
@@ -55,7 +62,7 @@
 </tbody></table></div>
 </th:block>
 
-<ul class="ul mu"><li>대분류·세부 취미·강의 등록과 수정은 시드 데이터로 입력해요(D-59, 11-06 팀 결정).</li></ul>
+<ul class="ul mu"><li>대분류·세부 취미는 이 화면에서 추가할 수 있어요. 수정·삭제와 강의 등록은 시드 데이터로 관리해요(D-59, 11-06 팀 결정).</li></ul>
 </main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
 </body>
 </html>

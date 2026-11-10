@@ -114,6 +114,8 @@ table.t{background:var(--card);border-color:var(--ln);box-shadow:none}
 .pic-dessert{--pic:url(../images/d646d36deb48c6811e600203e26f166e.jpg)}
 .pic-craft{--pic:url(../images/0a4a3aa68a387a85f12b842092b1ffa8.webp)}
 .pic-photo{--pic:url(../images/22f7031aebbeb206b167821be79ebced.webp)}
+/* 이미지를 정하지 않은 세부 취미(관리자가 새로 추가한 취미 등) 기본 그림 — HobbyPicStyle.DEFAULT_HOBBY_PIC_CLASS */
+.pic-default{--pic:url(../images/3e5e7da65a0dedf758b57596eb180054.webp)}
 .pic-craft.pa{background-position:left center,center}
 .pic-craft.pb{background-position:right center,center}
 /* 작품 게시판: 갤러리 카드 */

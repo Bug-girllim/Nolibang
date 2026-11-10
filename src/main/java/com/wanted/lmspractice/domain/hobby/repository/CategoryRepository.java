@@ -2,6 +2,7 @@ package com.wanted.lmspractice.domain.hobby.repository;
 
 import com.wanted.lmspractice.domain.hobby.entity.Category;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -18,4 +19,13 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     /** 표시 순서(sort_order)대로 전체 대분류. 같으면 id 순 */
     List<Category> findAllByOrderBySortOrderAscIdAsc();
+
+    /** 대분류 추가 시 code 중복 확인 */
+    boolean existsByCode(String code);
+
+    /** 대분류 추가 시 이름 중복 확인 (A-S02) */
+    boolean existsByName(String name);
+
+    /** 새 대분류를 맨 뒤에 두기 위한 현재 가장 큰 정렬 순서 */
+    Optional<Category> findTopByOrderBySortOrderDesc();
 }

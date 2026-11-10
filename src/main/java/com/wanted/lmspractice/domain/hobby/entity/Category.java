@@ -56,4 +56,12 @@ public class Category {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /**
+     * 관리자 대분류 추가(A-S02) — 새 대분류 엔티티를 만든다. 호출: HobbyService.createCategory
+     * code는 화면에서 받지 않고 서비스가 겹치지 않게 만들어 넣는다(이미지 매핑용 시드 code와 구분).
+     */
+    public static Category create(String code, String name, ExposureState state, int sortOrder) {
+        return new Category(null, code, name, state, sortOrder, null, null);
+    }
 }
