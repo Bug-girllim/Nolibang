@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] 영상 업로드 — 관리자(A-VID)·강사(T-VID) 공용 (시안 없음 — 기존 관리자 화면(A-S12) 구성·스타일을 그대로 씀)
+  [연결] AdminVideoController(/admin/videos) · InstructorVideoController(/instructor/videos) → return "video/manage";
+  [모델] admin(boolean), basePath(String), videos(List<UploadedVideo>), lessons(List<LessonVideoOptionDTO>),
+         linked(Map<String, List<String>> — 영상 key → 연결된 차시 이름들), maxSizeMb(long), flash message·errorMessage
+  [동작] 업로드:   POST {basePath} (multipart, name="file")
+         미리보기: GET  {basePath}/file?key=… → 위쪽 플레이어 (Range 지원 → 구간 이동)
+         차시 연결: POST {basePath}/link (key, lessonId) — lessons.video_key·duration_sec 변경 (확인 창)
+         삭제:     POST {basePath}/delete (key) — 차시에 연결된 영상은 버튼을 막고 서버도 거부한다 (확인 창)
+  [범위] 관리자: 모든 영상·모든 차시 / 강사: 내가 올린 영상만·권한 받은 취미의 차시만
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>영상 업로드 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu=${admin} ? 'admin' : 'lms')}"></header><div class="lay"><aside th:replace="${admin} ? ~{common/layout :: adminSide(active='A-VID')} : ~{common/layout :: teacherSide(active='T-VID')}"></aside><main class="main">
+<div class="ph"><div><h2>영상 업로드</h2>
+  <p th:if="${admin}">MP4 · 한 개 <th:block th:text="${maxSizeMb}">500</th:block>MB 이하 · 모든 영상과 모든 차시를 관리해요 · 올린 영상은 GitHub에 올라가지 않아요</p>
+  <p th:unless="${admin}">MP4 · 한 개 <th:block th:text="${maxSizeMb}">500</th:block>MB 이하 · 내가 올린 영상만 보이고, 활동 권한을 받은 취미의 차시에만 연결할 수 있어요</p>
+</div></div>
+
+<p class="note" role="status" th:if="${message != null}" th:text="${message}">색연필화 · 입문 · 1차시에 영상을 연결했어요.</p>
+<p class="err" role="alert" th:if="${errorMessage != null}" th:text="${errorMessage}">MP4 영상 파일만 올릴 수 있습니다.</p>
+
+<div class="box">
+  <p class="h3">영상 올리기</p>
+  <form id="uploadForm" class="row" enctype="multipart/form-data" method="post" th:action="@{${basePath}}" th:attr="data-max-bytes=${maxSizeMb * 1024 * 1024}">
+    <input accept="video/mp4,.mp4" aria-label="올릴 MP4 영상 선택" id="videoFile" name="file" required type="file">
+    <button class="btn dk" id="uploadBtn" type="submit">업로드</button>
+  </form>
+  <p class="mu">확장자만 .mp4로 바꾼 파일은 거부돼요. 큰 파일은 올리는 데 시간이 걸리니 완료 메시지가 나올 때까지 기다려 주세요.</p>
+</div>
+
+<div class="box">
+  <p class="h3">미리보기</p>
+  <p class="mu" id="previewName">목록에서 [미리보기]를 누르면 여기서 재생돼요.</p>
+  <video controls id="preview" preload="metadata" style="width: 100%; max-height: 420px; background: #000;"></video>
+</div>
+
+<p class="h3">올린 영상</p>
+<table class="t" style="table-layout: auto; width: 100%;"><thead><tr><th>파일</th><th th:if="${admin}">올린 사람</th><th>크기</th><th>길이</th><th>올린 시각</th><th>연결된 차시</th><th>차시에 연결</th><th>동작</th></tr></thead><tbody>
+  <tr th:if="${#lists.isEmpty(videos)}"><td th:attr="colspan=${admin} ? 8 : 7" class="mu">올린 영상이 없어요.</td></tr>
+  <tr th:each="v : ${videos}" th:with="links=${linked[v.videoKey]}">
+    <td><span th:text="${v.fileName}">목공_입문_1차시_a3f9c2d1.mp4</span><br><span class="mu" th:text="${v.videoKey}">videos/uploaded/…</span></td>
+    <td th:if="${admin}" th:text="${v.ownerLabel}">관리자</td>
+    <td th:text="${v.sizeLabel}">6.7 MB</td>
+    <td th:text="${v.durationLabel}">10:00</td>
+    <td th:text="${#temporals.format(v.uploadedAt, 'MM.dd HH:mm')}">11.10 14:00</td>
+    <td><span th:if="${links == null}" class="mu">없음</span><th:block th:each="l : ${links}"><span class="chip dk" th:text="${l}">색연필화 · 입문 · 1차시</span> </th:block></td>
+    <td>
+      <form class="row js-link" method="post" th:action="@{${basePath + '/link'}}" th:if="${!#lists.isEmpty(lessons) and v.durationSec != null}">
+        <input name="key" type="hidden" th:value="${v.videoKey}">
+        <select aria-label="연결할 차시" name="lessonId" required style="max-width: 220px;">
+          <option value="">차시 선택</option>
+          <option th:each="o : ${lessons}" th:value="${o.lessonId}" th:text="|${o.label} (현재: ${o.videoFileName})|">색연필화 · 입문 · 1차시 (현재: …)</option>
+        </select>
+        <button class="btn sm" type="submit">연결</button>
+      </form>
+      <span class="mu" th:if="${v.durationSec == null}">길이를 읽을 수 없어 연결 불가</span>
+      <span class="mu" th:if="${v.durationSec != null and #lists.isEmpty(lessons)}">연결할 수 있는 차시가 없어요</span>
+    </td>
+    <td><div class="row">
+      <button class="btn sm js-preview" type="button" th:attr="data-src=@{${basePath + '/file'}(key=${v.videoKey})},data-name=${v.fileName}">미리보기</button>
+      <form class="js-delete" method="post" th:action="@{${basePath + '/delete'}}" th:attr="data-name=${v.fileName}">
+        <input name="key" type="hidden" th:value="${v.videoKey}">
+        <button class="btn sm" type="submit" th:disabled="${links != null}" th:title="${links != null} ? '차시에 연결된 영상은 삭제할 수 없어요'">삭제</button>
+      </form>
+    </div></td>
+  </tr>
+</tbody></table>
+
+<p class="h3" style="margin-top: 24px;">차시별 현재 영상</p>
+<p class="mu" th:if="${#lists.isEmpty(lessons)}" th:text="${admin} ? '등록된 차시가 없어요.' : '활동 권한을 받은 취미에 차시가 없어요. 취미 권한은 관리자에게 요청해 주세요.'">활동 권한을 받은 취미에 차시가 없어요.</p>
+<table class="t" th:unless="${#lists.isEmpty(lessons)}"><thead><tr><th>차시</th><th>현재 영상</th><th>길이</th><th>구분</th></tr></thead><tbody>
+  <tr th:each="o : ${lessons}">
+    <td th:text="${o.label}">색연필화 · 입문 · 1차시</td>
+    <td><span th:text="${o.videoFileName}">색연필화_입문_1차시_10분.mp4</span><br><span class="mu" th:text="${o.videoKey}">videos/drawing/…</span></td>
+    <td th:text="${o.durationLabel}">10:00</td>
+    <td><span class="chip" th:classappend="${o.uploadedVideo} ? 'dk'" th:text="${o.uploadedVideo} ? '업로드 영상' : '기본 영상'">기본 영상</span></td>
+  </tr>
+</tbody></table>
+
+</main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+<script>
+  (function () {
+    // 업로드: 용량을 먼저 확인하고(서버에서도 다시 검사), 보내는 동안 버튼을 막는다
+    var form = document.getElementById('uploadForm');
+    var input = document.getElementById('videoFile');
+    var btn = document.getElementById('uploadBtn');
+    var maxBytes = Number(form.getAttribute('data-max-bytes'));
+    form.addEventListener('submit', function (e) {
+      var f = input.files[0];
+      if (f && f.size > maxBytes) {
+        e.preventDefault();
+        alert('영상은 ' + Math.round(maxBytes / 1024 / 1024) + 'MB 이하만 올릴 수 있어요.');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '업로드 중…';
+    });
+
+    // 미리보기: 위쪽 플레이어에 선택한 영상을 넣는다
+    var player = document.getElementById('preview');
+    var label = document.getElementById('previewName');
+    document.querySelectorAll('.js-preview').forEach(function (b) {
+      b.addEventListener('click', function () {
+        player.src = b.getAttribute('data-src');
+        label.textContent = b.getAttribute('data-name');
+        player.play().catch(function () {});
+        player.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+
+    // 차시 연결: 학습자 화면에 바로 반영되므로 한 번 더 확인
+    document.querySelectorAll('.js-link').forEach(function (f) {
+      f.addEventListener('submit', function (e) {
+        var sel = f.querySelector('select');
+        var text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+        if (!confirm(text + '\n\n이 차시의 영상을 바꿀까요? 학습자 화면에 바로 반영돼요.')) {
+          e.preventDefault();
+        }
+      });
+    });
+
+    // 삭제: 한 번 더 확인
+    document.querySelectorAll('.js-delete').forEach(function (f) {
+      f.addEventListener('submit', function (e) {
+        if (!confirm(f.getAttribute('data-name') + ' 을(를) 삭제할까요? 되돌릴 수 없어요.')) {
+          e.preventDefault();
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>

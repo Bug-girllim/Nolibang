@@ -53,12 +53,19 @@ INSERT INTO courses (id, hobby_id, level, title, description, supplies_text, ass
   (9, 3, 3, '디저트 만들기 고급', 'TODO: 강의 소개', 'TODO: 준비물', '디저트 만들기 고급 최종 과제', 'TODO: 과제 안내');
 
 -- 27차시, 차시당 영상 1개
+-- 영상 경로: file.upload-dir(./uploads) 아래 실제 파일 — uploads/videos/{drawing|cooking}/{취미}/{취미}_{입문|중급|고급}_{N}차시_10분.mp4
+--   hobby_id 1 색연필화 → drawing/색연필화, 2 디지털 드로잉 → drawing/디지털드로잉, 3 디저트 만들기 → cooking/디저트만들기
+--   (FROM·JOIN은 바꾸지 않는다 — 차시 id 부여 순서가 달라지면 id를 전제로 한 테스트가 깨진다)
 INSERT INTO lessons (course_id, lesson_no, title, learning_objective, video_key, duration_sec)
 SELECT c.id, n.no,
        CONCAT(c.title, ' ', n.no, '차시'),
        'TODO: 학습 목표',
-       CONCAT('videos/course-', c.id, '/lesson-', n.no, '.mp4'),
-       600.000  -- TODO: 실제 영상 길이(초)
+       CONCAT('videos/',
+              CASE c.hobby_id WHEN 1 THEN 'drawing/색연필화/색연필화'
+                              WHEN 2 THEN 'drawing/디지털드로잉/디지털드로잉'
+                              WHEN 3 THEN 'cooking/디저트만들기/디저트만들기' END,
+              '_', ELT(c.level, '입문', '중급', '고급'), '_', n.no, '차시_10분.mp4'),
+       600.000  -- 영상 실제 길이 10분 (uploads/videos/… 파일 27개 모두 600초)
 FROM courses c
 CROSS JOIN (SELECT 1 AS no UNION ALL SELECT 2 UNION ALL SELECT 3) n;
 

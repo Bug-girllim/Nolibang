@@ -40,8 +40,10 @@ spring:
   # ==================================================
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 300MB
+      # 파일 한 개 500MB: 관리자 영상 업로드(VideoStorage) 기준. 이미지는 FileStorage가 장당 50MB로 따로 검사한다
+      max-file-size: 500MB
+      # 요청 전체: 영상 1개(500MB) + 폼 값 여유. 이미지 여러 장(장당 50MB·최대 5장)도 이 안에 들어간다
+      max-request-size: 510MB
 
   # ==================================================
   # 4. Thymeleaf 설정

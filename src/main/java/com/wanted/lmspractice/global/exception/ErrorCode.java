@@ -59,6 +59,11 @@ public enum ErrorCode {
     INVALID_IMAGE_FILE(HttpStatus.BAD_REQUEST, "지원하지 않는 이미지 형식입니다."),
     FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "이미지 한 장은 50MB 이하여야 합니다."),
     FILE_SAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "파일 저장에 실패했습니다."),
+    INVALID_VIDEO_FILE(HttpStatus.BAD_REQUEST, "MP4 영상 파일만 올릴 수 있습니다."),   // 관리자 영상 업로드 (VideoStorage)
+    VIDEO_TOO_LARGE(HttpStatus.BAD_REQUEST, "영상은 500MB 이하여야 합니다."),
+    VIDEO_DURATION_UNKNOWN(HttpStatus.BAD_REQUEST, "영상 길이를 읽을 수 없어 차시에 연결할 수 없습니다."),
+    VIDEO_IN_USE(HttpStatus.CONFLICT, "차시에 연결된 영상은 삭제할 수 없습니다. 다른 영상으로 바꾼 뒤 삭제해 주세요."),
+    VIDEO_LINK_DENIED(HttpStatus.FORBIDDEN, "권한이 있는 취미의 차시에만 영상을 연결할 수 있습니다."),
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "평가 정보를 찾을 수 없습니다."),
     NOT_ASSIGNED_INSTRUCTOR(HttpStatus.FORBIDDEN, "담당 강사만 평가할 수 있습니다."),
     INVALID_REVIEW_STATE(HttpStatus.CONFLICT, "현재 상태에서는 처리할 수 없습니다."),
