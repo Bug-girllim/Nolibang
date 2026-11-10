@@ -1,0 +1,26 @@
+# ==================================================
+# 배포(운영) 프로필 — 성능 개선 4단계
+# ==================================================
+# 켜는 방법: 환경변수 SPRING_PROFILES_ACTIVE=prod  (또는 실행 인자 --spring.profiles.active=prod)
+# 켜지 않으면(로컬 개발 기본값) 이 파일은 적용되지 않는다 — application.yaml 설정 그대로.
+# DB 연결·메일·파일 저장 설정은 application.yaml(환경변수)을 그대로 쓴다. 이 파일은 속도 관련 설정만 덮어쓴다.
+# 정적 파일 캐시·내용 해시 버전(#82)은 application.yaml 4-1에서 모든 프로필에 이미 켜져 있어 여기서 다시 정하지 않는다.
+
+spring:
+  # 1. SQL 콘솔 출력 끄기 — 요청마다 모든 SQL을 줄바꿈 정리해 표준 출력에 쓰는 비용을 없앤다(개발 중 확인용 설정)
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  # 2. 화면 템플릿 캐시 — 템플릿을 요청마다 다시 읽고 해석하지 않는다(배포 후에는 템플릿이 바뀌지 않음)
+  thymeleaf:
+    cache: true
+
+# 3. 응답 압축(gzip) — HTML·CSS·JS·JSON·SVG 전송량을 줄인다(이미 압축된 jpg·png·webp·mp4는 대상 아님)
+server:
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,text/javascript,application/javascript,application/json,image/svg+xml
+    min-response-size: 1KB
