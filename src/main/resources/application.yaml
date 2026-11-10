@@ -6,12 +6,14 @@ spring:
   #   DB 이름 nolibang, 문자셋 utf8mb4, 시간대 UTC (데이터베이스/DB_설계서.md §0-3)
   #   - 한글 50자 검사가 정확하려면 utf8mb4 필수
   #   - 30일·7일 기한은 UTC로 저장·계산하고 화면에서 KST로 바꿔 보여 준다
-  #   계정(wanted/wanted)은 각자 로컬 MySQL 계정에 맞게 바꿔 쓴다 ❓
+  #   접속 정보는 환경변수로 덮어쓴다. 설정하지 않으면 로컬 MySQL(wanted/wanted)을 쓴다.
+  #   클라우드 DB(공용)는 DB_URL / DB_USERNAME / DB_PASSWORD 를 환경변수로 넣는다. 비밀번호를 이 파일에 적지 않는다.
+  #   예) DB_URL=jdbc:mysql://<호스트>:<포트>/nolibang?characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&sslMode=REQUIRED
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/nolibang?characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
-    username: wanted
-    password: wanted
+    url: ${DB_URL:jdbc:mysql://localhost:3306/nolibang?characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USERNAME:wanted}
+    password: ${DB_PASSWORD:wanted}
 
   # ── JPA ──
   jpa:
@@ -46,7 +48,7 @@ file:
 #   SMTP를 쓰려면 위 spring: 아래에 mail 설정(host·port·username·password 등)을 넣는다.
 #   spring.mail.host 가 없으면 메일은 보내지 않고, 인증 링크를 서버 로그(WARN)에 남긴다 — 개발·시연 확인용 ❓ #01 확정 필요
 app:
-  base-url: http://localhost:8080      # 메일 링크의 주소. 배포하면 실제 주소로 바꾼다
+  base-url: ${APP_BASE_URL:http://localhost:8080}      #메일 링크의 주소. 배포하면 실제 주소로 바꾼다
   mail:
     from: no-reply@nolibang.local      # 발신 주소 (SMTP 계정이 있으면 그 주소로)
   token:
