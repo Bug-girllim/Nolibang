@@ -4,6 +4,7 @@ import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import com.wanted.lmspractice.global.file.FileStorage;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class LessonVideoController {
 
     private final ProgressService progressService;
+    private final FileStorage fileStorage;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -44,6 +46,14 @@ public class LessonVideoController {
                       @RequestParam Long enrollmentId,
                       HttpServletResponse response) throws IOException {
         String videoKey = progressService.authorizeVideo(details.getUserId(), enrollmentId, lessonId);   // 권한 확인이 먼저
+
+        // 클라우드 저장소면 짧게 유효한 주소로 보낸다(권한 확인은 위에서 끝남). 로컬이면 아래에서 서버가 직접 내려보낸다
+        String signedUrl = fileStorage.presignedUrlOrNull(videoKey, java.time.Duration.ofHours(2));
+        if (signedUrl != null) {
+            response.setHeader("Cache-Control", "private, no-store");
+            response.sendRedirect(signedUrl);
+            return;
+        }
 
         Path base = Paths.get(uploadDir).toAbsolutePath().normalize();
         Path file = base.resolve(videoKey).normalize();
