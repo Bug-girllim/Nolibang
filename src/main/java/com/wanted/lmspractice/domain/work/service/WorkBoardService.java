@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.work.service;
 
+import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.user.entity.Role;
@@ -37,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
  *  - 호출받음: WorkBoardController
  *  - 호출함:   WorkBoardQuery(목록), WorkService.getWork(상세 기본 값 + 열람 권한), CommentPolicy(작성 가능 여부),
  *              UserService.getPublicNames(닉네임 — 계약 추가 요청), HobbyService(취미 이름·분류 필터),
- *              InstructorAccountService.hasHobbyGrant(강사 담당 취미, C3)
+ *              InstructorAccountService.getActiveGrantHobbyIds(강사 담당 취미 — C3와 같은 기준의 일괄 조회)
  * [규칙] 목록에는 공개 + 관리자 숨김 아님 + 삭제 아님 작품만 나온다(DB 뷰). 숨김·비공개 작품의 상세는 작성자·담당 강사·관리자만(WorkAccessPolicy).
  *        실명·로그인 아이디는 어디에도 담지 않는다.
  * [기술] 🟢 @Transactional(readOnly), 🟢 EntityManager native 쿼리
@@ -67,8 +68,11 @@ public class WorkBoardService {
     @Transactional(readOnly = true)
     public WorkPageDTO search(WorkSearchDTO cond, Long viewerId, Role viewerRole) {
         int page = Math.max(cond.getPage(), 0);
-        Set<Long> grantedHobbyIds = viewerRole == Role.INSTRUCTOR ? grantedHobbyIds(viewerId) : Set.of();
-        List<Long> hobbyIds = hobbyFilter(cond, viewerRole, grantedHobbyIds);
+        // [성능 개선] 강사는 보이는 취미 목록을 한 번만 만들어 담당 취미 계산·분류 필터에 함께 쓴다(예전: 같은 목록을 2번 조회)
+        List<CategoryDTO> instructorCategories = viewerRole == Role.INSTRUCTOR ? hobbyService.getCategories(Role.INSTRUCTOR) : null;
+        Set<Long> grantedHobbyIds = instructorCategories != null
+                ? grantedHobbyIds(viewerId, hobbiesOf(instructorCategories)) : Set.of();
+        List<Long> hobbyIds = hobbyFilter(cond, viewerRole, grantedHobbyIds, instructorCategories);
 
         long total = workBoardQuery.count(cond, hobbyIds, viewerId);
         List<WorkDTO> rows = workBoardQuery.find(cond, hobbyIds, viewerId, PAGE_SIZE + 1, page * PAGE_SIZE);  // +1: 다음 쪽 유무 확인
@@ -82,7 +86,7 @@ public class WorkBoardService {
     @Transactional(readOnly = true)
     public WorkPageDTO searchForAdmin(WorkSearchDTO cond, Long adminId) {
         int page = Math.max(cond.getPage(), 0);
-        List<Long> hobbyIds = hobbyFilter(cond, Role.ADMIN, Set.of());
+        List<Long> hobbyIds = hobbyFilter(cond, Role.ADMIN, Set.of(), null);
         long total = workBoardQuery.countForAdmin(cond, hobbyIds, adminId);
         List<WorkDTO> rows = workBoardQuery.findForAdmin(cond, hobbyIds, adminId, PAGE_SIZE + 1, page * PAGE_SIZE);
         return toPage(rows, total, page, Set.of());
@@ -106,14 +110,16 @@ public class WorkBoardService {
     /** 필터 셀렉트에 보여 줄 세부 취미 목록 (보는 사람 기준 노출 규칙 적용) */
     @Transactional(readOnly = true)
     public List<HobbyDTO> getHobbyOptions(Role viewerRole) {
-        return hobbyService.getCategories(viewerRole).stream().flatMap(c -> c.getHobbies().stream()).toList();
+        return hobbiesOf(hobbyService.getCategories(viewerRole));
     }
 
     /** 강사 게시판 머리의 "담당 세부 취미" 이름들 */
     @Transactional(readOnly = true)
     public List<String> getGrantedHobbyNames(Long instructorId) {
-        Set<Long> granted = grantedHobbyIds(instructorId);
-        return getHobbyOptions(Role.INSTRUCTOR).stream().filter(h -> granted.contains(h.getId())).map(HobbyDTO::getName).toList();
+        // [성능 개선] 보이는 취미 목록을 한 번만 만들어 담당 취미 계산과 이름 뽑기에 함께 쓴다(예전: 같은 목록을 2번 조회)
+        List<HobbyDTO> options = getHobbyOptions(Role.INSTRUCTOR);
+        Set<Long> granted = grantedHobbyIds(instructorId, options);
+        return options.stream().filter(h -> granted.contains(h.getId())).map(HobbyDTO::getName).toList();
     }
 
     /** 강사 머리의 "강사 A" 이름 표시용 공개 이름 */
@@ -143,9 +149,11 @@ public class WorkBoardService {
         dto.setLiked(workLikeRepository.existsByWorkIdAndUserId(workId, viewerId));
         dto.setCommentCount(comments.stream().filter(c -> !c.isDeleted()).count());
 
+        // [성능 개선] 댓글 자격(배지 계산 또는 강사 권한 조회)을 한 번만 구하고 답글 자격에 다시 쓴다(예전: 같은 계산 2번)
+        boolean canComment = commentPolicy.canWriteComment(work, viewerId, viewerRole);
         return new WorkDetailDTO(dto, buildCommentTree(comments, work, names, viewerId),
-                commentPolicy.canWriteComment(work, viewerId, viewerRole),
-                commentPolicy.canWriteReply(work, viewerId, viewerRole),
+                canComment,
+                commentPolicy.canWriteReply(work, viewerId, viewerRole, canComment),
                 work.isAuthor(viewerId));
     }
 
@@ -171,10 +179,13 @@ public class WorkBoardService {
     }
 
     // 분류·세부 취미·강사 담당 범위를 합쳐 최종 취미 id 목록으로 만든다. null = 제한 없음
-    private List<Long> hobbyFilter(WorkSearchDTO cond, Role viewerRole, Set<Long> grantedHobbyIds) {
+    // viewerCategories: 같은 역할로 이미 만든 대분류 목록(없으면 null → 분류 필터가 있을 때만 조회)
+    private List<Long> hobbyFilter(WorkSearchDTO cond, Role viewerRole, Set<Long> grantedHobbyIds,
+                                   List<CategoryDTO> viewerCategories) {
         Set<Long> allowed = null;
         if (cond.getCategoryId() != null) {
-            allowed = hobbyService.getCategories(viewerRole).stream()
+            List<CategoryDTO> categories = viewerCategories != null ? viewerCategories : hobbyService.getCategories(viewerRole);
+            allowed = categories.stream()
                     .filter(c -> c.getId().equals(cond.getCategoryId()))
                     .flatMap(c -> c.getHobbies().stream()).map(HobbyDTO::getId).collect(Collectors.toSet());
         }
@@ -196,11 +207,15 @@ public class WorkBoardService {
         return result;
     }
 
-    // 강사가 취미 권한을 가진 세부 취미 id (C3 hasHobbyGrant 로 하나씩 확인)
-    private Set<Long> grantedHobbyIds(Long instructorId) {
-        return hobbyService.getCategories(Role.INSTRUCTOR).stream()
-                .flatMap(c -> c.getHobbies().stream()).map(HobbyDTO::getId)
-                .filter(id -> instructorAccountService.hasHobbyGrant(instructorId, id))
-                .collect(Collectors.toSet());
+    // 강사가 취미 권한을 가진 세부 취미 id — 강사에게 보이는 세부 취미 중 활동 권한이 있는 것
+    // [성능 개선] 예전에는 취미마다 C3 hasHobbyGrant를 불러 취미 수만큼 조회했다(N+1) → 권한 목록 1번 조회 후 교집합(판단 기준 같음)
+    private Set<Long> grantedHobbyIds(Long instructorId, List<HobbyDTO> visibleHobbies) {
+        Set<Long> active = instructorAccountService.getActiveGrantHobbyIds(instructorId);
+        return visibleHobbies.stream().map(HobbyDTO::getId).filter(active::contains).collect(Collectors.toSet());
+    }
+
+    // 대분류 목록 → 세부 취미 목록(메뉴 순서)
+    private List<HobbyDTO> hobbiesOf(List<CategoryDTO> categories) {
+        return categories.stream().flatMap(c -> c.getHobbies().stream()).toList();
     }
 }

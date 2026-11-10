@@ -44,7 +44,20 @@ public class CommentPolicy {
 
     /** 답글을 쓸 수 있는지 — 작성자는 배지 무관, 그 밖에는 댓글과 같은 자격 */
     public boolean canWriteReply(Work work, Long userId, Role role) {
-        return (role == Role.USER && work.isAuthor(userId)) || canWriteComment(work, userId, role);
+        return isLearnerAuthor(work, userId, role) || canWriteComment(work, userId, role);
+    }
+
+    /**
+     * [성능 개선] 답글 자격 — canWriteComment 결과를 이미 구했을 때 다시 계산하지 않는다(배지 계산·강사 권한 조회 중복 제거).
+     * 규칙은 canWriteReply(work, userId, role)와 같다. 호출: WorkBoardService.getDetail(댓글·답글 자격을 함께 구하는 작품 상세)
+     */
+    public boolean canWriteReply(Work work, Long userId, Role role, boolean canWriteComment) {
+        return isLearnerAuthor(work, userId, role) || canWriteComment;
+    }
+
+    /** 작성자 본인(학습자)은 배지와 관계없이 답글을 쓸 수 있다 */
+    private boolean isLearnerAuthor(Work work, Long userId, Role role) {
+        return role == Role.USER && work.isAuthor(userId);
     }
 
     /** 자격이 없으면 COMMENT_NOT_ALLOWED(403) */

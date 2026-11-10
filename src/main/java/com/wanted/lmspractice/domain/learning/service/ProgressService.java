@@ -17,6 +17,7 @@ import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -149,12 +150,57 @@ public class ProgressService {
         if (rows.isEmpty()) {
             return List.of();
         }
+        return toLessonStatuses(rows, courseService.getLessonsOfCourse(rows.get(0).getCourseId()));
+    }
+
+    /**
+     * [성능 개선] 한 수강의 진도 묶음 — 차시별 진도(getLessonStatuses와 같은 값)와 3차시 완료 여부(isAllCompleted와 같은 값).
+     * 호출: MyLearningService.getMyLearning (getProgressByEnrollmentIds 결과)
+     */
+    public record EnrollmentProgress(List<LessonProgressDTO> lessons, boolean allCompleted) { }
+
+    /**
+     * [성능 개선] 여러 수강의 진도를 한 번에 — 진도 조회 1번. 계약 C10(getLessonStatuses·isAllCompleted)과 같은 규칙으로 계산한다.
+     * 수강 카드마다 getLessonStatuses(진도 + 차시 다시 조회)·isAllCompleted(완료 수 다시 조회)를 부르던 반복 조회를 없앤다.
+     * 호출: MyLearningService.getMyLearning
+     *
+     * @param lessonsByCourse 호출한 쪽이 이미 읽은 강의 id → 차시 목록(1·2·3차시 순서). 없는 강의만 따로 읽는다
+     * @return 수강 id → 진도 묶음 (요청한 모든 id가 들어 있다. 재생 기록이 없으면 빈 목록·미완료)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, EnrollmentProgress> getProgressByEnrollmentIds(Collection<Long> enrollmentIds,
+                                                                    Map<Long, List<Lesson>> lessonsByCourse) {
+        if (enrollmentIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<LessonProgress>> rowsByEnrollment = new HashMap<>();
+        enrollmentIds.forEach(id -> rowsByEnrollment.put(id, new ArrayList<>()));
+        for (LessonProgress row : lessonProgressRepository.findByEnrollmentIdIn(enrollmentIds)) {
+            rowsByEnrollment.computeIfAbsent(row.getEnrollmentId(), id -> new ArrayList<>()).add(row);
+        }
+        Map<Long, EnrollmentProgress> result = new HashMap<>();
+        rowsByEnrollment.forEach((enrollmentId, rows) -> {
+            if (rows.isEmpty()) {
+                result.put(enrollmentId, new EnrollmentProgress(List.of(), false));
+                return;
+            }
+            Long courseId = rows.get(0).getCourseId();
+            List<Lesson> lessons = lessonsByCourse.containsKey(courseId)
+                    ? lessonsByCourse.get(courseId) : courseService.getLessonsOfCourse(courseId);
+            long completed = rows.stream().filter(LessonProgress::isCompleted).count();   // isAllCompleted와 같은 기준(completed_at 있음)
+            result.put(enrollmentId, new EnrollmentProgress(toLessonStatuses(rows, lessons), completed >= REQUIRED_LESSONS));
+        });
+        return result;
+    }
+
+    /** 진도 행 → 차시 번호 순서의 차시별 진도 (재생 기록이 있는 차시만) — getLessonStatuses·getProgressByEnrollmentIds 공통 */
+    private List<LessonProgressDTO> toLessonStatuses(List<LessonProgress> rows, List<Lesson> courseLessons) {
         Map<Long, LessonProgress> byLesson = new HashMap<>();
         for (LessonProgress p : rows) {
             byLesson.put(p.getLessonId(), p);
         }
         List<LessonProgressDTO> result = new ArrayList<>();
-        for (Lesson l : courseService.getLessonsOfCourse(rows.get(0).getCourseId())) {
+        for (Lesson l : courseLessons) {
             if (byLesson.containsKey(l.getId())) {
                 result.add(LessonProgressDTO.of(l.getId(), l.getLessonNo(), l.getTitle(), l.getDurationSec(),
                         byLesson.get(l.getId())));

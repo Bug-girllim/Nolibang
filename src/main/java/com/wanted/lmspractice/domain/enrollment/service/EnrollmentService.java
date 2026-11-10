@@ -237,6 +237,17 @@ public class EnrollmentService {
     }
 
     /**
+     * [성능 개선] 한 학습자가 수료(COMPLETED)한 강의 id — 조회 1번.
+     * 배지 계산은 수료한 강의 id만 필요한데 getMyEnrollments는 분반 이름·대기 신청 시각까지 읽어(조회 3번) 필요 없는 조회가 섞였다.
+     * 결과는 getMyEnrollments에서 COMPLETED만 골라 강의 id를 뽑은 것과 같다(UNIQUE(user_id, course_id)라 중복 없음).
+     * 호출: BadgeService.getBadges (계약 C12 — 결과 화면, 댓글 자격 CommentPolicy, 작품 수준 WorkLevelPolicy)
+     */
+    @Transactional(readOnly = true)
+    public List<Long> getCompletedCourseIds(Long userId) {
+        return enrollmentRepository.findCourseIdsByUserIdAndStatus(userId, EnrollmentStatus.COMPLETED);
+    }
+
+    /**
      * 계약 C18(#11 추가): 한 학습자의 모든 수강 건(진행·수료·취소·만료)을 화면용으로 읽는다 — 최근 확정 순.
      * 분반 이름과, 대기열을 거쳐 자동 확정된 수강이면 그 대기 신청 시각을 함께 붙인다.
      * 호출: MyLearningService.getMyLearning (GET /my/learning, API ML-01)

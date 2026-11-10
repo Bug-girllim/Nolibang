@@ -20,6 +20,9 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     /** 한 강의의 차시를 1·2·3차시 순서로 */
     List<Lesson> findByCourseIdOrderByLessonNoAsc(Long courseId);
 
+    /** [성능 개선] 여러 강의의 차시를 한 번에 — 강의별로 묶었을 때 차시 번호 순서가 되도록 정렬. 호출: CourseService.getLessonsOfCourses */
+    List<Lesson> findByCourseIdInOrderByCourseIdAscLessonNoAsc(Collection<Long> courseIds);
+
     /** 여러 강의에 속한 차시 수 (관리자 A-S15의 세부 취미별 차시 수) */
     long countByCourseIdIn(Collection<Long> courseIds);
 

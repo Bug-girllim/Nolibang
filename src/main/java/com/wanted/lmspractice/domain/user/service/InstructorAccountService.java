@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -218,6 +219,21 @@ public class InstructorAccountService {
             return false;
         }
         return grantRepository.existsByInstructorIdAndHobbyIdAndIsActiveTrue(instructorId, hobbyId);
+    }
+
+    /**
+     * [성능 개선] 강사가 활동 권한을 가진(회수되지 않은) 세부 취미 id 전체 — 조회 1번.
+     * 취미마다 hasHobbyGrant(계약 C3)를 부르면 취미 수만큼 조회하므로(N+1), 여러 취미를 한꺼번에 확인할 때 쓴다. 판단 기준(is_active)은 C3와 같다.
+     * 호출: WorkBoardService(강사 게시판 — 담당 취미 필터·댓글 가능 표시·담당 취미 이름)
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> getActiveGrantHobbyIds(Long instructorId) {
+        if (instructorId == null) {
+            return Set.of();
+        }
+        return grantRepository.findByInstructorIdInAndIsActiveTrue(List.of(instructorId)).stream()
+                .map(InstructorHobbyGrant::getHobbyId)
+                .collect(Collectors.toSet());
     }
 
     /**

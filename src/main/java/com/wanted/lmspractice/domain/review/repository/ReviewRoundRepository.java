@@ -59,6 +59,9 @@ public interface ReviewRoundRepository extends JpaRepository<ReviewRound, Long> 
     /** [#14 추가] 계약 C11 getLatestStatus — 1회차(최초 제출 시각) */
     Optional<ReviewRound> findFirstByEnrollmentIdOrderByRoundNoAsc(Long enrollmentId);
 
+    /** [성능 개선] 여러 수강의 평가 회차 전체(회차 수는 수강마다 몇 개뿐). 호출: ReviewQueryService.getLatestStatuses */
+    List<ReviewRound> findByEnrollmentIdIn(Collection<Long> enrollmentIds);
+
     /**
      * [#19 연동] 계약 C11 findLatestFeedbackForReference — 본인·같은 취미의 확정된(승인·반려) 회차 중 가장 최근 1건.
      * 수강 건(enrollments)·강의(courses)와 조인해 취미를 거른다. EnrollmentService 를 부르면 hasPendingReview 와 순환 의존이 되어 쿼리로 처리한다.
