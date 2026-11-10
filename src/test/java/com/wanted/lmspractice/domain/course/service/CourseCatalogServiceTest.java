@@ -50,7 +50,7 @@ class CourseCatalogServiceTest {
         assertThat(course.getLevel()).isEqualTo(CourseLevel.BASIC);
         assertThat(course.getLessons()).extracting(lesson -> lesson.getLessonNo()).containsExactly(1, 2, 3);
         assertThat(course.getLessons()).allSatisfy(lesson -> assertThat(lesson.getDurationMinutes()).isPositive());
-        assertThat(course.getSupplies()).isNotEmpty();
+        assertThat(course.getSupplies()).isNotNull();  // 시드 준비물은 TODO 문구를 지워 빈 목록이다(#91) — 빈 줄은 목록에서 빠진다
         assertThat(course.getEnrollmentDays()).isEqualTo(30);
         // 시드: 강의 1은 분반 2개(정원 5+5, 활성 1명) → 남은 자리 9석
         assertThat(course.getSeats().getTotalCapacity()).isEqualTo(10);

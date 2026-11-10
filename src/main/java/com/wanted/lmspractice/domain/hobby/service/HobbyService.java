@@ -1,8 +1,10 @@
 package com.wanted.lmspractice.domain.hobby.service;
 
 import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
+import com.wanted.lmspractice.domain.hobby.dto.CategoryFormDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDetailDTO;
+import com.wanted.lmspractice.domain.hobby.dto.HobbyFormDTO;
 import com.wanted.lmspractice.domain.hobby.entity.Category;
 import com.wanted.lmspractice.domain.hobby.entity.ExposureState;
 import com.wanted.lmspractice.domain.hobby.entity.Hobby;
@@ -14,14 +16,16 @@ import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * [역할] 대분류·세부 취미 조회 + 노출 규칙(운영 중/준비 중/비공개, 상위 비공개면 하위도 숨김) — 조회 전용
- * [담당] 팀원 2 · #08   [화면] U-S01·U-S02, A-S15   [기획] 05 §3, D-59(시드 데이터라 등록·수정 없음)   [API] HB-01·02·03
+ * [역할] 대분류·세부 취미 조회 + 노출 규칙(운영 중/준비 중/비공개, 상위 비공개면 하위도 숨김), 관리자 대분류·세부 취미 추가(A-S02·A-S03)
+ * [담당] 팀원 2 · #08   [화면] U-S01·U-S02, A-S15   [기획] 05 §3, D-59(수정·삭제 없음 — 추가만 관리자 화면에서)   [API] HB-01·02·03
  * [연결]
  *  - 호출받음: HobbyController(목록·상세), AdminHobbyController(관리자 전체), CourseCatalogService·CourseService(강의가 속한 취미의 노출 확인)
  *  - 호출함:   CategoryRepository, HobbyRepository
@@ -178,5 +182,97 @@ public class HobbyService {
             case PREPARING -> viewerRole == Role.INSTRUCTOR || viewerRole == Role.ADMIN;
             case PRIVATE -> viewerRole == Role.ADMIN;
         };
+    }
+
+    // ===== 관리자 추가 (A-S02 대분류 관리 · A-S03 세부 취미) =====
+
+    /** 대분류 이름이 아직 없는지 (A-S02 중복 확인). 호출: AdminHobbyController.createCategory */
+    @Transactional(readOnly = true)
+    public boolean isCategoryNameAvailable(String name) {
+        return !categoryRepository.existsByName(name);
+    }
+
+    /** 대분류가 있는지 (A-S03 세부 취미 추가 시 대분류 확인). 호출: AdminHobbyController.createHobby */
+    @Transactional(readOnly = true)
+    public boolean categoryExists(Long categoryId) {
+        return categoryId != null && categoryRepository.existsById(categoryId);
+    }
+
+    /** 그 대분류 안에 같은 이름의 세부 취미가 아직 없는지 (A-S03 중복 확인). 호출: AdminHobbyController.createHobby */
+    @Transactional(readOnly = true)
+    public boolean isHobbyNameAvailable(Long categoryId, String name) {
+        return !hobbyRepository.existsByCategoryIdAndName(categoryId, name);
+    }
+
+    /**
+     * 대분류 추가 (A-S02). 맨 뒤 순서로 넣고 code는 겹치지 않게 만들어 준다. 입력 검증·이름 중복은 컨트롤러가 먼저 확인한다.
+     * 호출: AdminHobbyController.createCategory
+     *
+     * @return 만든 대분류 id
+     */
+    @Transactional
+    public Long createCategory(CategoryFormDTO form) {
+        int sortOrder = categoryRepository.findTopByOrderBySortOrderDesc()
+                .map(category -> category.getSortOrder() + 1)
+                .orElse(1);
+        String code = newCode("cat-", categoryRepository::existsByCode);
+        return categoryRepository.save(Category.create(code, form.getTrimmedName(), form.getState(), sortOrder)).getId();
+    }
+
+    /**
+     * 세부 취미 추가 (A-S03). 그 대분류의 맨 뒤 순서로 넣는다. 강의는 아직 없으므로 상세 화면에는 "준비된 강의 없음"으로 보인다.
+     * 호출: AdminHobbyController.createHobby
+     *
+     * @return 만든 세부 취미 id
+     * @throws BusinessException HOBBY_NOT_FOUND — 대분류가 없을 때(화면은 목록에서만 고르므로 조작된 요청)
+     */
+    @Transactional
+    public Long createHobby(HobbyFormDTO form) {
+        if (!categoryExists(form.getCategoryId())) {
+            throw new BusinessException(ErrorCode.HOBBY_NOT_FOUND);
+        }
+        int sortOrder = hobbyRepository.findTopByCategoryIdOrderBySortOrderDesc(form.getCategoryId())
+                .map(hobby -> hobby.getSortOrder() + 1)
+                .orElse(1);
+        String code = newCode("hobby-", hobbyRepository::existsByCode);
+        return hobbyRepository.save(Hobby.create(form.getCategoryId(), code, form.getTrimmedName(),
+                form.getTrimmedDescription(), form.getState(), sortOrder)).getId();
+    }
+
+    /** 겹치지 않는 code 만들기 (예: cat-3f9a1c2e). code는 UNIQUE 40자 — 시드 code(art·colored-pencil 등)와 겹칠 일이 없는 형식 */
+    private String newCode(String prefix, Predicate<String> exists) {
+        String code;
+        do {
+            code = prefix + UUID.randomUUID().toString().substring(0, 8);
+        } while (exists.test(code));
+        return code;
+    }
+
+    /**
+     * 대분류 노출 상태 바꾸기 (A-S15 대분류 상태 편집). 호출: AdminHobbyController.changeCategoryState
+     *
+     * @return 바꾼 대분류 이름(안내 문구용)
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류
+     */
+    @Transactional
+    public String changeCategoryState(Long categoryId, ExposureState state) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        category.changeState(state);
+        return category.getName();
+    }
+
+    /**
+     * 세부 취미 노출 상태 바꾸기 (A-S15 세부 취미 상태 편집). 호출: AdminHobbyController.changeHobbyState
+     *
+     * @return 바꾼 세부 취미 이름(안내 문구용)
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 세부 취미
+     */
+    @Transactional
+    public String changeHobbyState(Long hobbyId, ExposureState state) {
+        Hobby hobby = hobbyRepository.findById(hobbyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        hobby.changeState(state);
+        return hobby.getName();
     }
 }

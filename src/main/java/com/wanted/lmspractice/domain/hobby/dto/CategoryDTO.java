@@ -29,7 +29,7 @@ public class CategoryDTO {
     private String code;
     private String name;
     private ExposureState state;
-    /** 카드 이미지 경로(없으면 null) */
+    /** 카드 이미지 경로(매핑이 없으면 기본 이미지 — HobbyPicStyle.categoryImage) */
     private String imagePath;
     private List<HobbyDTO> hobbies;
 
