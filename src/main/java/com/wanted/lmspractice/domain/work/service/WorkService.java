@@ -335,7 +335,7 @@ public class WorkService {
         Work work = workRepository.findById(version.getWorkId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         workAccessPolicy.checkCanView(work, viewerId, viewerRole);    // 권한 확인이 파일 접근보다 먼저
-        return new WorkFileDTO(fileStorage.load(file.getOriginalKey()), file.getMimeType(), file.getStoredSizeBytes());
+        return new WorkFileDTO(file.getOriginalKey(), file.getMimeType(), file.getStoredSizeBytes());
     }
 
     // 저장된 파일을 올린 순서대로 sort_order 1..N 으로 연결
