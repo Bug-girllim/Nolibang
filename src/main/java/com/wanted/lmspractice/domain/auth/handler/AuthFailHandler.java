@@ -41,9 +41,11 @@ public class AuthFailHandler extends SimpleUrlAuthenticationFailureHandler {
         if (exception instanceof DisabledException) {
             // 폼 입력 이름은 SecurityConfig의 usernameParameter("loginId")와 같다
             return userService.findStatusByLoginId(request.getParameter("loginId"))
-                    .map(status -> status == UserStatus.PENDING_EMAIL
-                            ? "/auth/login?error=unverified"
-                            : "/auth/login?error=disabled")
+                    .map(status -> switch (status) {
+                        case PENDING_EMAIL -> "/auth/login?error=unverified";
+                        case WITHDRAWN -> "/auth/login?error";   // 탈퇴 여부는 드러내지 않는다(아이디·비밀번호 불일치와 같은 문구)
+                        default -> "/auth/login?error=disabled";
+                    })
                     .orElse("/auth/login?error");
         }
         return "/auth/login?error";

@@ -58,6 +58,9 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     @Query(value = "SELECT * FROM enrollments WHERE id = :id FOR UPDATE", nativeQuery = true)
     Optional<Enrollment> findByIdForUpdate(@Param("id") Long id);
 
+    /** 학습자에게 이 상태의 수강 건이 있는지 — 회원 탈퇴 전 진행 중(ACTIVE) 수강 확인용. 호출: EnrollmentService.hasActiveEnrollment */
+    boolean existsByUserIdAndStatus(Long userId, EnrollmentStatus status);
+
     /** 한 학습자의 모든 수강 건(진행·수료·취소·만료)을 최근 확정 순으로. 본인 것만 조회하려고 항상 userId로 찾는다. 호출: EnrollmentService.getMyEnrollments (#11) */
     List<Enrollment> findByUserIdOrderByConfirmedAtDesc(Long userId);
 }

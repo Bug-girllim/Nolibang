@@ -55,6 +55,13 @@ public class UserService {
         String email = dto.getEmail().trim().toLowerCase();
         String nickname = nicknamePolicy.normalize(dto.getNickname());
 
+        // 탈퇴 후 30일이 지난 계정이 쥐고 있던 이메일은 풀어 준다(개인정보 처리방침 3항). 아직 기간 안이면 아래 중복 검사에 걸린다
+        userRepository.findByEmail(email).ifPresent(old -> {
+            if (old.releaseEmailIfExpired(LocalDateTime.now())) {
+                userRepository.saveAndFlush(old);
+            }
+        });
+
         // 화면의 중복 확인 버튼과 가입 사이에 다른 사람이 가입할 수 있어서 여기서 다시 검사한다 (US-03)
         if (userRepository.existsByLoginId(loginId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
@@ -219,14 +226,16 @@ public class UserService {
 
     /**
      * 계약 추가 요청(#18, 팀원 4): 게시판·댓글에 보여 줄 공개 이름을 한 번에 조회한다 — 닉네임이 있으면 닉네임, 없으면(강사) 이름.
-     * 실명·로그인 아이디는 학습자에게 노출하지 않는다(NFR-04)이므로 학습자는 항상 닉네임만 나간다. 없는 회원은 맵에 담기지 않는다.
+     * 실명·로그인 아이디는 학습자에게 노출하지 않는다(NFR-04)이므로 학습자는 항상 닉네임만 나간다. 없는 회원·탈퇴한 회원은 맵에 담기지 않는다.
      * 호출: WorkBoardService·CommentService (댓글 작성자 표시)
      */
     @Transactional(readOnly = true)
     public Map<Long, String> getPublicNames(Collection<Long> userIds) {
         Map<Long, String> names = new HashMap<>();
-        userRepository.findAllById(userIds).forEach(user ->
-                names.put(user.getId(), user.getNickname() != null ? user.getNickname() : user.getRealName()));
+        userRepository.findAllById(userIds).stream()
+                .filter(user -> !user.isWithdrawn())  // 탈퇴 회원은 맵에 담지 않는다 → 화면이 "탈퇴한 사용자"로 표시
+                .forEach(user ->
+                        names.put(user.getId(), user.getNickname() != null ? user.getNickname() : user.getRealName()));
         return names;
     }
 

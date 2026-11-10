@@ -657,3 +657,14 @@ CREATE TABLE work_moderation_logs (
     CONSTRAINT ck_modlogs_action CHECK (action IN ('HIDE','RESTORE')),
     CONSTRAINT ck_modlogs_reason CHECK (CHAR_LENGTH(TRIM(reason)) > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =================================================================
+-- 회원 탈퇴(WITHDRAWN) 지원 — migration_withdraw.sql과 같은 내용
+-- =================================================================
+ALTER TABLE users
+    ADD COLUMN withdrawn_at DATETIME(6) NULL AFTER first_login_at,
+    DROP CHECK ck_users_status;
+
+ALTER TABLE users
+    ADD CONSTRAINT ck_users_status CHECK (status IN ('PENDING_EMAIL','ACTIVE','INACTIVE','WITHDRAWN')),
+    ADD CONSTRAINT ck_users_withdrawn CHECK ((status = 'WITHDRAWN') = (withdrawn_at IS NOT NULL));

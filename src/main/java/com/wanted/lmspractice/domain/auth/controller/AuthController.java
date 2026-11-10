@@ -40,6 +40,9 @@ public class AuthController {
             }
         } else if (params.containsKey("expired")) {
             model.addAttribute("errorMessage", "세션이 만료되었거나 다른 기기에서 로그인되었습니다. 다시 로그인해 주세요.");
+        } else if (params.containsKey("withdrawn")) {
+            // 탈퇴하면 세션이 끝나 flash 속성을 쓸 수 없어서 쿼리 값으로 알린다
+            model.addAttribute("message", "회원 탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.");
         } else if (params.containsKey("logout")) {
             model.addAttribute("message", "로그아웃되었습니다.");
         }

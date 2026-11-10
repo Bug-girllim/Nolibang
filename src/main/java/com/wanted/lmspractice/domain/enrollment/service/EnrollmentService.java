@@ -6,6 +6,7 @@ import com.wanted.lmspractice.domain.enrollment.dto.MyEnrollmentDTO;
 import com.wanted.lmspractice.domain.enrollment.dto.SeatSummaryDTO;
 import com.wanted.lmspractice.domain.enrollment.entity.CourseSection;
 import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
+import com.wanted.lmspractice.domain.enrollment.entity.EnrollmentStatus;
 import com.wanted.lmspractice.domain.enrollment.entity.WaitlistEntry;
 import com.wanted.lmspractice.domain.enrollment.policy.EnrollEligibilityPolicy;
 import com.wanted.lmspractice.domain.enrollment.policy.SectionAssignPolicy;
@@ -175,6 +176,15 @@ public class EnrollmentService {
         // D-52: 대기자가 있으면 빈자리가 있어도 대기열 끝으로 간다 → 만석이거나 대기자가 있으면 대기 신청
         boolean mustWait = seats.isFull() || seats.getWaitingCount() > 0;
         return EnrollmentStatusDTO.of(mustWait ? EnrollmentStatusDTO.CAN_WAIT : EnrollmentStatusDTO.CAN_APPLY);
+    }
+
+    /**
+     * 진행 중(ACTIVE = 정원 점유) 수강이 있는지 — 회원 탈퇴 가능 여부 판단용.
+     * 호출: WithdrawalService.withdraw
+     */
+    @Transactional(readOnly = true)
+    public boolean hasActiveEnrollment(Long userId) {
+        return enrollmentRepository.existsByUserIdAndStatus(userId, EnrollmentStatus.ACTIVE);
     }
 
     /**

@@ -32,6 +32,10 @@ import lombok.ToString;
 @ToString
 public class User {
 
+    /** 탈퇴 후 같은 이메일로 재가입할 수 없는 기간 (개인정보 처리방침 3항) */
+    public static final int REJOIN_RESTRICTION_DAYS = 30;
+    private static final String ANONYMIZED_PREFIX = "withdrawn_";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -68,6 +72,9 @@ public class User {
 
     @Column(name = "first_login_at")
     private LocalDateTime firstLoginAt;
+
+    @Column(name = "withdrawn_at")
+    private LocalDateTime withdrawnAt;  // 탈퇴 시각 (status = WITHDRAWN일 때만 값이 있다 — DB CHECK ck_users_withdrawn)
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;  // DB가 자동 기록
@@ -207,6 +214,45 @@ public class User {
     public void changePassword(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
         this.mustChangePassword = Boolean.FALSE;
+    }
+
+    /**
+     * 회원 탈퇴 — WITHDRAWN으로 바꾸고 직접 식별정보를 익명화한다. 다른 표가 users.id를 참조하므로 행은 지우지 않는다.
+     * 이메일은 "탈퇴 후 30일 재가입 제한" 확인에 쓰려고 그대로 두고, 기간이 지나면 releaseEmail로 비운다.
+     * 호출: UserService.withdraw
+     * 학습자(USER)만 탈퇴할 수 있다. 이미 탈퇴했거나 이메일 인증 전인 계정은 대상이 아니다.
+     *
+     * @param unusableHash 아무도 로그인할 수 없게 만든 임의 BCrypt 값
+     */
+    public void withdraw(LocalDateTime now, String unusableHash) {
+        if (role != Role.USER || status != UserStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        this.loginId = ANONYMIZED_PREFIX + id;
+        this.nickname = ANONYMIZED_PREFIX + id;   // USER 역할은 닉네임 필수(DB CHECK)라 지우지 않고 바꾼다
+        this.realName = "탈퇴회원";
+        this.passwordHash = unusableHash;
+        this.status = UserStatus.WITHDRAWN;
+        this.withdrawnAt = now;
+    }
+
+    /** 탈퇴한 계정인지 */
+    public boolean isWithdrawn() {
+        return status == UserStatus.WITHDRAWN;
+    }
+
+    /**
+     * 탈퇴 후 재가입 제한 기간이 지난 계정의 이메일을 풀어 준다 — 같은 이메일로 다시 가입할 수 있게 된다.
+     * 호출: UserService.signup
+     *
+     * @return 풀었으면 true (아직 기간 안이거나 탈퇴 계정이 아니면 false)
+     */
+    public boolean releaseEmailIfExpired(LocalDateTime now) {
+        if (!isWithdrawn() || withdrawnAt.plusDays(REJOIN_RESTRICTION_DAYS).isAfter(now)) {
+            return false;
+        }
+        this.email = ANONYMIZED_PREFIX + id + "@withdrawn.invalid";
+        return true;
     }
 
     /** 로그인할 수 있는 활성 계정인지 (#06 계정 복구 대상 판단 — 미인증·비활성 계정에는 복구 메일을 보내지 않는다) */
