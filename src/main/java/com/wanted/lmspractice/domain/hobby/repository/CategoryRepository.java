@@ -28,4 +28,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     /** 새 대분류를 맨 뒤에 두기 위한 현재 가장 큰 정렬 순서 */
     Optional<Category> findTopByOrderBySortOrderDesc();
+
+    /** 대분류 편집 시 이름 중복 확인 — 자기 자신은 빼고 본다 (A-S02) */
+    boolean existsByNameAndIdNot(String name, Long id);
 }

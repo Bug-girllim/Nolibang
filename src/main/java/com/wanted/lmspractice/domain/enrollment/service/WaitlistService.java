@@ -180,4 +180,24 @@ public class WaitlistService {
     public int countRecentConfirmed(Long courseId) {
         return waitlistQuery.countConfirmedWithinDays(courseId, RECENT_CONFIRMED_DAYS);
     }
+
+    /**
+     * 관리자 대기 취소 (A-S12 대기열 조회 [대기 취소]) → CANCELLED. 본인 취소(cancel)와 같은 잠금 순서(강의 → 대기 줄)를 쓰고,
+     * 소유자 확인만 하지 않는다. 뒤 순번은 자동으로 한 칸씩 당겨진다(순번은 WAITING 줄의 신청 순서로 계산).
+     * 호출: AdminWaitlistController.cancel (POST /admin/waitlists/{waitlistId}/cancel)
+     *
+     * @return 대기 줄이 속한 강의 id (같은 강의 화면으로 돌아가기용)
+     * @throws BusinessException NOT_FOUND — 없는 대기, 이미 확정·취소된 대기
+     */
+    @Transactional
+    public Long cancelByAdmin(Long waitlistId) {
+        Long courseId = waitlistEntryRepository.findCourseIdById(waitlistId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        courseSectionRepository.findByCourseIdForUpdate(courseId);  // ① 강의 잠금(모든 흐름 공통 첫 잠금)
+        WaitlistEntry entry = waitlistEntryRepository.findByIdForUpdate(waitlistId)  // ② 최신 값
+                .filter(WaitlistEntry::isWaiting)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        entry.cancel(LocalDateTime.now());
+        return courseId;
+    }
 }

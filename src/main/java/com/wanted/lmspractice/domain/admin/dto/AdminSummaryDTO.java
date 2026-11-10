@@ -21,7 +21,10 @@ public class AdminSummaryDTO {
     private final int vacantSectionCount;
     private final List<Alert> alerts;
 
-    /** 운영 확인 항목 한 줄. linkPath가 null이면 이동 버튼 없이 안내만 표시한다. */
+    /**
+     * 운영 확인 항목 한 줄. linkPath가 null이면 이동 버튼 없이 안내만 표시한다.
+     * sectionId가 있으면(담당 공백 분반) 관리자 홈에서 바로 담당 강사를 지정하는 칸을 함께 보여 준다.
+     */
     @Getter
     @AllArgsConstructor
     public static class Alert {
@@ -29,5 +32,6 @@ public class AdminSummaryDTO {
         private final String content;
         private final String linkPath;
         private final String linkLabel;
+        private final Long sectionId;
     }
 }

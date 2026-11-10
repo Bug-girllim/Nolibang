@@ -40,14 +40,14 @@ public class AdminDashboardService {
             alerts.add(new Alert("담당 공백 분반",
                     s.getCourseTitle() + " · " + s.getLevelLabel() + " " + s.getSectionName()
                             + " · 활성 " + s.getActiveCount() + "건 — 신규 배정 제외 중 · 담당 강사를 지정해 주세요",
-                    "/admin/sections", "담당 지정"));
+                    "/admin/sections", "분반 관리", s.getSectionId()));
         }
         for (OverdueReviewDTO o : instructorStatQuery.findOverdueReviews(null, now)) {
             String who = o.getInstructorName() != null ? o.getInstructorName() : "담당 공백";
             alerts.add(new Alert("평가 기한 초과",
                     who + " · " + o.getCourseTitle() + " · " + o.getLevelLabel() + " / " + o.getStudentName()
                             + " (조회 전용, 평가는 담당 강사)",
-                    null, null));
+                    null, null, null));
         }
 
         return new AdminSummaryDTO(instructorStatQuery.countCourses(), instructorStatQuery.countLessons(),

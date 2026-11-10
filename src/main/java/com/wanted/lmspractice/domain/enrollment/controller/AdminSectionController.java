@@ -110,17 +110,21 @@ public class AdminSectionController {
 
     /**
      * 담당 강사 지정·변경 (SE-04). 수강생은 분반을 옮기지 않는다(D-59).
-     * 성공: redirect:/admin/sections?courseId={courseId} + flash message
+     * 성공: redirect:/admin/sections?courseId={courseId} + flash message (from=dashboard 면 관리자 대시보드 /admin 으로)
      * 실패: USER_NOT_FOUND(404)·INSTRUCTOR_NOT_GRANTED(403) — 화면은 후보만 보여 주므로 조작된 요청일 때만 오류 화면
      */
     @PostMapping("/{sectionId}/instructor")
     public String changeInstructor(@PathVariable Long sectionId,
                                    @RequestParam Long instructorId,
+                                   @RequestParam(required = false) String from,
                                    RedirectAttributes redirectAttributes) {
         SectionDTO section = sectionService.getSection(sectionId);
         int confirmed = sectionService.changeInstructor(sectionId, instructorId);
         redirectAttributes.addFlashAttribute("message",
                 section.getDisplayName() + " 담당 강사를 저장했어요." + confirmedText(confirmed));
+        if ("dashboard".equals(from)) {
+            return "redirect:/admin";  // 관리자 대시보드(A-S01)의 담당 공백 분반에서 바로 지정한 경우
+        }
         return "redirect:/admin/sections?courseId=" + section.getCourseId();
     }
 
