@@ -72,9 +72,12 @@ public final class HobbyPicStyle {
     private HobbyPicStyle() {
     }
 
-    /** 대분류 카드 이미지 경로. 없으면 null */
+    /** 이미지를 정하지 않은 대분류(관리자가 새로 추가한 대분류 등)의 카드 이미지 — 취미 탐색 배너(bn-explore)와 같은 "정원 문" 그림 */
+    private static final String DEFAULT_CATEGORY_IMAGE = "/images/3e5e7da65a0dedf758b57596eb180054.webp";
+
+    /** 대분류 카드 이미지 경로. 매핑이 없으면 기본 이미지 */
     public static String categoryImage(String categoryCode) {
-        return CATEGORY_IMAGES.get(categoryCode);
+        return CATEGORY_IMAGES.getOrDefault(categoryCode, DEFAULT_CATEGORY_IMAGE);
     }
 
     /** 대분류별 보기 상단 배너 클래스. 없으면 기본 배너 */
@@ -82,9 +85,12 @@ public final class HobbyPicStyle {
         return CATEGORY_BANNERS.getOrDefault(categoryCode, "bn-explore");
     }
 
-    /** 세부 취미 카드의 그림 스타일 클래스. 없으면 빈 문자열 */
+    /** 이미지를 정하지 않은 세부 취미(관리자가 새로 추가한 취미 등)의 카드 그림 클래스 — atelier-v2.css 의 .pic-default ("정원 문" 그림) */
+    private static final String DEFAULT_HOBBY_PIC_CLASS = "pic-default";
+
+    /** 세부 취미 카드의 그림 스타일 클래스. 매핑이 없으면 기본 그림 클래스 */
     public static String hobbyPicClass(String hobbyCode) {
-        return HOBBY_PIC_CLASSES.getOrDefault(hobbyCode, "");
+        return HOBBY_PIC_CLASSES.getOrDefault(hobbyCode, DEFAULT_HOBBY_PIC_CLASS);
     }
 
     /** 세부 취미 상세 화면 대표 이미지 경로. 없으면 null */

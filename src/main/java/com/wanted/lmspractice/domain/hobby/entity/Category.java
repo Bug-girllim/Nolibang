@@ -56,4 +56,20 @@ public class Category {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /**
+     * 관리자 대분류 추가(A-S02) — 새 대분류 엔티티를 만든다. 호출: HobbyService.createCategory
+     * code는 화면에서 받지 않고 서비스가 겹치지 않게 만들어 넣는다(이미지 매핑용 시드 code와 구분).
+     */
+    public static Category create(String code, String name, ExposureState state, int sortOrder) {
+        return new Category(null, code, name, state, sortOrder, null, null);
+    }
+
+    /**
+     * 노출 상태 바꾸기 (A-S15 대분류 상태 편집). 호출: HobbyService.changeCategoryState — 트랜잭션 안에서 바꾸면 변경 감지로 저장된다.
+     * 상태가 바뀌어도 이미 수강 중인 학습자의 학습·기록 접근은 그대로다(D-20).
+     */
+    public void changeState(ExposureState newState) {
+        this.state = newState;
+    }
 }
