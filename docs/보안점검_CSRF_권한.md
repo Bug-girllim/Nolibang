@@ -126,7 +126,7 @@
 
 5. CSP 헤더 도입(인라인 `style`·스크립트가 많아 단계적으로 적용).
 6. 미인증·비활성 계정 구분 메시지 정책 재검토(D-8).
-7. 인증·권한 회귀 테스트 추가: 현재 MockMvc 테스트가 없어 이 문서의 매트릭스를 자동화할 근거가 없다. `@SpringBootTest` + `MockMvc` + `spring-security-test`로 역할×URL 표와 CSRF 403을 테스트로 고정하는 것을 권장.
+7. ✅ 인증·권한 회귀 테스트: `SecurityConfigTest`(MockMvc 87건)로 역할×URL, CSRF, 소유자 검사, 계정 상태를 고정했다.
 
 ---
 
