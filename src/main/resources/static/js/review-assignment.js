@@ -11,12 +11,25 @@
     }
     var images = document.getElementById('images');
     var imageCount = document.getElementById('image-count');
+    var imageLabel = document.getElementById('image-label');
+    var imageNames = document.getElementById('image-names');
     var submit = document.getElementById('btn-submit');
     var requireImages = form.getAttribute('data-require-images') === 'true';
 
     function updateImages() {
         var count = images.files ? images.files.length : 0;
         imageCount.textContent = count;
+        // 고른 파일을 화면에서 바로 알 수 있게 — 칸 문구와 파일 이름 목록을 바꾼다(고르지 않으면 처음 문구로)
+        if (imageLabel) {
+            imageLabel.textContent = count === 0 ? '+ 이미지 선택' : count + '장 선택됨 (다시 고르기)';
+        }
+        if (imageNames) {
+            var names = [];
+            for (var i = 0; i < count; i++) {
+                names.push(images.files[i].name);
+            }
+            imageNames.textContent = count === 0 ? '' : '선택한 이미지: ' + names.join(', ');
+        }
         if (requireImages) {
             submit.disabled = count === 0;
         }
