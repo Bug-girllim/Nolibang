@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
+import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.domain.user.repository.UserRepository;
 import com.wanted.lmspractice.domain.work.dto.TimelineDTO;
 import com.wanted.lmspractice.domain.work.dto.WorkFormDTO;
@@ -189,6 +190,36 @@ class GeneralWorkServiceTest {
         assertThatThrownBy(() -> workService.getGeneralWorkForm(learner(), 1L))   // 최종 과제
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
         assertThatThrownBy(() -> workService.getGeneralWorkForm(learner(), 4L))   // learner2 작품
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("삭제: 본인 일반 작품은 논리 삭제되어 타임라인·열람·파일에서 사라지고, 남의 작품·최종 과제·재삭제는 WORK_NOT_FOUND")
+    void deleteGeneralWork() {
+        WorkFormDTO form = form("지울 작품", COLORED_PENCIL, CourseLevel.BASIC);
+        form.setVisibility(Visibility.PUBLIC);
+        Long workId = workService.saveGeneralWork(learner(), form, oneImage());
+        Long fileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(
+                workRepository.findById(workId).orElseThrow().getDisplayVersionId()).get(0).getId();
+
+        workService.deleteGeneralWork(learner(), workId);
+        workRepository.flush();
+
+        Work deleted = workRepository.findById(workId).orElseThrow();
+        assertThat(deleted.isDeleted()).isTrue();
+        assertThat(deleted.getDisplayVersionId()).isNull();   // ck_works_deleted
+        assertThat(growthService.getTimeline(learner(), null).getItems())
+                .extracting(TimelineDTO.Item::getWorkId).doesNotContain(workId);
+        assertThatThrownBy(() -> workService.getWork(workId, learner(), Role.USER))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
+        assertThatThrownBy(() -> workService.openFile(fileId, learner(), Role.USER))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
+
+        assertThatThrownBy(() -> workService.deleteGeneralWork(learner(), workId))   // 이미 삭제
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
+        assertThatThrownBy(() -> workService.deleteGeneralWork(learner(), 1L))       // 최종 과제
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
+        assertThatThrownBy(() -> workService.deleteGeneralWork(learner(), 4L))       // learner2 작품
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
     }
 
