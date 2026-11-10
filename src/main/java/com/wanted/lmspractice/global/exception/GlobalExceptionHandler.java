@@ -35,9 +35,9 @@ import org.springframework.web.servlet.support.RequestContextUtils;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
-    /** 업로드 용량 초과 안내 문구 — 장당 50MB(D-22)·한 번에 최대 5장(D-18)·요청 전체 300MB(application.yaml) */
+    /** 업로드 용량 초과 안내 문구 — 이미지 장당 50MB(D-22)·한 번에 최대 5장(D-18), 관리자 영상 500MB(application.yaml 파일당 500MB·요청 510MB) */
     static final String UPLOAD_TOO_LARGE_MESSAGE =
-            "올린 파일이 너무 커요. 이미지는 한 장당 50MB 이하, 한 번에 최대 5장까지 올릴 수 있어요.";
+            "올린 파일이 너무 커요. 이미지는 한 장당 50MB 이하, 한 번에 최대 5장까지, 영상은 500MB 이하로 올릴 수 있어요.";
 
     /** 업무 규칙 위반 — ErrorCode의 상태·메시지를 그대로 사용 */
     @ExceptionHandler(BusinessException.class)
@@ -84,7 +84,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 업로드 용량 초과(장당 50MB·요청 전체 300MB — application.yaml multipart 설정) → 400 FILE_TOO_LARGE.
+     * 업로드 용량 초과(파일당 500MB·요청 전체 510MB — application.yaml multipart 설정) → 400 FILE_TOO_LARGE.
      * 이 예외는 요청이 컨트롤러에 닿기 전(서블릿의 multipart 해석 단계)에 나서 컨트롤러 안의 BusinessException 처리로는 받을 수 없다.
      * 그래서 여기서, 사진을 올리던 화면(Referer)으로 되돌려 errorMessage 로 안내한다(API §1-6 flash). JSON 요청이거나
      * 되돌아갈 같은 사이트 화면을 알 수 없으면 400 오류 화면을 보인다. 고른 사진은 브라우저 보안상 다시 골라야 한다.

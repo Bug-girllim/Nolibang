@@ -22,4 +22,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     /** 여러 강의에 속한 차시 수 (관리자 A-S15의 세부 취미별 차시 수) */
     long countByCourseIdIn(Collection<Long> courseIds);
+
+    /** 이 영상 파일을 쓰는 차시가 있는지 — 연결된 영상은 삭제하지 않는다 (LessonVideoService.delete) */
+    boolean existsByVideoKey(String videoKey);
 }
