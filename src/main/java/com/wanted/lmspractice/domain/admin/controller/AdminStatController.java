@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  *  - 호출받음: 브라우저 GET /admin/stats?instructorId=&detailId= (ADMIN만)
  *  - 호출함:   InstructorStatService.getInstructorStats / getSectionStats / summarizeInstructors
  *  - 뷰:       templates/admin/stats.html
- * [동작] 시안의 "조회" 버튼 = instructorId 필터 GET, "분반별 보기" = detailId 링크, "닫기" = detailId 없는 링크
+ * [동작] 시안의 "조회" 버튼 = instructorId 필터 GET, "분반별 보기" = detailId 링크. 분반별 숫자 상자는 항상 보인다(기본: 필터 강사 → 첫 강사)
  */
 @Controller
 @RequestMapping("/admin/stats")
@@ -43,6 +43,11 @@ public class AdminStatController {
         model.addAttribute("total", instructorStatService.summarizeInstructors(rows));
         model.addAttribute("instructorId", instructorId);
 
+        // "강사 () · 분반별 현재 숫자"는 항상 보인다: 고른 강사가 없으면 필터 강사, 그것도 없으면 목록 첫 강사
+        if (detailId == null) {
+            detailId = instructorId != null ? instructorId
+                    : rows.isEmpty() ? null : rows.get(0).getInstructorId();
+        }
         if (detailId != null) {
             List<InstructorStatSummaryDTO> detail = instructorStatService.getInstructorStats(detailId);
             if (!detail.isEmpty()) {   // 강사가 아닌 id는 상세를 열지 않는다

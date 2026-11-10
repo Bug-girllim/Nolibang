@@ -30,27 +30,27 @@ INSERT INTO categories (id, code, name, state, sort_order) VALUES
   (4, 'photo',  '사진·영상',   'PRIVATE',   4);
 
 INSERT INTO hobbies (id, category_id, code, name, description, state, sort_order) VALUES
-  (1, 1, 'colored-pencil', '색연필화',      'TODO: 취미 소개', 'OPERATING', 1),
-  (2, 1, 'digital-drawing','디지털 드로잉', 'TODO: 취미 소개', 'OPERATING', 2),
-  (3, 2, 'dessert',        '디저트 만들기', 'TODO: 취미 소개', 'OPERATING', 1),
-  (4, 3, 'woodwork',       '목공',          'TODO: 취미 소개', 'PREPARING', 1),
-  (5, 3, 'leather',        '가죽공예',      'TODO: 취미 소개', 'PREPARING', 2),
-  (6, 3, 'ceramics',       '도자기',        'TODO: 취미 소개', 'PREPARING', 3),
-  (7, 3, 'ring',           '반지공예',      'TODO: 취미 소개', 'PREPARING', 4),
+  (1, 1, 'colored-pencil', '색연필화',      '', 'OPERATING', 1),
+  (2, 1, 'digital-drawing','디지털 드로잉', '', 'OPERATING', 2),
+  (3, 2, 'dessert',        '디저트 만들기', '', 'OPERATING', 1),
+  (4, 3, 'woodwork',       '목공',          '', 'PREPARING', 1),
+  (5, 3, 'leather',        '가죽공예',      '', 'PREPARING', 2),
+  (6, 3, 'ceramics',       '도자기',        '', 'PREPARING', 3),
+  (7, 3, 'ring',           '반지공예',      '', 'PREPARING', 4),
   -- [추가] 사진·영상 하위 취미 2개 (04-features F-02: 비공개, 관리자만 조회)
-  (8, 4, 'photo-shooting', '사진 촬영',     'TODO: 취미 소개', 'PRIVATE',   1),
-  (9, 4, 'video-editing',  '영상 편집',     'TODO: 취미 소개', 'PRIVATE',   2);
+  (8, 4, 'photo-shooting', '사진 촬영',     '', 'PRIVATE',   1),
+  (9, 4, 'video-editing',  '영상 편집',     '', 'PRIVATE',   2);
 
 INSERT INTO courses (id, hobby_id, level, title, description, supplies_text, assignment_title, assignment_description) VALUES
-  (1, 1, 1, '색연필화 입문',      'TODO: 강의 소개', 'TODO: 준비물', '색연필화 입문 최종 과제',      'TODO: 과제 안내'),
-  (2, 1, 2, '색연필화 중급',      'TODO: 강의 소개', 'TODO: 준비물', '색연필화 중급 최종 과제',      'TODO: 과제 안내'),
-  (3, 1, 3, '색연필화 고급',      'TODO: 강의 소개', 'TODO: 준비물', '색연필화 고급 최종 과제',      'TODO: 과제 안내'),
-  (4, 2, 1, '디지털 드로잉 입문', 'TODO: 강의 소개', 'TODO: 준비물', '디지털 드로잉 입문 최종 과제', 'TODO: 과제 안내'),
-  (5, 2, 2, '디지털 드로잉 중급', 'TODO: 강의 소개', 'TODO: 준비물', '디지털 드로잉 중급 최종 과제', 'TODO: 과제 안내'),
-  (6, 2, 3, '디지털 드로잉 고급', 'TODO: 강의 소개', 'TODO: 준비물', '디지털 드로잉 고급 최종 과제', 'TODO: 과제 안내'),
-  (7, 3, 1, '디저트 만들기 입문', 'TODO: 강의 소개', 'TODO: 준비물', '디저트 만들기 입문 최종 과제', 'TODO: 과제 안내'),
-  (8, 3, 2, '디저트 만들기 중급', 'TODO: 강의 소개', 'TODO: 준비물', '디저트 만들기 중급 최종 과제', 'TODO: 과제 안내'),
-  (9, 3, 3, '디저트 만들기 고급', 'TODO: 강의 소개', 'TODO: 준비물', '디저트 만들기 고급 최종 과제', 'TODO: 과제 안내');
+  (1, 1, 1, '색연필화 입문',      '', '', '색연필화 입문 최종 과제',      ''),
+  (2, 1, 2, '색연필화 중급',      '', '', '색연필화 중급 최종 과제',      ''),
+  (3, 1, 3, '색연필화 고급',      '', '', '색연필화 고급 최종 과제',      ''),
+  (4, 2, 1, '디지털 드로잉 입문', '', '', '디지털 드로잉 입문 최종 과제', ''),
+  (5, 2, 2, '디지털 드로잉 중급', '', '', '디지털 드로잉 중급 최종 과제', ''),
+  (6, 2, 3, '디지털 드로잉 고급', '', '', '디지털 드로잉 고급 최종 과제', ''),
+  (7, 3, 1, '디저트 만들기 입문', '', '', '디저트 만들기 입문 최종 과제', ''),
+  (8, 3, 2, '디저트 만들기 중급', '', '', '디저트 만들기 중급 최종 과제', ''),
+  (9, 3, 3, '디저트 만들기 고급', '', '', '디저트 만들기 고급 최종 과제', '');
 
 -- 27차시, 차시당 영상 1개
 -- 영상 경로: file.upload-dir(./uploads) 아래 실제 파일 — uploads/videos/{drawing|cooking}/{취미}/{취미}_{입문|중급|고급}_{N}차시_10분.mp4
@@ -59,7 +59,7 @@ INSERT INTO courses (id, hobby_id, level, title, description, supplies_text, ass
 INSERT INTO lessons (course_id, lesson_no, title, learning_objective, video_key, duration_sec)
 SELECT c.id, n.no,
        CONCAT(c.title, ' ', n.no, '차시'),
-       'TODO: 학습 목표',
+       '',
        CONCAT('videos/',
               CASE c.hobby_id WHEN 1 THEN 'drawing/색연필화/색연필화'
                               WHEN 2 THEN 'drawing/디지털드로잉/디지털드로잉'
