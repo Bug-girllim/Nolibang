@@ -71,7 +71,8 @@ public class CourseController {
             sideCategoryId = hobby.getCategoryId();
         } else {
             // 전체 취미: 사이드 메뉴와 같은 "보이는 세부 취미"만, 메뉴 순서대로
-            groups = hobbyService.getCategories(role).stream()
+            // [성능 개선] @ModelAttribute("menuCategories")가 같은 역할로 이미 만든 목록을 다시 쓴다(getCategories 중복 조회 제거)
+            groups = menuCategoriesOf(model).stream()
                     .flatMap(category -> category.getHobbies().stream())
                     .map(item -> new CourseGroup(hobbyService.getHobbySummary(item.getId(), role),
                             courseCatalogService.getCourses(item.getId(), level, userId, role)))
@@ -106,6 +107,12 @@ public class CourseController {
         model.addAttribute("sideActive", "course");
         model.addAttribute("sideHobbyId", course.getHobbyId());
         return "course/detail";
+    }
+
+    /** 이 요청 앞에서 menuCategories(@ModelAttribute)가 모델에 넣어 둔 사이드 메뉴 목록 */
+    @SuppressWarnings("unchecked")
+    private List<CategoryDTO> menuCategoriesOf(Model model) {
+        return (List<CategoryDTO>) model.getAttribute("menuCategories");
     }
 
     /** 비회원이면 null */

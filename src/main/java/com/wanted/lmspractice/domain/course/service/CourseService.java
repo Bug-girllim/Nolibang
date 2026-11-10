@@ -15,6 +15,7 @@ import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -179,6 +180,25 @@ public class CourseService {
     @Transactional(readOnly = true)
     public List<Lesson> getLessonsOfCourse(Long courseId) {
         return lessonRepository.findByCourseIdOrderByLessonNoAsc(courseId);
+    }
+
+    /**
+     * [성능 개선] 여러 강의의 차시 목록을 한 번에 (강의마다 getLessonsOfCourse와 같은 1·2·3차시 순서).
+     * 호출: MyLearningService.getMyLearning — 수강 카드마다 차시를 따로 읽지 않도록
+     *
+     * @return 강의 id → 차시 목록 (요청한 모든 id가 들어 있고, 차시가 없는 강의는 빈 목록)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<Lesson>> getLessonsOfCourses(Collection<Long> courseIds) {
+        if (courseIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<Lesson>> lessonsByCourse = new HashMap<>();
+        courseIds.forEach(courseId -> lessonsByCourse.put(courseId, new ArrayList<>()));
+        for (Lesson lesson : lessonRepository.findByCourseIdInOrderByCourseIdAscLessonNoAsc(courseIds)) {
+            lessonsByCourse.computeIfAbsent(lesson.getCourseId(), id -> new ArrayList<>()).add(lesson);
+        }
+        return lessonsByCourse;
     }
 
     /**

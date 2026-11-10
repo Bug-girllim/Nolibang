@@ -2,6 +2,7 @@ package com.wanted.lmspractice.domain.learning.repository;
 
 import com.wanted.lmspractice.domain.learning.entity.LessonProgress;
 import com.wanted.lmspractice.domain.learning.entity.LessonProgressId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,6 +32,9 @@ public interface LessonProgressRepository extends JpaRepository<LessonProgress, 
 
     /** 한 수강의 차시 진도 전체. 호출: ProgressService.getLessonView·getLessonStatuses */
     List<LessonProgress> findByEnrollmentId(Long enrollmentId);
+
+    /** [성능 개선] 여러 수강의 차시 진도를 한 번에. 호출: ProgressService.getProgressByEnrollmentIds */
+    List<LessonProgress> findByEnrollmentIdIn(Collection<Long> enrollmentIds);
 
     /** 완료한 차시 수 (3이면 최종 과제 제출 가능). 호출: ProgressService.isAllCompleted */
     long countByEnrollmentIdAndCompletedAtIsNotNull(Long enrollmentId);

@@ -1,8 +1,10 @@
 package com.wanted.lmspractice.domain.instructor.controller;
 
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.instructor.dto.SectionSummaryDTO;
 import com.wanted.lmspractice.domain.instructor.dto.StudentStatus;
 import com.wanted.lmspractice.domain.instructor.service.InstructorDashboardService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -35,8 +37,10 @@ public class InstructorStudentController {
                            @RequestParam(required = false) StudentStatus status,
                            Model model) {
         Long instructorId = details.getUserId();
-        model.addAttribute("students", instructorDashboardService.getStudents(instructorId, sectionId, status, name));
-        model.addAttribute("sections", instructorDashboardService.getAssignedSections(instructorId));
+        // [성능 개선] 담당 분반 목록을 먼저 읽어 분반 선택과 "내 분반인지" 확인에 함께 쓴다(담당 분반 집계 2번 → 1번)
+        List<SectionSummaryDTO> sections = instructorDashboardService.getAssignedSections(instructorId);
+        model.addAttribute("students", instructorDashboardService.getStudents(instructorId, sections, sectionId, status, name));
+        model.addAttribute("sections", sections);
         model.addAttribute("statuses", StudentStatus.values());
         model.addAttribute("sectionId", sectionId);
         model.addAttribute("name", name);

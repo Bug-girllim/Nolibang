@@ -8,7 +8,10 @@ import com.wanted.lmspractice.domain.review.entity.ReviewRound;
 import com.wanted.lmspractice.domain.review.entity.ReviewStatus;
 import com.wanted.lmspractice.domain.review.repository.ReviewRoundRepository;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -57,6 +60,41 @@ public class ReviewQueryService {
         ReviewStatusDTO dto = ReviewStatusDTO.ofRound(latest.get());
         dto.setFirstSubmittedAt(firstSubmittedAt);
         return dto;
+    }
+
+    /**
+     * [성능 개선] 여러 수강의 최신 평가 상태를 한 번에 — 회차 조회 1번. 값은 수강마다 getLatestStatus(계약 C11)를 부른 것과 같다
+     * (가장 큰 회차의 값 + 1회차(가장 작은 회차)의 제출 시각, 제출한 적이 없으면 미제출 DTO).
+     * 수강 카드마다 getLatestStatus(최신 회차 1번 + 최초 회차 1번)를 부르던 반복 조회를 없앤다.
+     * 호출: MyLearningService.getMyLearning
+     *
+     * @return 수강 id → 최신 평가 상태 (요청한 모든 id가 들어 있다)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, ReviewStatusDTO> getLatestStatuses(Collection<Long> enrollmentIds) {
+        if (enrollmentIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, ReviewRound> latestByEnrollment = new HashMap<>();
+        Map<Long, ReviewRound> firstByEnrollment = new HashMap<>();
+        for (ReviewRound round : reviewRoundRepository.findByEnrollmentIdIn(enrollmentIds)) {
+            latestByEnrollment.merge(round.getEnrollmentId(), round,
+                    (a, b) -> b.getRoundNo() > a.getRoundNo() ? b : a);
+            firstByEnrollment.merge(round.getEnrollmentId(), round,
+                    (a, b) -> b.getRoundNo() < a.getRoundNo() ? b : a);
+        }
+        Map<Long, ReviewStatusDTO> result = new HashMap<>();
+        for (Long enrollmentId : enrollmentIds) {
+            ReviewRound latest = latestByEnrollment.get(enrollmentId);
+            if (latest == null) {
+                result.put(enrollmentId, ReviewStatusDTO.notSubmitted());
+                continue;
+            }
+            ReviewStatusDTO dto = ReviewStatusDTO.ofRound(latest);
+            dto.setFirstSubmittedAt(firstByEnrollment.get(enrollmentId).getSubmittedAt());
+            result.put(enrollmentId, dto);
+        }
+        return result;
     }
 
     /** 계약 C11: 본인·같은 취미의 최근 승인 피드백 또는 반려 사유 1건 (사용: 팀원 4 #19) */

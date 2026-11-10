@@ -6,6 +6,7 @@ import com.wanted.lmspractice.domain.course.dto.LessonDTO;
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.course.entity.Lesson;
 import com.wanted.lmspractice.domain.enrollment.dto.EnrollmentStatusDTO;
+import com.wanted.lmspractice.domain.enrollment.dto.SeatSummaryDTO;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
 import com.wanted.lmspractice.domain.enrollment.service.SeatService;
 import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
@@ -15,7 +16,9 @@ import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.learning.policy.ContinueLessonPolicy;
 import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.domain.user.entity.Role;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
  *  - 호출받음: HobbyController(취미 상세), CourseController(강의 목록·상세), AdminHobbyController(관리자 집계),
  *             AdminSectionController·AdminWaitlistController(#10 관리자 강의 선택 — getAdminCourses)
  *  - 호출함:   HobbyService(취미·노출 규칙), CourseService(강의 데이터),
- *             SeatService.getSeatSummary(정원·대기 — 수강 도메인 조회 계약), EnrollmentService.getStatusForUser(내 신청 상태 — #09 계약),
+ *             SeatService.getSeatSummary·getSeatSummaries(정원·대기 — 수강 도메인 조회 계약, 여러 강의는 일괄 조회),
+ *             EnrollmentService.getStatusesForUser(내 신청 상태 — #09 계약 C17과 같은 규칙의 일괄 조회),
  *             ProgressService.getLessonStatuses(차시 진도 — 계약 C10, #12: [이어서 학습]이 열 차시 고르기)
  *  - 왜 따로 두나: CourseService가 수강 도메인을 직접 부르면, #09에서 EnrollmentService가 강의·취미 확인을 위해 CourseService를 쓰는 순간
  *             서로를 주입하는 순환이 되어 앱이 뜨지 않는다. 강의·취미(위쪽)와 수강(아래쪽)을 이 클래스 한 곳에서만 연결해
@@ -57,9 +61,13 @@ public class CourseCatalogService {
     public List<CourseDTO> getCourses(Long hobbyId, CourseLevel levelOrNull, Long userIdOrNull, Role viewerRole) {
         boolean hobbyOperating = hobbyService.getHobbySummary(hobbyId, viewerRole).isOperating();
         List<CourseDTO> courses = courseService.getCourses(hobbyId, levelOrNull, viewerRole);
+        // [성능 개선] 정원 현황·신청 상태를 강의마다 따로 읽지 않고 한 번에 읽는다 (강의 수와 관계없이 쿼리 수 고정)
+        List<Long> courseIds = courses.stream().map(CourseDTO::getId).toList();
+        Map<Long, SeatSummaryDTO> seats = seatService.getSeatSummaries(courseIds);
+        Map<Long, EnrollmentStatusDTO> statuses = statusesFor(courseIds, seats, hobbyOperating, userIdOrNull, viewerRole);
         for (CourseDTO course : courses) {
-            course.setSeats(seatService.getSeatSummary(course.getId()));
-            course.setEnrollStatus(statusFor(course.getId(), hobbyOperating, userIdOrNull, viewerRole));
+            course.setSeats(seats.get(course.getId()));
+            course.setEnrollStatus(statuses.get(course.getId()));
             if (isLearningOrCompleted(course.getEnrollStatus())) {  // 그 밖의 카드는 차시를 조회하지 않는다
                 course.setContinueLessonId(continueLessonId(course.getEnrollStatus(),
                         courseService.getLessonsOfCourse(course.getId()).stream().map(Lesson::getId).toList()));
@@ -96,7 +104,9 @@ public class CourseCatalogService {
     @Transactional(readOnly = true)
     public EnrollmentStatusDTO getEnrollStatus(CourseDetailDTO course, Long userIdOrNull, Role viewerRole) {
         boolean hobbyOperating = hobbyService.getHobbySummary(course.getHobbyId(), viewerRole).isOperating();
-        return statusFor(course.getId(), hobbyOperating, userIdOrNull, viewerRole);
+        // [성능 개선] getCourseDetail이 이미 읽은 정원 현황을 다시 쓴다(같은 요청에서 정원 현황을 두 번 읽지 않음)
+        Map<Long, SeatSummaryDTO> knownSeats = course.getSeats() == null ? Map.of() : Map.of(course.getId(), course.getSeats());
+        return statusesFor(List.of(course.getId()), knownSeats, hobbyOperating, userIdOrNull, viewerRole).get(course.getId());
     }
 
     /**
@@ -106,7 +116,9 @@ public class CourseCatalogService {
     @Transactional(readOnly = true)
     public List<CourseDTO> getAdminCourses() {
         List<CourseDTO> courses = courseService.getAllCoursesForAdmin();
-        courses.forEach(course -> course.setSeats(seatService.getSeatSummary(course.getId())));
+        // [성능 개선] 전체 강의의 정원 현황을 한 번에 읽는다
+        Map<Long, SeatSummaryDTO> seats = seatService.getSeatSummaries(courses.stream().map(CourseDTO::getId).toList());
+        courses.forEach(course -> course.setSeats(seats.get(course.getId())));
         return courses;
     }
 
@@ -154,16 +166,24 @@ public class CourseCatalogService {
      *  2) 비회원은 "로그인 후 신청"
      *  3) 강사·관리자는 신청 대상이 아니다(학습자 전용)
      */
-    private EnrollmentStatusDTO statusFor(Long courseId, boolean hobbyOperating, Long userIdOrNull, Role viewerRole) {
+    private Map<Long, EnrollmentStatusDTO> statusesFor(List<Long> courseIds, Map<Long, SeatSummaryDTO> seats,
+                                                       boolean hobbyOperating, Long userIdOrNull, Role viewerRole) {
+        String fixedState = null;
         if (!hobbyOperating) {
-            return EnrollmentStatusDTO.of(EnrollmentStatusDTO.UNAVAILABLE);
+            fixedState = EnrollmentStatusDTO.UNAVAILABLE;
+        } else if (userIdOrNull == null || viewerRole == null) {
+            fixedState = EnrollmentStatusDTO.LOGIN_REQUIRED;
+        } else if (viewerRole != Role.USER) {
+            fixedState = EnrollmentStatusDTO.NOT_LEARNER;
         }
-        if (userIdOrNull == null || viewerRole == null) {
-            return EnrollmentStatusDTO.of(EnrollmentStatusDTO.LOGIN_REQUIRED);
+        if (fixedState == null) {
+            // 학습자: 수강 도메인(#09)에 여러 강의를 한 번에 묻는다 (판단 규칙은 getStatusForUser와 같다)
+            return enrollmentService.getStatusesForUser(userIdOrNull, courseIds, seats);
         }
-        if (viewerRole != Role.USER) {
-            return EnrollmentStatusDTO.of(EnrollmentStatusDTO.NOT_LEARNER);
+        Map<Long, EnrollmentStatusDTO> statuses = new HashMap<>();
+        for (Long courseId : courseIds) {
+            statuses.put(courseId, EnrollmentStatusDTO.of(fixedState));  // 카드마다 따로 만든다(DTO가 변경 가능하므로 공유하지 않음)
         }
-        return enrollmentService.getStatusForUser(userIdOrNull, courseId);
+        return statuses;
     }
 }

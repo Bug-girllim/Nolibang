@@ -68,7 +68,18 @@ public class HobbyService {
      */
     @Transactional(readOnly = true)
     public CategoryDTO getCategory(Long categoryId, Role viewerRole) {
-        return getCategories(viewerRole).stream()
+        return pickCategory(getCategories(viewerRole), categoryId);
+    }
+
+    /**
+     * [성능 개선] 이미 만든 "보이는 대분류 목록"(getCategories 결과)에서 대분류 한 개를 고른다 — 같은 요청에서 목록을 다시 조회하지 않도록.
+     * 목록에 없으면(없는 대분류이거나 보이지 않는 대분류) getCategory와 똑같이 HOBBY_NOT_FOUND.
+     * 호출: getCategory, HobbyController.list(사이드 메뉴용 menuCategories를 다시 씀)
+     *
+     * @throws BusinessException HOBBY_NOT_FOUND
+     */
+    public CategoryDTO pickCategory(List<CategoryDTO> visibleCategories, Long categoryId) {
+        return visibleCategories.stream()
                 .filter(category -> category.getId().equals(categoryId))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));

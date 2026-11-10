@@ -53,12 +53,14 @@ public class HobbyController {
     public String list(@RequestParam(required = false) Long categoryId,
                        @AuthenticationPrincipal AuthDetails details,
                        Model model) {
-        model.addAttribute("categories", model.getAttribute("menuCategories"));  // @ModelAttribute로 이미 만든 목록을 그대로 쓴다
+        List<CategoryDTO> menuCategories = menuCategoriesOf(model);  // @ModelAttribute로 이미 만든 목록을 그대로 쓴다
+        model.addAttribute("categories", menuCategories);
         if (categoryId == null) {
             model.addAttribute("sideActive", "all");
             return "hobby/list";
         }
-        model.addAttribute("category", hobbyService.getCategory(categoryId, roleOf(details)));
+        // [성능 개선] getCategory는 목록을 다시 조회하므로, 같은 역할로 만든 menuCategories에서 고른다(결과·HOBBY_NOT_FOUND 규칙 동일)
+        model.addAttribute("category", hobbyService.pickCategory(menuCategories, categoryId));
         model.addAttribute("sideActive", "category");
         model.addAttribute("sideCategoryId", categoryId);
         return "hobby/category";
@@ -79,6 +81,12 @@ public class HobbyController {
         model.addAttribute("sideCategoryId", hobby.getCategoryId());
         model.addAttribute("sideHobbyId", hobby.getId());
         return "hobby/detail";
+    }
+
+    /** 이 요청 앞에서 menuCategories(@ModelAttribute)가 모델에 넣어 둔 사이드 메뉴 목록 */
+    @SuppressWarnings("unchecked")
+    private List<CategoryDTO> menuCategoriesOf(Model model) {
+        return (List<CategoryDTO>) model.getAttribute("menuCategories");
     }
 
     /** 비회원이면 null */

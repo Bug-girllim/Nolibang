@@ -34,8 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
  * [연결]
  *  - 호출받음: MyLearningController.list (GET /my/learning)
  *  - 호출함:   WaitlistService.getMyWaiting(대기·대기 번호), EnrollmentService.getMyEnrollments(수강 건·분반),
- *             CourseService.getCourseBriefs(강의명·취미), ProgressService.getLessonStatuses·isAllCompleted(차시 진도 — 계약 C10, #12),
- *             ReviewQueryService.getLatestStatus(최종 과제 평가 상태 — 계약 C11, #14)
+ *             CourseService.getCourseBriefs(강의명·취미)·getLessonsOfCourses(차시),
+ *             ProgressService.getProgressByEnrollmentIds(차시 진도·3차시 완료 — 계약 C10과 같은 규칙의 일괄 조회, #12),
+ *             ReviewQueryService.getLatestStatuses(최종 과제 평가 상태 — 계약 C11과 같은 규칙의 일괄 조회, #14)
+ *             [성능 개선] 예전에는 수강 카드마다 위 조회를 따로 해 카드 수 × 최대 6번 조회했다 → 종류별 1번
  *  - 본인만:   userId는 로그인 정보에서만 받고, 수강·대기 조회가 모두 userId로 걸러진다. 다른 학습자의 기록은 섞일 수 없다.
  *  - 진도·평가는 #12·#14가 구현되기 전까지 스텁(빈 진도·미제출)이라 그 전에는 "학습 중"으로만 보인다.
  * [기술] 🟢 @Service·@Transactional(readOnly)·DTO 조립. 다른 도메인 데이터는 모두 그 도메인의 Service로만 읽는다
@@ -77,6 +79,15 @@ public class MyLearningService {
         enrollments.forEach(enrollment -> courseIds.add(enrollment.getCourseId()));
         Map<Long, CourseBriefDTO> briefs = courseService.getCourseBriefs(courseIds);
 
+        // [성능 개선] 수강 카드마다 차시·진도·평가 상태를 따로 읽지 않고(카드당 최대 6번) 종류별로 한 번에 읽는다(카드 수와 관계없이 3번)
+        List<MyEnrollmentDTO> shown = enrollments.stream().filter(e -> briefs.containsKey(e.getCourseId())).toList();
+        List<Long> shownEnrollmentIds = shown.stream().map(MyEnrollmentDTO::getEnrollmentId).toList();
+        Map<Long, List<Lesson>> lessonsByCourse = courseService.getLessonsOfCourses(
+                shown.stream().map(MyEnrollmentDTO::getCourseId).distinct().toList());
+        Map<Long, ProgressService.EnrollmentProgress> progressByEnrollment =
+                progressService.getProgressByEnrollmentIds(shownEnrollmentIds, lessonsByCourse);
+        Map<Long, ReviewStatusDTO> reviewByEnrollment = reviewQueryService.getLatestStatuses(shownEnrollmentIds);
+
         List<MyCourseDTO> cards = new ArrayList<>();
         for (MyWaitlistDTO entry : waiting) {
             CourseBriefDTO brief = briefs.get(entry.getCourseId());
@@ -84,11 +95,11 @@ public class MyLearningService {
                 cards.add(toWaitingCard(entry, brief));
             }
         }
-        for (MyEnrollmentDTO enrollment : enrollments) {
-            CourseBriefDTO brief = briefs.get(enrollment.getCourseId());
-            if (brief != null) {
-                cards.add(toEnrollmentCard(enrollment, brief, now));
-            }
+        for (MyEnrollmentDTO enrollment : shown) {
+            cards.add(toEnrollmentCard(enrollment, briefs.get(enrollment.getCourseId()), now,
+                    lessonsByCourse.get(enrollment.getCourseId()),
+                    progressByEnrollment.get(enrollment.getEnrollmentId()),
+                    reviewByEnrollment.get(enrollment.getEnrollmentId())));
         }
         // List.sort는 안정 정렬이라 같은 묶음 안의 기존 순서(대기: 신청순, 수강: 최근 확정순)가 유지된다
         cards.sort(Comparator.comparingInt(card -> isOngoing(card.getState()) ? 0 : 1));
@@ -104,13 +115,16 @@ public class MyLearningService {
         return card;
     }
 
-    /** 수강 건 카드: 강의 소개 + 분반·기간 + 차시 진도 + 평가 상태로 화면 상태를 정한다 */
-    private MyCourseDTO toEnrollmentCard(MyEnrollmentDTO enrollment, CourseBriefDTO brief, LocalDateTime now) {
+    /**
+     * 수강 건 카드: 강의 소개 + 분반·기간 + 차시 진도 + 평가 상태로 화면 상태를 정한다.
+     * 차시(1·2·3차시 순서)·진도(C10)·평가 상태(C11)는 getMyLearning이 모든 카드 몫을 한 번에 읽어 넘긴다.
+     */
+    private MyCourseDTO toEnrollmentCard(MyEnrollmentDTO enrollment, CourseBriefDTO brief, LocalDateTime now,
+                                         List<Lesson> courseLessons, ProgressService.EnrollmentProgress enrollmentProgress,
+                                         ReviewStatusDTO review) {
         Long enrollmentId = enrollment.getEnrollmentId();
-        List<Lesson> courseLessons = courseService.getLessonsOfCourse(brief.getCourseId());  // 1·2·3차시 순서
-        List<LessonProgressDTO> progress = progressService.getLessonStatuses(enrollmentId);
+        List<LessonProgressDTO> progress = enrollmentProgress.lessons();
         List<LessonProgressDTO> lessons = withEveryLesson(courseLessons, progress);
-        ReviewStatusDTO review = reviewQueryService.getLatestStatus(enrollmentId);
         boolean anyLessonCompleted = lessons.stream().anyMatch(LessonProgressDTO::isCompleted);
 
         LearningState state = LearningState.derive(
@@ -128,7 +142,7 @@ public class MyLearningService {
         card.setContinueLessonId(ContinueLessonPolicy.pick(courseLessons.stream().map(Lesson::getId).toList(), progress));
         if (state.isActive()) {
             card.setRemainingDays(remainingDays(enrollment.getExpiresAt(), now));
-            card.setAllLessonsCompleted(progressService.isAllCompleted(enrollmentId));  // [최종 과제] 버튼 활성 조건 (C10)
+            card.setAllLessonsCompleted(enrollmentProgress.allCompleted());  // [최종 과제] 버튼 활성 조건 (C10 isAllCompleted와 같은 기준)
         }
         return card;
     }

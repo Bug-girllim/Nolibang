@@ -15,7 +15,10 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 2 · #09 (getSeatSummary 조회 계약은 #08에서 추가)   [기획] FR-053·054, D-52   [API] EN-03 처리, NT 알림 WAITLIST_CONFIRMED
  * [연결]
  *  - 호출받음: EnrollmentService(cancel·complete·closeAfterRejection, #09), SectionService·EnrollmentExpiryScheduler(#10) → fillVacancies
- *             CourseCatalogService(#08) → getSeatSummary
+ *             CourseCatalogService(#08) → getSeatSummary·getSeatSummaries(여러 강의 일괄 — 성능 개선)
  *  - 호출함:   CourseSectionRepository(강의 잠금), SectionAssignPolicy(분반 선택), WaitlistEntryRepository(1순위),
  *             NotificationService.notify(계약 C7, 팀원 4 — #17 전에는 스텁), CourseService.getCourseTitle(알림 문구)
  *  - 계약:     C4 int fillVacancies(Long courseId) — 시그니처 변경 금지
@@ -108,15 +111,47 @@ public class SeatService {
      */
     @Transactional(readOnly = true)
     public SeatSummaryDTO getSeatSummary(Long courseId) {
-        Object[] seats = (Object[]) entityManager.createNativeQuery(
-                        "SELECT COALESCE(SUM(capacity), 0), COALESCE(SUM(remaining), 0) "
-                                + "FROM v_section_seats WHERE course_id = :courseId AND assignable = 1")
-                .setParameter("courseId", courseId)
-                .getSingleResult();
-        Number waiting = (Number) entityManager.createNativeQuery(
-                        "SELECT COUNT(*) FROM waitlist_entries WHERE course_id = :courseId AND status = 'WAITING'")
-                .setParameter("courseId", courseId)
-                .getSingleResult();
-        return new SeatSummaryDTO(((Number) seats[0]).intValue(), ((Number) seats[1]).intValue(), waiting.intValue());
+        return getSeatSummaries(List.of(courseId)).get(courseId);
+    }
+
+    /**
+     * [성능 개선] 여러 강의의 정원 현황을 한 번에 — 강의 수와 관계없이 쿼리 2번(IN + GROUP BY).
+     * 강의마다 getSeatSummary를 부르면 강의 수 × 2번 조회가 되어 목록 화면이 느려진다(N+1).
+     * 값의 의미는 getSeatSummary와 같다: 신청 가능한 분반(assignable)만 합하고, 분반·대기가 없는 강의는 0으로 채운다.
+     * 호출: CourseCatalogService.getCourses·getAdminCourses, EnrollmentService.getStatusesForUser, getSeatSummary
+     *
+     * @return 강의 id → 정원 현황 (요청한 모든 id가 들어 있다)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, SeatSummaryDTO> getSeatSummaries(Collection<Long> courseIds) {
+        if (courseIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = courseIds.stream().distinct().toList();
+        Map<Long, int[]> seatsByCourse = new HashMap<>();  // 강의 id → {정원 합계, 남은 자리 합계}
+        for (Object row : entityManager.createNativeQuery(
+                        "SELECT course_id, COALESCE(SUM(capacity), 0), COALESCE(SUM(remaining), 0) "
+                                + "FROM v_section_seats WHERE course_id IN (:courseIds) AND assignable = 1 GROUP BY course_id")
+                .setParameter("courseIds", ids)
+                .getResultList()) {
+            Object[] seats = (Object[]) row;
+            seatsByCourse.put(((Number) seats[0]).longValue(),
+                    new int[] {((Number) seats[1]).intValue(), ((Number) seats[2]).intValue()});
+        }
+        Map<Long, Integer> waitingByCourse = new HashMap<>();
+        for (Object row : entityManager.createNativeQuery(
+                        "SELECT course_id, COUNT(*) FROM waitlist_entries "
+                                + "WHERE course_id IN (:courseIds) AND status = 'WAITING' GROUP BY course_id")
+                .setParameter("courseIds", ids)
+                .getResultList()) {
+            Object[] waiting = (Object[]) row;
+            waitingByCourse.put(((Number) waiting[0]).longValue(), ((Number) waiting[1]).intValue());
+        }
+        Map<Long, SeatSummaryDTO> summaries = new HashMap<>();
+        for (Long courseId : ids) {
+            int[] seats = seatsByCourse.getOrDefault(courseId, new int[] {0, 0});
+            summaries.put(courseId, new SeatSummaryDTO(seats[0], seats[1], waitingByCourse.getOrDefault(courseId, 0)));
+        }
+        return summaries;
     }
 }

@@ -10,7 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * [담당] 팀원 1 · #02 (#05 인터셉터 등록)   [API] §1-4
  * [연결]
  *  - 호출받음: Spring MVC 시작 시 1회
- *  - 호출함:   PasswordChangeInterceptor(#05)
+ *  - 호출함:   PasswordChangeInterceptor(#05), HeaderNotificationInterceptor(성능 개선 — 머리글 알림 값)
  * [기술] 🟢 WebMvcConfigurer.addInterceptors (chap05)
  */
 @Configuration
@@ -18,6 +18,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final PasswordChangeInterceptor passwordChangeInterceptor;
+    private final HeaderNotificationInterceptor headerNotificationInterceptor;
 
     /**
      * 임시 비밀번호 강사 차단 인터셉터를 모든 요청에 건다.
@@ -33,5 +34,10 @@ public class WebConfig implements WebMvcConfigurer {
                         "/auth/logout",
                         "/css/**", "/js/**", "/images/**", "/favicon.ico",
                         "/error", "/error/**");
+        // [성능 개선] 머리글 알림 값은 화면을 그리는 요청에만 조회한다(redirect·본문 응답은 건너뜀).
+        // 오류 화면(/error/403 등 MainController가 그리는 화면)도 머리글이 있으므로 제외하지 않는다 — 정적 리소스만 뺀다.
+        registry.addInterceptor(headerNotificationInterceptor)
+                .addPathPatterns("/**")
+                .excludePathPatterns("/css/**", "/js/**", "/images/**", "/favicon.ico");
     }
 }

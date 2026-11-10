@@ -70,10 +70,30 @@ public class InstructorDashboardService {
      * @throws BusinessException SECTION_NOT_FOUND 내 담당이 아닌 분반 id를 URL로 넣은 경우(존재를 숨기려고 404)
      */
     public List<StudentProgressDTO> getStudents(Long instructorId, Long sectionId, StudentStatus status, String name) {
-        LocalDateTime now = LocalDateTime.now();
-        if (sectionId != null && !isMySection(instructorId, sectionId, now)) {
+        if (sectionId != null && !isMySection(instructorId, sectionId, LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.SECTION_NOT_FOUND);
         }
+        return findStudents(instructorId, sectionId, status, name);
+    }
+
+    /**
+     * [성능 개선] 담당 분반 학습자 목록 — 화면이 이미 읽은 담당 분반 목록(getAssignedSections)으로 "내 분반인지"를 확인한다.
+     * 예전에는 학습자 관리 화면 한 번에 담당 분반 집계(findSectionStats — 분반마다 하위 조회 7개)를 두 번 실행했다
+     * (isMySection 1번 + 분반 선택 목록 1번). 규칙·결과는 getStudents(instructorId, sectionId, status, name)와 같다.
+     * 호출: InstructorStudentController.students
+     * @throws BusinessException SECTION_NOT_FOUND 내 담당이 아닌 분반 id
+     */
+    public List<StudentProgressDTO> getStudents(Long instructorId, List<SectionSummaryDTO> assignedSections,
+                                                Long sectionId, StudentStatus status, String name) {
+        if (sectionId != null && assignedSections.stream().noneMatch(s -> s.getSectionId().equals(sectionId))) {
+            throw new BusinessException(ErrorCode.SECTION_NOT_FOUND);
+        }
+        return findStudents(instructorId, sectionId, status, name);
+    }
+
+    /** 담당 분반 학습자 조회 + 상태 필터 + 남은 기간 표시 (분반 소유 확인 뒤에 부른다) */
+    private List<StudentProgressDTO> findStudents(Long instructorId, Long sectionId, StudentStatus status, String name) {
+        LocalDateTime now = LocalDateTime.now();
         String keyword = (name == null || name.isBlank()) ? null : name.trim();
 
         List<StudentProgressDTO> result = new ArrayList<>();

@@ -48,6 +48,7 @@ spring:
   # ==================================================
   # 4. Thymeleaf 설정
   # ==================================================
+  # 배포 시에는 application-prod.yaml(SPRING_PROFILES_ACTIVE=prod)이 템플릿 캐시·응답 압축을 켜고 SQL 콘솔 출력을 끈다
   thymeleaf:
     cache: false
 

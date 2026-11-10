@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 4 · #17   [화면] U-S15·T-S09, 공통 헤더   [API] NT-01~NT-04   [기획] FR-035
  * [연결]
  *  - 호출받음: 팀원 2 SeatService·SectionService, 팀원 3 ReviewService·AssignmentService, 팀원 4 Comment·Inquiry·Moderation (notify),
- *             GlobalModelAdvice(countUnread·getHeaderNotifications), NotificationController(목록·열기·모두 읽음)
+ *             HeaderNotificationInterceptor(countUnread·getHeaderNotifications — 화면을 그리는 요청만), NotificationController(목록·열기·모두 읽음)
  *  - 호출함:   NotificationRepository, NotificationLinkResolver(대상 화면 URL·존재 확인)
  *  - 계약:     C7 notify 두 가지·countUnread — 시그니처 변경 금지
  * notify()는 호출한 쪽 트랜잭션 안에서 실행되며(@Transactional 기본 전파 = 참여), 입력 검증 실패 외에는 예외를 던지지 않는다(#01 합의).
@@ -76,7 +76,7 @@ public class NotificationService {
         return notificationRepository.countByUserIdAndReadAtIsNull(userId);
     }
 
-    /** 헤더 알림창 미리보기 — 최근 5건. 호출: GlobalModelAdvice.headerNotifications */
+    /** 헤더 알림창 미리보기 — 최근 5건. 호출: HeaderNotificationInterceptor.postHandle */
     @Transactional(readOnly = true)
     public List<NotificationDTO> getHeaderNotifications(Long userId) {
         return notificationRepository.findTop5ByUserIdOrderByCreatedAtDescIdDesc(userId).stream()

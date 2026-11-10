@@ -3,8 +3,6 @@ package com.wanted.lmspractice.domain.review.service;
 import com.wanted.lmspractice.domain.course.dto.CourseBriefDTO;
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.course.service.CourseService;
-import com.wanted.lmspractice.domain.enrollment.dto.MyEnrollmentDTO;
-import com.wanted.lmspractice.domain.enrollment.entity.EnrollmentStatus;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
 import com.wanted.lmspractice.domain.review.dto.BadgeDTO;
 import java.util.ArrayList;
@@ -22,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 3 · #15   [기획] FR-024·025
  * [연결]
  *  - 호출받음: ReviewResultService(결과 화면), 팀원 4 CommentPolicy(#18)·WorkLevelPolicy(#19)
- *  - 호출함:   EnrollmentService.getMyEnrollments(C18, 수료 건 조회), CourseService.getCourseBriefs(강의→취미·수준)
+ *  - 호출함:   EnrollmentService.getCompletedCourseIds(수료한 강의 id — 성능 개선), CourseService.getCourseBriefs(강의→취미·수준)
  *  - 계약:     C12 BadgeService — 시그니처 변경 금지
  * 규칙: 수료(COMPLETED)한 강의의 (취미, 수준)마다 수준 배지 1개. 한 취미에서 입문·중급·고급을 모두 수료하면 그 취미의 마스터 배지 1개를 더한다.
  * 평가 대기·진행 중, 반려, 취소·만료는 수료가 아니므로 배지가 없다.
@@ -41,10 +39,8 @@ public class BadgeService {
      */
     @Transactional(readOnly = true)
     public List<BadgeDTO> getBadges(Long userId) {
-        List<Long> completedCourseIds = enrollmentService.getMyEnrollments(userId).stream()
-                .filter(e -> e.getStatus() == EnrollmentStatus.COMPLETED)
-                .map(MyEnrollmentDTO::getCourseId)
-                .toList();
+        // [성능 개선] 수료한 강의 id만 읽는다(예전: 전체 수강 건 + 분반 + 대기 기록을 읽은 뒤 COMPLETED만 골라 씀 — 조회 3번 → 1번)
+        List<Long> completedCourseIds = enrollmentService.getCompletedCourseIds(userId);
         if (completedCourseIds.isEmpty()) {
             return List.of();
         }

@@ -47,7 +47,9 @@ class BadgeServiceTest {
     }
 
     private void given(List<MyEnrollmentDTO> enrollments, CourseBriefDTO... courses) {
-        when(enrollmentService.getMyEnrollments(USER)).thenReturn(enrollments);
+        // [성능 개선] BadgeService는 수료한 강의 id만 받는다(EnrollmentService.getCompletedCourseIds) — 같은 입력에서 COMPLETED만 넘긴다
+        when(enrollmentService.getCompletedCourseIds(USER)).thenReturn(enrollments.stream()
+                .filter(e -> e.getStatus() == EnrollmentStatus.COMPLETED).map(MyEnrollmentDTO::getCourseId).toList());
         Map<Long, CourseBriefDTO> map = new HashMap<>();
         for (CourseBriefDTO c : courses) {
             map.put(c.getCourseId(), c);
@@ -105,7 +107,7 @@ class BadgeServiceTest {
     @Test
     @DisplayName("평가 대기 중(진행)·취소·만료 수강은 배지가 없다")
     void notCompletedHasNoBadge() {
-        when(enrollmentService.getMyEnrollments(USER)).thenReturn(List.of(
+        given(List.of(
                 enrollment(1, EnrollmentStatus.ACTIVE), enrollment(2, EnrollmentStatus.CANCELLED),
                 enrollment(3, EnrollmentStatus.EXPIRED)));
 

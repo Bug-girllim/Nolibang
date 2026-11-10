@@ -79,6 +79,21 @@ public class WaitlistService {
     }
 
     /**
+     * [성능 개선] 학습자의 여러 강의 대기 줄(WAITING)을 한 번에 — findWaiting을 강의마다 부르지 않도록.
+     * 호출: EnrollmentService.getStatusesForUser
+     *
+     * @return 강의 id → 대기 줄 (대기 중이 아닌 강의는 빠진다)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, WaitlistEntry> findWaitingByCourseIds(Long userId, Collection<Long> courseIds) {
+        if (courseIds.isEmpty()) {
+            return Map.of();
+        }
+        return waitlistEntryRepository.findByUserIdAndStatusAndCourseIdIn(userId, WaitlistStatus.WAITING, courseIds).stream()
+                .collect(Collectors.toMap(WaitlistEntry::getCourseId, entry -> entry, (first, second) -> first));
+    }
+
+    /**
      * 대기 순번(1부터) = 같은 강의에서 이 줄보다 먼저 대기 중인 줄 수 + 1. 앞사람이 확정·취소되면 자동으로 당겨진다(FIFO = id 순).
      * 호출: join, EnrollmentService.getStatusForUser
      */
