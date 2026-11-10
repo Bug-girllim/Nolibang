@@ -189,6 +189,16 @@ public class WorkService {
      * 호출: MyWorkController.changeVisibility (POST /my/works/{workId}/visibility)
      * @throws BusinessException WORK_NOT_FOUND (없음·남의 작품 — 존재를 숨김)
      */
+    /**
+     * 일반 작품 삭제 (본인만, 논리 삭제) — 댓글·좋아요·파일 행은 남기되 작품이 보이지 않으니 함께 접근할 수 없다.
+     * 호출: MyWorkController.delete (POST /my/works/{id}/delete)
+     * 남의 작품·최종 과제·이미 삭제된 작품이면 존재를 숨기고 WORK_NOT_FOUND(404)
+     */
+    @Transactional
+    public void deleteGeneralWork(Long userId, Long workId) {
+        getOwnedGeneralWork(userId, workId).delete(LocalDateTime.now());
+    }
+
     @Transactional
     public void changeVisibility(Long userId, Long workId, Visibility visibility) {
         Work work = workRepository.findById(workId)

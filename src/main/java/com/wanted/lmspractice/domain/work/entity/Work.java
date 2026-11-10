@@ -179,6 +179,16 @@ public class Work {
         return kind == WorkKind.GENERAL;
     }
 
+    /**
+     * 작성자 삭제 (논리 삭제) — deleted_at 을 기록한다. 행·버전·파일·댓글·좋아요는 지우지 않고, 목록·상세·파일 URL 에서만 사라진다.
+     * ck_works_deleted: 삭제된 작품은 display_version_id 가 NULL 이어야 하므로 함께 비운다.
+     * 호출: WorkService.deleteGeneralWork (일반 작품만 — 최종 과제는 수강·평가·수료 기록과 묶여 있어 삭제 대상이 아니다)
+     */
+    public void delete(LocalDateTime now) {
+        this.deletedAt = now;
+        this.displayVersionId = null;
+    }
+
     /** 화면에 보여 줄 버전을 바꾼다 (같은 작품의 버전만 — DB 복합 FK가 한 번 더 막는다) */
     public void display(Long workVersionId) {
         this.displayVersionId = workVersionId;

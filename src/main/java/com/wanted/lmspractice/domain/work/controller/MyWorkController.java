@@ -54,6 +54,7 @@ public class MyWorkController {
     private static final String REDIRECT_GROWTH = "redirect:/my/works/growth";
     private static final String MSG_CREATED = "일반 작품을 저장했어요. 수료 상태에는 영향이 없어요.";
     private static final String MSG_EDITED = "작품을 수정했어요.";
+    private static final String MSG_DELETED = "작품을 삭제했어요.";
     private static final String MSG_VISIBILITY = "공개 설정을 바꿨어요.";
     private static final String MSG_REFLECTION = "회고를 저장했어요.";
 
@@ -131,6 +132,16 @@ public class MyWorkController {
         workService.updateGeneralWork(details.getUserId(), workId, form, images);
         redirectAttributes.addFlashAttribute("message", MSG_EDITED);
         return "redirect:/works/" + workId;
+    }
+
+    /** 일반 작품 삭제 — 본인만. 성공하면 성장 타임라인으로 (논리 삭제, 작품 상세·파일 주소는 더 열리지 않는다) */
+    @PostMapping("/{workId}/delete")
+    public String delete(@PathVariable Long workId,
+                         @AuthenticationPrincipal AuthDetails details,
+                         RedirectAttributes redirectAttributes) {
+        workService.deleteGeneralWork(details.getUserId(), workId);
+        redirectAttributes.addFlashAttribute("message", MSG_DELETED);
+        return REDIRECT_GROWTH;
     }
 
     /**
