@@ -1,5 +1,7 @@
 package com.wanted.lmspractice.domain.review.service;
 
+import com.wanted.lmspractice.domain.course.dto.CourseBriefDTO;
+import com.wanted.lmspractice.domain.course.service.CourseService;
 import com.wanted.lmspractice.domain.review.dto.FeedbackRefDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewStatusDTO;
 import com.wanted.lmspractice.domain.review.entity.ReviewRound;
@@ -30,6 +32,7 @@ public class ReviewQueryService {
     private static final List<ReviewStatus> PENDING = List.of(ReviewStatus.WAITING, ReviewStatus.IN_REVIEW);
 
     private final ReviewRoundRepository reviewRoundRepository;
+    private final CourseService courseService;   // 참고 피드백 화면의 강의명·수준 (#19 연동)
 
     /** 계약 C11: 평가 대기·진행 중 과제가 있는지 (사용: 팀원 2 수강 취소·만료 판단) */
     @Transactional(readOnly = true)
@@ -57,8 +60,25 @@ public class ReviewQueryService {
     }
 
     /** 계약 C11: 본인·같은 취미의 최근 승인 피드백 또는 반려 사유 1건 (사용: 팀원 4 #19) */
+    @Transactional(readOnly = true)
     public Optional<FeedbackRefDTO> findLatestFeedbackForReference(Long userId, Long hobbyId) {
-        // TODO #19 연동 시 구현 — #14 이슈 범위(hasPendingReview·getLatestStatus) 밖이라 스텁으로 둔다
-        return Optional.empty();
+        if (userId == null || hobbyId == null) {
+            return Optional.empty();
+        }
+        // D-17·D-47: 같은 사용자·같은 취미의 확정된 평가 회차 중 가장 최근 1건 (승인이면 피드백, 반려면 반려 사유)
+        return reviewRoundRepository.findLatestFinalizedByUserAndHobby(userId, hobbyId)
+                .flatMap(round -> reviewRoundRepository.findCourseIdByEnrollmentId(round.getEnrollmentId())
+                        .map(courseId -> toFeedbackRef(round, courseId)));
+    }
+
+    private FeedbackRefDTO toFeedbackRef(ReviewRound round, Long courseId) {
+        CourseBriefDTO course = courseService.getCourseBriefs(List.of(courseId)).get(courseId);
+        return new FeedbackRefDTO(
+                round.getId(),
+                course == null ? null : course.getTitle(),
+                course == null ? null : course.getLevel(),
+                round.getStatus(),
+                round.getFeedbackBody(),
+                round.getFinalizedAt());
     }
 }

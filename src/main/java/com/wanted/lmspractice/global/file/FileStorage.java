@@ -112,6 +112,9 @@ public class FileStorage {
         return file;
     }
 
+    /** 시드 이미지 키 접두어 — 저장소에 들어 있는 시연용 파일(uploads/seed/*)은 앱이 지우지 않는다 */
+    private static final String SEED_KEY_PREFIX = "seed/";
+
     /**
      * 파일 내용을 읽는 스트림 — 로컬이든 클라우드든 같은 방식으로 읽는다. 호출한 쪽이 닫는다.
      * 호출: WorkService.openFile → WorkFileController, LessonVideoController
@@ -147,8 +150,14 @@ public class FileStorage {
         return remote != null;
     }
 
-    /** 삭제 — 없는 파일은 무시한다. 실패해도 예외를 던지지 않고 로그만 남긴다(이미 끝난 DB 처리를 되돌리지 않기 위해) */
+    /**
+     * 삭제 — 없는 파일은 무시한다. 실패해도 예외를 던지지 않고 로그만 남긴다(이미 끝난 DB 처리를 되돌리지 않기 위해).
+     * 시드 이미지(seed/…)는 작품 이미지를 교체해도 지우지 않는다 — 저장소 파일이라 DB를 다시 적재해도 돌아오지 않는다(로컬·클라우드 공통).
+     */
     public void deleteQuietly(String key) {
+        if (key != null && key.startsWith(SEED_KEY_PREFIX)) {
+            return;
+        }
         try {
             if (remote != null) {
                 if (!key.contains("..")) {

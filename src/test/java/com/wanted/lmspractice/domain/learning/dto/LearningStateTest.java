@@ -100,13 +100,16 @@ class LearningStateTest {
     }
 
     @Test
-    @DisplayName("수강 종료가 7일 미만이면 반려 재제출 안내(D-41), 이미 끝난 카드나 반려된 카드에는 보이지 않는다")
+    @DisplayName("수강 종료까지 남은 기간(올림)이 7일 이하(23일 경과)면 반려 재제출 안내(D-41), 이미 끝난 카드나 반려된 카드에는 보이지 않는다")
     void shortOnTimeNotice() {
         MyCourseDTO learning = card(LearningState.LEARNING);
         learning.setRemainingDays(6);
         assertThat(learning.isShortOnTime()).isTrue();
 
-        learning.setRemainingDays(7);
+        learning.setRemainingDays(7);   // 23일 경과 — 올림 값이라 6일 12시간 남은 경우도 7이다
+        assertThat(learning.isShortOnTime()).isTrue();
+
+        learning.setRemainingDays(8);
         assertThat(learning.isShortOnTime()).isFalse();
 
         MyCourseDTO reviewing = card(LearningState.IN_REVIEW);

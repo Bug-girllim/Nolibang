@@ -58,4 +58,20 @@ public interface ReviewRoundRepository extends JpaRepository<ReviewRound, Long> 
 
     /** [#14 추가] 계약 C11 getLatestStatus — 1회차(최초 제출 시각) */
     Optional<ReviewRound> findFirstByEnrollmentIdOrderByRoundNoAsc(Long enrollmentId);
+
+    /**
+     * [#19 연동] 계약 C11 findLatestFeedbackForReference — 본인·같은 취미의 확정된(승인·반려) 회차 중 가장 최근 1건.
+     * 수강 건(enrollments)·강의(courses)와 조인해 취미를 거른다. EnrollmentService 를 부르면 hasPendingReview 와 순환 의존이 되어 쿼리로 처리한다.
+     */
+    @Query(value = "SELECT rr.* FROM review_rounds rr "
+            + "JOIN enrollments e ON e.id = rr.enrollment_id "
+            + "JOIN courses c ON c.id = e.course_id "
+            + "WHERE e.user_id = :userId AND c.hobby_id = :hobbyId AND rr.status IN ('APPROVED', 'REJECTED') "
+            + "ORDER BY rr.finalized_at DESC, rr.id DESC LIMIT 1",
+            nativeQuery = true)
+    Optional<ReviewRound> findLatestFinalizedByUserAndHobby(@Param("userId") Long userId, @Param("hobbyId") Long hobbyId);
+
+    /** [#19 연동] 회차가 속한 수강 건의 강의 id — 참고 피드백 화면에 강의명·수준을 붙이기 위함 */
+    @Query(value = "SELECT e.course_id FROM enrollments e WHERE e.id = :enrollmentId", nativeQuery = true)
+    Optional<Long> findCourseIdByEnrollmentId(@Param("enrollmentId") Long enrollmentId);
 }

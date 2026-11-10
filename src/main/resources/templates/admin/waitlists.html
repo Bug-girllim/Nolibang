@@ -8,12 +8,12 @@
          sections(List<SectionDTO>), recentConfirmed(List<WaitlistDTO>), recentConfirmedCount(int — 최근 7일, API 표에 없어 추가)
   [동작] 다시 만든 것: 강의 선택(GET 폼, onchange 한 줄) / 남긴 것: 없음 — 조회 전용(순번 변경·수동 확정 없음, D-53)
   [표시] 처리 이력은 "자동 확정" 내역만 보인다(자리 반환 사유·대기 신청 이력은 저장된 값이 없어 표시하지 않음).
-         시각은 서버 시간대(KST)로 표시한다. <title>의 "초대"는 구 기준 문구 — 시안 그대로 둔다
+         시각은 서버 시간대(KST)로 표시한다. <title>의 구 기준 문구 "초대"는 제거했다(초대 기능 없음)
 -->
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>대기열·초대 현황 · 놀이방</title>
+  <title>대기열 현황 · 놀이방</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
   <link rel="stylesheet" th:href="@{/css/sc-base.css}">
   <link rel="stylesheet" th:href="@{/css/tw.css}">
