@@ -27,7 +27,7 @@ import lombok.ToString;
 @ToString
 public class MyCourseDTO {
 
-    /** 카드 마감 임박 기준: 남은 기간이 이 일수 미만이면 "반려 시 재제출 기회가 없을 수 있어요" 안내 (D-41, 30일 중 23일 경과) */
+    /** 카드 마감 임박 기준: 남은 기간이 이 일수 이하이면 "반려 시 재제출 기회가 없을 수 있어요" 안내 (D-41, 30일 중 23일 경과) */
     public static final int SHORT_ON_TIME_DAYS = 7;
 
     /** 수강 건 카드의 수강 id (대기 카드는 null) */
@@ -77,10 +77,10 @@ public class MyCourseDTO {
         return state.isActive() && !state.isReviewing();
     }
 
-    /** "남은 기간이 7일 미만" 안내를 보여 줄지 — 앞으로 반려될 수 있는 상태(과제 전·평가 중)일 때만 (D-41) */
+    /** "남은 기간이 7일 이하(23일 경과)" 안내를 보여 줄지 — 앞으로 반려될 수 있는 상태(과제 전·평가 중)일 때만 (D-41). 남은 일수는 올림 값이라 <= 로 비교한다 */
     public boolean isShortOnTime() {
         return remainingDays != null
-                && remainingDays < SHORT_ON_TIME_DAYS
+                && remainingDays <= SHORT_ON_TIME_DAYS
                 && (state == LearningState.LEARNING || state.isReviewing());
     }
 

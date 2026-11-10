@@ -81,8 +81,9 @@ public class AssignmentViewDTO {
         dto.requiredLessonCount = requiredLessons;
         dto.expiresAt = enrollment.getExpiresAt();
         dto.remainingDays = remainingDays(enrollment.getExpiresAt(), now);
-        // D-41: 30일 중 23일이 지나 남은 기간이 평가 기한(7일)보다 짧으면, 반려된 뒤 재제출할 시간이 없을 수 있다
-        dto.lateWarning = periodOpen && dto.remainingDays < ReviewRound.REVIEW_DUE_DAYS && dto.state.canBeRejectedLater();
+        // D-41: 30일 중 23일이 지나(남은 기간 7일 이하) 평가 기한(7일)을 다 쓰면 반려된 뒤 재제출할 시간이 없을 수 있다.
+        // remainingDays 는 올림한 값이라 "23일 경과"(남은 7일 이하)부터 경고하려면 <= 로 비교한다.
+        dto.lateWarning = periodOpen && dto.remainingDays <= ReviewRound.REVIEW_DUE_DAYS && dto.state.canBeRejectedLater();
         dto.editable = dto.state == AssignmentState.WAITING && periodOpen;
         dto.latestRoundId = latest == null ? null : latest.getId();
         dto.latestDueAt = latest == null ? null : latest.getDueAt();

@@ -95,8 +95,17 @@ public class FileStorage {
         return file;
     }
 
-    /** 삭제 — 없는 파일은 무시한다. 실패해도 예외를 던지지 않고 로그만 남긴다(이미 끝난 DB 처리를 되돌리지 않기 위해) */
+    /** 시드 이미지 키 접두어 — 저장소에 들어 있는 시연용 파일(uploads/seed/*)은 앱이 지우지 않는다 */
+    private static final String SEED_KEY_PREFIX = "seed/";
+
+    /**
+     * 삭제 — 없는 파일은 무시한다. 실패해도 예외를 던지지 않고 로그만 남긴다(이미 끝난 DB 처리를 되돌리지 않기 위해).
+     * 시드 이미지(seed/…)는 작품 이미지를 교체해도 지우지 않는다 — 저장소 파일이라 DB를 다시 적재해도 돌아오지 않는다.
+     */
     public void deleteQuietly(String key) {
+        if (key != null && key.startsWith(SEED_KEY_PREFIX)) {
+            return;
+        }
         try {
             Path file = root.resolve(key).normalize();
             if (file.startsWith(root)) {
