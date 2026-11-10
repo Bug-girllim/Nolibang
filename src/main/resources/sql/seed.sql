@@ -30,16 +30,16 @@ INSERT INTO categories (id, code, name, state, sort_order) VALUES
   (4, 'photo',  '사진·영상',   'PRIVATE',   4);
 
 INSERT INTO hobbies (id, category_id, code, name, description, state, sort_order) VALUES
-  (1, 1, 'colored-pencil', '색연필화',      'TODO: 취미 소개', 'OPERATING', 1),
-  (2, 1, 'digital-drawing','디지털 드로잉', 'TODO: 취미 소개', 'OPERATING', 2),
-  (3, 2, 'dessert',        '디저트 만들기', 'TODO: 취미 소개', 'OPERATING', 1),
-  (4, 3, 'woodwork',       '목공',          'TODO: 취미 소개', 'PREPARING', 1),
-  (5, 3, 'leather',        '가죽공예',      'TODO: 취미 소개', 'PREPARING', 2),
-  (6, 3, 'ceramics',       '도자기',        'TODO: 취미 소개', 'PREPARING', 3),
-  (7, 3, 'ring',           '반지공예',      'TODO: 취미 소개', 'PREPARING', 4),
+  (1, 1, 'colored-pencil', '색연필화',      '', 'OPERATING', 1),
+  (2, 1, 'digital-drawing','디지털 드로잉', '', 'OPERATING', 2),
+  (3, 2, 'dessert',        '디저트 만들기', '', 'OPERATING', 1),
+  (4, 3, 'woodwork',       '목공',          '', 'PREPARING', 1),
+  (5, 3, 'leather',        '가죽공예',      '', 'PREPARING', 2),
+  (6, 3, 'ceramics',       '도자기',        '', 'PREPARING', 3),
+  (7, 3, 'ring',           '반지공예',      '', 'PREPARING', 4),
   -- [추가] 사진·영상 하위 취미 2개 (04-features F-02: 비공개, 관리자만 조회)
-  (8, 4, 'photo-shooting', '사진 촬영',     'TODO: 취미 소개', 'PRIVATE',   1),
-  (9, 4, 'video-editing',  '영상 편집',     'TODO: 취미 소개', 'PRIVATE',   2);
+  (8, 4, 'photo-shooting', '사진 촬영',     '', 'PRIVATE',   1),
+  (9, 4, 'video-editing',  '영상 편집',     '', 'PRIVATE',   2);
 
 INSERT INTO courses (id, hobby_id, level, title, description, supplies_text, assignment_title, assignment_description) VALUES
   (1, 1, 1, '색연필화 입문',      'TODO: 강의 소개', 'TODO: 준비물', '색연필화 입문 최종 과제',      'TODO: 과제 안내'),
