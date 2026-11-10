@@ -26,7 +26,7 @@
 </head>
 <body>
 <div id="dc-root"><div class="sc-host">
-<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside th:replace="~{common/layout :: teacherSide(active='T-S10')}"></aside><main class="main"><div class="ph bn bn-gallery"><div><h2>작품 게시판</h2><p>담당 취미 학습자들의 공개 작품을 둘러보고, 댓글로 응원과 조언을 남겨 보세요.</p></div><div class="row"><span class="chip dk">강사 보기</span><span class="sid">T-S10</span></div></div>
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">작품 게시판</p><nav aria-label="작품 게시판 메뉴" class="side-ctx"><a aria-current="page" class="active" th:href="@{/works}">작품 목록<span class="side-sr"> (현재 페이지)</span></a></nav></aside><main class="main"><div class="ph bn bn-gallery"><div><h2>작품 게시판</h2><p>담당 취미 학습자들의 공개 작품을 둘러보고, 댓글로 응원과 조언을 남겨 보세요.</p></div><div class="row"><span class="chip dk">강사 보기</span><span class="sid">T-S10</span></div></div>
 <form class="scope-bar" method="get" th:action="@{/works}">
   <input type="hidden" name="kind" th:value="${cond.kind}"/>
   <input type="hidden" name="keyword" th:value="${cond.keyword}"/>
