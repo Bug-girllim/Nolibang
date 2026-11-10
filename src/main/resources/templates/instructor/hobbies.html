@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] T-S08 내 담당 취미   (원본: 2_teacher/T-S08.dc.html)
+  [연결] InstructorHobbyController · GET /instructor/hobbies   → return "instructor/hobbies";
+  [상태] 연결 완료 (T-S08)
+  [모델] page(MyHobbyPageDTO: instructorName, hobbies[MyHobbyDTO], hobbyCount, courseCount, preparingCount, assigned),
+         menuCategories(사이드 "취미 탐색" 메뉴용 대분류·세부 취미 — hobby/side 조각이 쓴다)
+  [사이드] 강사 LMS 사이드가 아니라 취미 탐색 사이드(hobby/side :: explore, active='mine')를 쓴다. "내 담당 취미"는 그 안의 강사 전용 메뉴다.
+  [동작] 다시 만든 것: 담당 취미 카드 목록(th:each), 담당 없음 안내(th:unless), 취미 상세 링크 /hobbies/{id}
+         남긴 것: 없음
+  [뺀 것] 시안의 "강의 등록·편집" 버튼(강의 등록·편집 화면은 11-06 팀 결정으로 범위 밖), 시연용 강사 A/B 전환 버튼(출시 제외 표시),
+          "등록·수정한 강의는 관리자 공개 승인 후 공개" 안내(강의 등록·편집이 없으므로)
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>내 담당 취미 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/side-fly.css}">
+  <link rel="stylesheet" th:href="@{/css/prep-badge.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='hobby')}"></header><div class="lay"><aside th:replace="~{hobby/side :: explore(active='mine', categoryId=null, hobbyId=null)}"></aside><main class="main">
+<div class="ph"><div><h2>내 담당 취미</h2><p>관리자가 지정한 세부 취미를 확인해요.</p></div><div class="row"><span class="sid">T-S08</span></div></div>
+
+<div class="box k">
+  <div class="rowb">
+    <div class="row">
+      <p class="h3" style="margin: 0;" th:text="${page.instructorName}">강사 A</p>
+      <span class="chip dk" th:if="${page.assigned}">취미 담당 강사</span>
+      <span class="chip ol" th:unless="${page.assigned}">일반 강사</span>
+    </div>
+    <a class="lk" th:href="@{/hobbies}">전체 취미 둘러보기 →</a>
+  </div>
+  <p class="mu" style="margin: 0;" th:if="${page.assigned}">담당 세부 취미 <span th:text="${page.hobbyCount}">3</span>개가 지정되어 있어요. 담당 취미의 공개 작품에는 댓글·답글·좋아요를 남길 수 있어요.</p>
+  <p class="mu" style="margin: 0;" th:unless="${page.assigned}">공개된 취미와 준비 중인 취미를 조회만 할 수 있어요. 담당 세부 취미는 관리자가 지정해요.</p>
+</div>
+
+<th:block th:if="${page.assigned}">
+  <div class="g3">
+    <div class="kpi"><span>담당 세부 취미</span><b th:text="${page.hobbyCount}">3</b></div>
+    <div class="kpi"><span>공개 강의</span><b th:text="${page.courseCount}">8</b></div>
+    <div class="kpi"><span>준비 중 취미</span><b th:text="${page.preparingCount}">1</b></div>
+  </div>
+  <div class="g3 hb-grid">
+    <div class="box hb" th:each="h : ${page.hobbies}">
+      <div class="hb-pic" th:classappend="${h.picClass}" role="img" th:attr="aria-label=${h.name} + ' 대표 이미지'">
+        <span class="hb-flag" th:if="${h.preparing}">준비 중</span>
+      </div>
+      <div class="hb-body">
+        <div class="rowb">
+          <p class="h4" style="margin: 0;" th:text="${h.name}">색연필화</p>
+          <span class="chip run" th:unless="${h.preparing}" th:text="${h.stateLabel}">운영 중</span>
+        </div>
+        <p class="mu" style="margin: 0;"><span th:text="${h.categoryName}">미술·드로잉</span> · <span th:text="${h.courseCount > 0} ? '공개 강의 ' + ${h.courseCount} + '개' : '공개 강의 없음'">공개 강의 3개</span></p>
+        <div class="hb-meta">
+          <a class="btn sm" th:href="@{/hobbies/{id}(id=${h.id})}">세부 취미 상세</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</th:block>
+
+<div class="box dash" th:unless="${page.assigned}" style="align-items: center; text-align: center; padding: 36px 20px; gap: 10px;">
+  <p class="h4" style="margin: 0;">아직 담당 취미가 없어요</p>
+  <p class="mu" style="margin: 0;">관리자가 담당 세부 취미를 지정하면 여기에 표시돼요.</p>
+  <a class="btn" th:href="@{/hobbies}">전체 취미 둘러보기</a>
+</div>
+
+<div class="note">※ 담당 세부 취미 지정·해제는 관리자(A-S04)가 합니다.</div>
+</main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
+</div></div>
+</body>
+</html>
