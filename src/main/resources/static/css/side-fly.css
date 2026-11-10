@@ -5,4 +5,4 @@
 .side .side-hv:hover .side-fly,.side .side-hv:focus-within .side-fly{display:block}
 .side .side-fly a{min-height:34px;padding:6px 10px;font-size:13px}
 .side .side-fly a::before{content:"";width:5px;height:5px;border-radius:50%;background:#B59A60;margin-right:8px;flex:none}
-@media (max-width:900px){.side .side-hv{width:100%}}
+@media not all{.side .side-hv{width:100%}}

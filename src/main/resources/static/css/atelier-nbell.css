@@ -27,5 +27,5 @@
 .gnb .nbell-at{grid-row:1;grid-column:2;font-size:11.5px;color:#68728D}
 .gnb .gr .nbell-all{display:block;padding:11px 16px;border-top:1px solid #E8E1D0;text-align:center;font-size:13px;font-weight:600;color:#222B45}
 .gnb .gr .nbell-all:hover{background:#E5F1FB;color:#222B45;text-decoration:none}
-@media (max-width:560px){.gnb .nbell-pop{position:fixed;top:auto;left:12px;right:12px;width:auto;max-width:none}}
+@media not all{.gnb .nbell-pop{position:fixed;top:auto;left:12px;right:12px;width:auto;max-width:none}}
 @media (prefers-reduced-motion:reduce){.gnb .nbell:hover .nbell-ico{animation:none}.gnb .nbell-pop{transition:none}}
