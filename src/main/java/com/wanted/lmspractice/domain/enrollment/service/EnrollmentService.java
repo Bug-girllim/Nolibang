@@ -16,6 +16,8 @@ import com.wanted.lmspractice.domain.review.service.ReviewQueryService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 2 · #09 (본인 수강 목록 조회 getMyEnrollments는 #11에서 추가)   [화면] U-S05(강의 상세 신청 영역), U-S03·U-S04, U-S08   [기획] FR-015·052·053·054·055, D-52~D-55
  *       [API] EN-01·EN-03, CO-02(enrollStatus), ML-01
  * [연결]
- *  - 호출받음: EnrollmentController(apply·cancel), CourseCatalogService(#08, getStatusForUser),
+ *  - 호출받음: EnrollmentController(apply·cancel), CourseCatalogService(#08, getStatusForUser·getStatusesForUser),
  *             팀원 3 ReviewService(#14, complete·closeAfterRejection — 계약 C5), 팀원 3·4(getOwnedEnrollment — 계약 C6)
  *  - 호출함:   CourseSectionRepository(강의 잠금), EnrollEligibilityPolicy(자격), SectionAssignPolicy(분반 선택),
  *             WaitlistService(대기 등록·순번), SeatService.fillVacancies(자리 반환 — 계약 C4),
@@ -169,7 +171,54 @@ public class EnrollmentService {
             return EnrollmentStatusDTO.waiting(waitlistService.getWaitingNumber(entry), entry.getId(), entry.getCreatedAt());
         }
         // 3) 기록이 없으면 정원 현황으로 정한다
-        SeatSummaryDTO seats = seatService.getSeatSummary(courseId);
+        return statusFromSeats(seatService.getSeatSummary(courseId));
+    }
+
+    /**
+     * [성능 개선] 여러 강의의 "내 신청 상태"를 한 번에 — 판단 순서·결과는 getStatusForUser(계약 C17)와 같다.
+     * 강의마다 getStatusForUser를 부르면 강의 수 × 2~4번 조회가 되므로, 수강 기록·대기 기록을 IN 조회 1번씩으로 모은다.
+     * 정원 현황은 호출한 쪽이 이미 읽은 값(seatsByCourse)을 다시 쓰고, 빠진 강의만 SeatService에서 한 번에 읽는다.
+     * 호출: CourseCatalogService.getCourses(강의 목록·취미 상세), getEnrollStatus(강의 상세)
+     *
+     * @param seatsByCourse 이미 읽은 강의 id → 정원 현황 (없으면 빈 Map)
+     * @return 강의 id → 신청 상태 (요청한 모든 id가 들어 있다)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, EnrollmentStatusDTO> getStatusesForUser(Long userId, Collection<Long> courseIds,
+                                                             Map<Long, SeatSummaryDTO> seatsByCourse) {
+        if (courseIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = courseIds.stream().distinct().toList();
+        // 1) 수강 기록 — UNIQUE(user_id, course_id)라 강의마다 최대 1건
+        Map<Long, Enrollment> enrollments = enrollmentRepository.findByUserIdAndCourseIdIn(userId, ids).stream()
+                .collect(Collectors.toMap(Enrollment::getCourseId, enrollment -> enrollment, (first, second) -> first));
+        // 2) 대기 기록 — 수강 기록이 없는 강의만 본다
+        List<Long> noEnrollment = ids.stream().filter(id -> !enrollments.containsKey(id)).toList();
+        Map<Long, WaitlistEntry> waitings = waitlistService.findWaitingByCourseIds(userId, noEnrollment);
+        // 3) 둘 다 없는 강의는 정원 현황으로 — 호출한 쪽이 넘긴 값을 쓰고, 없는 것만 한 번에 읽는다
+        List<Long> needSeats = noEnrollment.stream()
+                .filter(id -> !waitings.containsKey(id) && !seatsByCourse.containsKey(id)).toList();
+        Map<Long, SeatSummaryDTO> fetchedSeats = seatService.getSeatSummaries(needSeats);
+
+        Map<Long, EnrollmentStatusDTO> statuses = new HashMap<>();
+        for (Long courseId : ids) {
+            if (enrollments.containsKey(courseId)) {
+                statuses.put(courseId, statusOf(enrollments.get(courseId)));
+            } else if (waitings.containsKey(courseId)) {
+                WaitlistEntry entry = waitings.get(courseId);
+                statuses.put(courseId, EnrollmentStatusDTO.waiting(
+                        waitlistService.getWaitingNumber(entry), entry.getId(), entry.getCreatedAt()));
+            } else {
+                SeatSummaryDTO seats = seatsByCourse.containsKey(courseId) ? seatsByCourse.get(courseId) : fetchedSeats.get(courseId);
+                statuses.put(courseId, statusFromSeats(seats));
+            }
+        }
+        return statuses;
+    }
+
+    /** 수강·대기 기록이 없는 학습자의 신청 영역 상태 — 정원 현황으로 정한다 (getStatusForUser·getStatusesForUser 공통) */
+    private EnrollmentStatusDTO statusFromSeats(SeatSummaryDTO seats) {
         if (seats.getTotalCapacity() == 0) {
             return EnrollmentStatusDTO.of(EnrollmentStatusDTO.UNAVAILABLE);  // 담당 강사가 있는 분반이 없다 (CO-02 UNAVAILABLE)
         }

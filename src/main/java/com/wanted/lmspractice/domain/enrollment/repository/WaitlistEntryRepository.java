@@ -23,6 +23,9 @@ public interface WaitlistEntryRepository extends JpaRepository<WaitlistEntry, Lo
     /** 학습자의 이 강의 대기 줄 (status = WAITING이면 UNIQUE라 최대 1건). 호출: EnrollEligibilityPolicy, EnrollmentService.getStatusForUser */
     Optional<WaitlistEntry> findByUserIdAndCourseIdAndStatus(Long userId, Long courseId, WaitlistStatus status);
 
+    /** [성능 개선] 학습자의 여러 강의 대기 줄을 한 번에 (WAITING이면 강의마다 최대 1건). 호출: WaitlistService.findWaitingByCourseIds */
+    List<WaitlistEntry> findByUserIdAndStatusAndCourseIdIn(Long userId, WaitlistStatus status, Collection<Long> courseIds);
+
     /** 강의에 대기자가 있는지 — 있으면 빈자리가 있어도 신규 신청은 대기열 끝으로 간다(D-52). 호출: WaitlistService.hasWaiting */
     boolean existsByCourseIdAndStatus(Long courseId, WaitlistStatus status);
 

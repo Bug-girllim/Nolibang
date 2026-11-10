@@ -3,6 +3,7 @@ package com.wanted.lmspractice.domain.enrollment.repository;
 import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
 import com.wanted.lmspractice.domain.enrollment.entity.EnrollmentStatus;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,6 +27,9 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
      * 호출: EnrollEligibilityPolicy.checkNoHistory, EnrollmentService.getStatusForUser
      */
     Optional<Enrollment> findByUserIdAndCourseId(Long userId, Long courseId);
+
+    /** [성능 개선] 학습자의 여러 강의 수강 건을 한 번에(강의마다 1건 이하). 호출: EnrollmentService.getStatusesForUser */
+    List<Enrollment> findByUserIdAndCourseIdIn(Long userId, Collection<Long> courseIds);
 
     /**
      * 분반의 정원 점유(ACTIVE) 수 — 잠금 읽기(FOR UPDATE)로 센다.
