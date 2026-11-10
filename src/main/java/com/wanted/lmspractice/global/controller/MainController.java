@@ -1,6 +1,10 @@
 package com.wanted.lmspractice.global.controller;
 
+import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,16 +16,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * [연결]
  *  - 호출받음: 브라우저(GET /, GET /privacy), SecurityConfig의 accessDeniedPage("/error/403"),
  *             SecurityConfig의 authenticationEntryPoint·invalidSessionUrl·expiredUrl("/error/401…")
- *  - 호출함:   없음 (#02에서는 모델 없이 화면만 반환)
+ *  - 호출함:   HobbyService.getCategories (메인 카테고리 카드 — 보는 사람 역할별 노출 규칙 적용)
  *  - 확장:     홈의 hobbies·continueCourses 모델은 #08·#11 완료 후 연결 (❓ API CM-01: 홈에 보여줄 항목 미확정)
  * [기술] 🟢 @Controller, @GetMapping
  */
 @Controller
+@RequiredArgsConstructor
 public class MainController {
 
-    /** C-01 메인 홈. 비로그인도 접근 가능 (API CM-01) */
+    private final HobbyService hobbyService;
+
+    /**
+     * C-01 메인 홈. 비로그인도 접근 가능 (API CM-01)
+     * 모델: categories(메인 카드용 대분류 — 준비 중은 강사·관리자에게만, 비공개는 관리자에게만 들어 있다)
+     */
     @GetMapping("/")
-    public String index() {
+    public String index(@AuthenticationPrincipal AuthDetails details, Model model) {
+        model.addAttribute("categories", hobbyService.getCategories(details == null ? null : details.getRole()));
         return "main/home";  // 디자인 변환본 사용. (이전: main/index 임시 화면 — API 명세는 main/home, 이슈 #02 본문은 main/index)
     }
 
