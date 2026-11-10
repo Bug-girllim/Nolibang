@@ -7,7 +7,7 @@
 모든 도메인이 서로의 Entity·enum을 쓴다. Entity와 시드 데이터를 한 번에 맞춰 두면 4명이 각자 기능을 바로 개발·테스트할 수 있다. 다른 팀원이 아직 구현하지 않은 Service는 **계약 스텁**으로 미리 만들어 컴파일을 막지 않게 한다.
 
 ## 담당 폴더 및 패키지
-- `src/main/resources/sql/schema.sql`, `sql/seed.sql`, `uploads/seed/*.png`
+- `../../src/main/resources/sql/schema.sql`, `sql/seed.sql`, `../uploads`
 - `domain/*/entity`, `domain/*/repository`
 - 계약 스텁: `domain/enrollment/service`, `domain/notification/service`, `domain/work/service`, `domain/review/service`, `domain/learning/service`
 
