@@ -62,5 +62,5 @@
 .pol nav a{font-size:13px;color:var(--ink);text-decoration:none;padding:7px 10px;border-radius:6px}
 .pol nav a:hover{background:var(--surface-2)}
 .pol .doc-sec{scroll-margin-top:96px}
-@media (max-width:900px){.pol{grid-template-columns:minmax(0,1fr)}.pol nav{position:static;flex-direction:row;flex-wrap:wrap}}
-@media (max-width:560px){.tp-hero h1{font-size:24px}.tp-card{padding:18px 16px!important}.tp-steps li+li::before{width:12px}.tp-row{flex-wrap:wrap}.tm-h,.tm-b,.tm-f{padding-left:16px;padding-right:16px}}
+@media not all{.pol{grid-template-columns:minmax(0,1fr)}.pol nav{position:static;flex-direction:row;flex-wrap:wrap}}
+@media not all{.tp-hero h1{font-size:24px}.tp-card{padding:18px 16px!important}.tp-steps li+li::before{width:12px}.tp-row{flex-wrap:wrap}.tm-h,.tm-b,.tm-f{padding-left:16px;padding-right:16px}}

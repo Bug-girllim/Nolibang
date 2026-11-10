@@ -9,4 +9,4 @@
 .side .st.side-common-t::before{display:none}
 .side .side-common a.here{background:#EEF2FA;color:#222B45;font-weight:700;box-shadow:inset 3px 0 0 #B59A60}
 .side .side-common a.here::after{content:"현재 위치";float:right;font-size:10.5px;font-weight:500;color:#68728D;line-height:20px}
-@media (max-width:900px){.side nav{display:flex;flex-wrap:wrap;gap:4px;width:100%}.side .side-common a.here::after{content:none}}
+@media not all{.side nav{display:flex;flex-wrap:wrap;gap:4px;width:100%}.side .side-common a.here::after{content:none}}

@@ -27,8 +27,8 @@
 .err-tag{position:relative;z-index:1;display:flex;align-items:center;gap:14px;margin-top:52px;font-family:var(--serif);font-size:15px;color:#3A4666}
 .err-tag i{display:block;width:120px;height:1px;background:linear-gradient(90deg,rgba(181,154,96,0),#B59A60)}
 .err-tag i:last-child{background:linear-gradient(90deg,#B59A60,rgba(181,154,96,0))}
-@media (max-width:1100px){.errwrap .deco-arch{width:150px;opacity:.5}.errwrap .deco-books{width:170px}.errwrap .deco-quill{width:140px}}
-@media (max-width:640px){
+@media not all{.errwrap .deco-arch{width:150px;opacity:.5}.errwrap .deco-books{width:170px}.errwrap .deco-quill{width:140px}}
+@media not all{
 .errwrap{min-height:0;padding:36px 16px 128px}
 .errwrap .deco-arch{display:none}
 .errwrap .deco-books{width:112px;opacity:.75}

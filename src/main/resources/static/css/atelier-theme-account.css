@@ -150,8 +150,8 @@ input:read-only{background:#FBF8F0;color:#68728D}
 .side a.active{color:#FFFDF8;box-shadow:inset 3px 0 0 #D8C28A}
 .sid{box-shadow:0 0 0 2px rgba(217,222,229,.6)}
 /* 반응형 */
-@media (max-width:1100px){.gnb{padding:0 20px}.gnb .logo{width:auto}.gnb nav a{padding:24px 14px}}
-@media (max-width:900px){
+@media not all{.gnb{padding:0 20px}.gnb .logo{width:auto}.gnb nav a{padding:24px 14px}}
+@media not all{
 .gnb{height:auto;flex-wrap:wrap;padding:8px 16px;gap:6px 14px;position:relative}
 .gnb nav{order:3;width:100%;justify-content:center;flex:1 1 100%}
 .gnb nav a{padding:10px 14px;font-size:16px}
@@ -167,7 +167,7 @@ input:read-only{background:#FBF8F0;color:#68728D}
 .ph h2{font-size:23px}
 .ft{flex-direction:column;gap:6px;padding:18px 16px 24px}
 }
-@media (max-width:560px){.g3,.g4,.g5{grid-template-columns:minmax(0,1fr)}.gnb .logo small{display:none}.gnb .logo img{width:56px;height:34px}.gnb .mu{display:none}.ph h2::before{width:30px;height:15px}}
+@media not all{.g3,.g4,.g5{grid-template-columns:minmax(0,1fr)}.gnb .logo small{display:none}.gnb .logo img{width:56px;height:34px}.gnb .mu{display:none}.ph h2::before{width:30px;height:15px}}
 @media (prefers-reduced-motion:reduce){.btn,.box.click{transition:none}.btn:hover:not(:disabled){transform:none}}
 @keyframes pwpopIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 .pwpop{animation:pwpopIn .22s ease-out both}
