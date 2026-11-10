@@ -26,11 +26,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * [역할] 관리자 취미 화면들 — A-S15 취미 탐색(+대분류 상태 편집·상태 필터·검색) · A-S02 대분류 관리(+대분류 추가) · A-S03 세부 취미(+세부 취미 추가) · A-S06 콘텐츠 검수
+ * [역할] 관리자 취미 화면들 — A-S15 취미 탐색(+대분류·세부 취미 상태 편집·상태 필터·검색) · A-S02 대분류 관리(+대분류 추가) · A-S03 세부 취미(+세부 취미 추가) · A-S06 콘텐츠 검수
  * [담당] 팀원 2 · #08   [화면] A-S15, A-S02, A-S03, A-S06   [API] HB-03
  * [연결]
  *  - 호출받음: 브라우저 GET /admin/hobbies(?state=&keyword=), /admin/categories(?create=true), /admin/sub-hobbies(?create=true&categoryId=),
- *             /admin/content-review, POST /admin/categories, /admin/sub-hobbies, /admin/hobbies/categories/{id}/state
+ *             /admin/content-review, POST /admin/categories, /admin/sub-hobbies,
+ *             /admin/hobbies/categories/{id}/state, /admin/hobbies/{hobbyId}/state
  *             — SecurityConfig가 /admin/**를 ADMIN만 허용한다. 메뉴는 common/layout.html의 adminMenu 조각
  *  - 호출함:   CourseCatalogService.getAdminCategories(대분류·세부 취미·강의/차시 수), getAdminCourses(전체 강의),
  *             HobbyService(이름 중복 확인·대분류·세부 취미 추가)
@@ -97,7 +98,38 @@ public class AdminHobbyController {
             redirectAttributes.addFlashAttribute("message",
                     "'" + name + "' 대분류를 " + newState.getLabel() + " 상태로 바꿨어요.");
         }
-        // 보던 필터·검색 유지 — 값은 RedirectAttributes가 URL 인코딩해 붙인다
+        return backToList(returnState, returnKeyword, redirectAttributes);
+    }
+
+    /**
+     * 세부 취미 노출 상태 편집 (A-S15 세부 취미 줄의 상태 칸 + [편집]). 바꾼 뒤 보던 필터·검색 그대로 목록으로 돌아간다(PRG).
+     * 대분류가 비공개·준비 중이면 운영 중으로 바꿔도 학습자에게 보이지 않아서 안내 문구에 그 사실을 덧붙인다.
+     * 실패: 없는 상태 값 → 안내 문구, 없는 세부 취미 → HOBBY_NOT_FOUND(공통 오류 화면)
+     */
+    @PostMapping("/hobbies/{hobbyId}/state")
+    public String changeHobbyState(@PathVariable Long hobbyId,
+                                   @RequestParam(required = false) String state,
+                                   @RequestParam(required = false) String categoryState,
+                                   @RequestParam(required = false) String returnState,
+                                   @RequestParam(required = false) String returnKeyword,
+                                   RedirectAttributes redirectAttributes) {
+        ExposureState newState = parseState(state);
+        if (newState == null) {
+            redirectAttributes.addFlashAttribute("errorMessage", "세부 취미 상태를 운영 중·준비 중·비공개 중에서 골라 주세요.");
+        } else {
+            String name = hobbyService.changeHobbyState(hobbyId, newState);
+            ExposureState parent = parseState(categoryState);
+            String note = (newState != ExposureState.PRIVATE && parent != null && parent != ExposureState.OPERATING)
+                    ? " 대분류가 " + parent.getLabel() + " 상태라 학습자에게는 아직 보이지 않아요."
+                    : "";
+            redirectAttributes.addFlashAttribute("message",
+                    "'" + name + "' 세부 취미를 " + newState.getLabel() + " 상태로 바꿨어요." + note);
+        }
+        return backToList(returnState, returnKeyword, redirectAttributes);
+    }
+
+    /** 상태 편집 뒤 보던 필터·검색 그대로 취미 탐색 목록으로 — 값은 RedirectAttributes가 URL 인코딩해 붙인다 */
+    private String backToList(String returnState, String returnKeyword, RedirectAttributes redirectAttributes) {
         ExposureState back = parseState(returnState);
         if (back != null) {
             redirectAttributes.addAttribute("state", back.name());

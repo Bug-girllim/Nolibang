@@ -250,4 +250,18 @@ public class HobbyService {
         category.changeState(state);
         return category.getName();
     }
+
+    /**
+     * 세부 취미 노출 상태 바꾸기 (A-S15 세부 취미 상태 편집). 호출: AdminHobbyController.changeHobbyState
+     *
+     * @return 바꾼 세부 취미 이름(안내 문구용)
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 세부 취미
+     */
+    @Transactional
+    public String changeHobbyState(Long hobbyId, ExposureState state) {
+        Hobby hobby = hobbyRepository.findById(hobbyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        hobby.changeState(state);
+        return hobby.getName();
+    }
 }

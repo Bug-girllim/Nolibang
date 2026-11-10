@@ -75,4 +75,12 @@ public class Hobby {
         return new Hobby(null, categoryId, code, name, description == null ? "" : description,
                 null, state, sortOrder, null, null);
     }
+
+    /**
+     * 노출 상태 바꾸기 (A-S15 세부 취미 상태 편집). 호출: HobbyService.changeHobbyState — 트랜잭션 안에서 바꾸면 변경 감지로 저장된다.
+     * 대분류가 비공개·준비 중이면 세부 취미를 운영 중으로 바꿔도 학습자에게는 보이지 않는다(상위 규칙 우선). 수강 중인 학습자의 접근은 그대로(D-20).
+     */
+    public void changeState(ExposureState newState) {
+        this.state = newState;
+    }
 }

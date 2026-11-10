@@ -103,6 +103,28 @@ class HobbyCreateTest {
     }
 
     @Test
+    @DisplayName("세부 취미 상태를 바꾸면 노출 규칙이 따라간다 (색연필화 비공개 → 비회원에게 숨김, 대분류가 준비 중이면 세부 취미가 운영 중이어도 숨김)")
+    void changeHobbyState() {
+        final long coloredPencil = 1L;  // 시드: 색연필화(운영 중, 미술·드로잉)
+        final long woodwork = 4L;       // 시드: 목공(준비 중, 공예 — 대분류 준비 중)
+
+        String name = hobbyService.changeHobbyState(coloredPencil, ExposureState.PRIVATE);
+
+        assertThat(name).isEqualTo("색연필화");
+        assertThat(hobbyService.getCategory(ART_CATEGORY, null).getHobbies()).extracting(HobbyDTO::getId).doesNotContain(coloredPencil);
+        assertThat(hobbyService.getCategory(ART_CATEGORY, Role.ADMIN).getHobbies())
+                .filteredOn(hobby -> hobby.getId().equals(coloredPencil))
+                .extracting(HobbyDTO::getState).containsExactly(ExposureState.PRIVATE);
+
+        hobbyService.changeHobbyState(woodwork, ExposureState.OPERATING);
+        assertThat(hobbyService.getCategories(null)).extracting(CategoryDTO::getName).doesNotContain("공예");
+
+        assertThatThrownBy(() -> hobbyService.changeHobbyState(999_999L, ExposureState.OPERATING))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo(ErrorCode.HOBBY_NOT_FOUND));
+    }
+
+    @Test
     @DisplayName("같은 대분류 안에서만 세부 취미 이름이 중복이고, 없는 대분류에는 추가할 수 없다")
     void hobbyNameDuplicateAndMissingCategory() {
         assertThat(hobbyService.isHobbyNameAvailable(ART_CATEGORY, "색연필화")).isFalse();
