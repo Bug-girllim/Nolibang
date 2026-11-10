@@ -58,7 +58,10 @@
 
   function formBody(playing) {
     seq += 1;
+    // CSRF 토큰은 본문 파라미터(_csrf)로 보낸다 — sendBeacon은 헤더를 붙일 수 없어 fetch와 같은 방식으로 맞췄다
+    var csrf = document.querySelector('meta[name="_csrf"]');
     return new URLSearchParams({
+      _csrf: csrf ? csrf.content : '',
       enrollmentId: enrollmentId,
       streamKey: streamKey,
       seq: String(seq),

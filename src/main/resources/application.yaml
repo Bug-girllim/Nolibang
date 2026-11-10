@@ -84,6 +84,9 @@ server:
   servlet:
     session:
       timeout: 60m
+      cookie:
+        same-site: lax      # 다른 사이트에서 온 POST에는 세션 쿠키를 보내지 않는다 (CSRF 2차 방어)
+        # secure: true      # HTTPS로 배포할 때 켠다 (HTTP 개발 환경에서는 로그인이 안 되므로 기본은 끔)
 
 # ==================================================
 # 7. 파일 저장 설정
