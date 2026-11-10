@@ -20,7 +20,8 @@ public final class HobbyPicStyle {
     private static final Map<String, String> CATEGORY_IMAGES = Map.of(
             "art", "/images/cebe4f846beeaa2226dd7a60ffd22cf0.jpg",
             "cook", "/images/744a198c128b2b5416116117a226db6f.jpg",
-            "craft", "/images/0a4a3aa68a387a85f12b842092b1ffa8.webp");   // 공예(준비 중) — 메인·취미 목록 카드용, 세부 취미 pic-craft와 같은 그림
+            "craft", "/images/0a4a3aa68a387a85f12b842092b1ffa8.webp",   // 공예(준비 중) — 메인·취미 목록 카드용, 세부 취미 pic-craft와 같은 그림
+            "photo", "/images/22f7031aebbeb206b167821be79ebced.webp");  // 사진·영상 — 세부 취미 pic-photo와 같은 그림
 
     /** 대분류별 보기 상단 배너 CSS 클래스 (대분류 code → 클래스). 없으면 기본 배너(bn-explore) */
     private static final Map<String, String> CATEGORY_BANNERS = Map.of(
