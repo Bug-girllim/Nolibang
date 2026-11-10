@@ -107,13 +107,17 @@ public class AdminInstructorController {
         return "redirect:/admin/instructors";
     }
 
-    /** 활성/비활성 변경. 호출: POST /admin/instructors/{instructorId}/status, Form active (AI-04) */
+    /** 활성/비활성 변경. 호출: POST /admin/instructors/{instructorId}/status, Form active (AI-04). from=stats 면 강사 통계(/admin/stats)로 돌아간다 */
     @PostMapping("/{instructorId}/status")
     public String changeStatus(@PathVariable Long instructorId,
                                @RequestParam boolean active,
+                               @RequestParam(required = false) String from,
                                RedirectAttributes redirectAttributes) {
         instructorAccountService.changeStatus(instructorId, active);
         redirectAttributes.addFlashAttribute("message", active ? "강사 계정을 활성화했어요." : "강사 계정을 비활성화했어요.");
+        if ("stats".equals(from)) {
+            return "redirect:/admin/stats";  // 강사 통계(A-S13)의 계정 칸에서 바로 바꾼 경우
+        }
         return "redirect:/admin/instructors";
     }
 

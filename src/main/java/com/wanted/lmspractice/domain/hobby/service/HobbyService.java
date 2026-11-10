@@ -264,4 +264,80 @@ public class HobbyService {
         hobby.changeState(state);
         return hobby.getName();
     }
+
+    // ===== 관리자 편집·삭제 (A-S02 대분류 관리 · A-S03 세부 취미) =====
+
+    /** 편집할 대분류의 현재 값 (편집 패널을 미리 채운다). 호출: AdminHobbyController.categories(?edit=) */
+    @Transactional(readOnly = true)
+    public CategoryFormDTO getCategoryForm(Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        return new CategoryFormDTO(category.getName(), category.getState());
+    }
+
+    /** 편집하는 대분류 말고 같은 이름이 없는지 (A-S02). 호출: AdminHobbyController.updateCategory */
+    @Transactional(readOnly = true)
+    public boolean isCategoryNameAvailable(String name, Long exceptCategoryId) {
+        return !categoryRepository.existsByNameAndIdNot(name, exceptCategoryId);
+    }
+
+    /**
+     * 대분류 편집 (A-S02) — 이름·노출 상태. 호출: AdminHobbyController.updateCategory
+     *
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류
+     */
+    @Transactional
+    public void updateCategory(Long categoryId, CategoryFormDTO form) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        category.update(form.getTrimmedName(), form.getState());
+    }
+
+    /**
+     * 대분류 삭제 (A-S02) — 세부 취미가 하나도 없을 때만 지운다(잘못 만든 대분류 정리용).
+     * 호출: AdminHobbyController.deleteCategory
+     *
+     * @return 지운 대분류 이름
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류, INVALID_INPUT — 세부 취미가 남아 있음
+     */
+    @Transactional
+    public String deleteCategory(Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        if (hobbyRepository.existsByCategoryId(categoryId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        categoryRepository.delete(category);
+        return category.getName();
+    }
+
+    /** 편집할 세부 취미의 현재 값 (편집 패널을 미리 채운다). 호출: AdminHobbyController.subHobbies(?edit=) */
+    @Transactional(readOnly = true)
+    public HobbyFormDTO getHobbyForm(Long hobbyId) {
+        Hobby hobby = hobbyRepository.findById(hobbyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        return new HobbyFormDTO(hobby.getCategoryId(), hobby.getName(), hobby.getDescription(), hobby.getState());
+    }
+
+    /** 편집하는 세부 취미 말고 그 대분류에 같은 이름이 없는지 (A-S03). 호출: AdminHobbyController.updateHobby */
+    @Transactional(readOnly = true)
+    public boolean isHobbyNameAvailable(Long categoryId, String name, Long exceptHobbyId) {
+        return !hobbyRepository.existsByCategoryIdAndNameAndIdNot(categoryId, name, exceptHobbyId);
+    }
+
+    /**
+     * 세부 취미 편집 (A-S03) — 대분류·이름·소개·노출 상태. 대분류를 옮기면 그 대분류의 노출 규칙을 따른다.
+     * 호출: AdminHobbyController.updateHobby
+     *
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 세부 취미·없는 대분류
+     */
+    @Transactional
+    public void updateHobby(Long hobbyId, HobbyFormDTO form) {
+        Hobby hobby = hobbyRepository.findById(hobbyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        if (!categoryExists(form.getCategoryId())) {
+            throw new BusinessException(ErrorCode.HOBBY_NOT_FOUND);
+        }
+        hobby.update(form.getCategoryId(), form.getTrimmedName(), form.getTrimmedDescription(), form.getState());
+    }
 }

@@ -72,4 +72,10 @@ public class Category {
     public void changeState(ExposureState newState) {
         this.state = newState;
     }
+
+    /** 관리자 대분류 편집(A-S02) — 이름·노출 상태를 바꾼다. 호출: HobbyService.updateCategory (변경 감지로 저장) */
+    public void update(String name, ExposureState newState) {
+        this.name = name;
+        this.state = newState;
+    }
 }

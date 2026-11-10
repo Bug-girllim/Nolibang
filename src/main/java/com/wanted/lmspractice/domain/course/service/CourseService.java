@@ -3,6 +3,7 @@ package com.wanted.lmspractice.domain.course.service;
 import com.wanted.lmspractice.domain.course.dto.CourseBriefDTO;
 import com.wanted.lmspractice.domain.course.dto.CourseDTO;
 import com.wanted.lmspractice.domain.course.dto.CourseDetailDTO;
+import com.wanted.lmspractice.domain.course.dto.CourseFormDTO;
 import com.wanted.lmspractice.domain.course.dto.LessonDTO;
 import com.wanted.lmspractice.domain.course.entity.Course;
 import com.wanted.lmspractice.domain.course.entity.CourseLevel;
@@ -25,8 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * [역할] 강의·차시 조회 — 강의 데이터만 다룬다(정원·대기·내 신청 상태는 CourseCatalogService가 수강 도메인에서 받아 붙인다)
- * [담당] 팀원 2 · #08   [화면] U-S03·U-S04, A-S15   [기획] D-08(비회원도 강의 상세까지 열람), D-59(강의는 시드 데이터라 조회만)
+ * [역할] 강의·차시 조회 + 관리자 강의 편집(A-S06 콘텐츠 검수) — 강의 데이터만 다룬다(정원·대기·내 신청 상태는 CourseCatalogService가 수강 도메인에서 받아 붙인다)
+ * [담당] 팀원 2 · #08   [화면] U-S03·U-S04, A-S15   [기획] D-08(비회원도 강의 상세까지 열람), D-59(강의는 시드 데이터 — 관리자는 기존 강의의 내용·공개 상태만 편집)
  *       [API] CO-01·CO-02
  * [연결]
  *  - 호출받음: CourseCatalogService(강의 목록·상세·관리자 집계·#10 관리자 강의 선택), #09 EnrollEligibilityPolicy(신청할 강의 확인)·SeatService(알림용 강의 이름),
@@ -209,5 +210,45 @@ public class CourseService {
     /** 관리자는 닫힌 강의도 보고, 그 밖의 사람은 열린(OPEN) 강의만 본다 */
     private boolean isVisible(Course course, Role viewerRole) {
         return course.getStatus() == CourseStatus.OPEN || viewerRole == Role.ADMIN;
+    }
+
+    // ===== 관리자 강의 편집 (A-S06 콘텐츠 검수) =====
+
+    /** 강의 id → 공개 상태 (콘텐츠 검수 표의 "검수 상태" 칸). 호출: AdminHobbyController.contentReview */
+    @Transactional(readOnly = true)
+    public Map<Long, CourseStatus> getCourseStatuses() {
+        Map<Long, CourseStatus> statuses = new HashMap<>();
+        courseRepository.findAll().forEach(course -> statuses.put(course.getId(), course.getStatus()));
+        return statuses;
+    }
+
+    /**
+     * 편집할 강의의 현재 값 (편집 패널을 미리 채운다). 호출: AdminHobbyController.contentReview(?edit=)
+     *
+     * @throws BusinessException COURSE_NOT_FOUND
+     */
+    @Transactional(readOnly = true)
+    public CourseFormDTO getCourseForm(Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_NOT_FOUND));
+        return new CourseFormDTO(course.getTitle(), course.getDescription(), course.getSuppliesText(),
+                course.getAssignmentTitle(), course.getAssignmentDescription(), course.getStatus());
+    }
+
+    /**
+     * 강의 편집 (A-S06). 비공개(CLOSED)로 바꾸면 학습자·비회원 목록에서 빠진다(관리자만 봄). 이미 수강 중인 학습자의 학습은 그대로.
+     * 호출: AdminHobbyController.updateCourse
+     *
+     * @return 바꾼 뒤 강의명(안내 문구용)
+     * @throws BusinessException COURSE_NOT_FOUND
+     */
+    @Transactional
+    public String updateCourse(Long courseId, CourseFormDTO form) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_NOT_FOUND));
+        course.update(CourseFormDTO.trimmed(form.getTitle()), CourseFormDTO.trimmed(form.getDescription()),
+                CourseFormDTO.trimmed(form.getSuppliesText()), CourseFormDTO.trimmed(form.getAssignmentTitle()),
+                CourseFormDTO.trimmed(form.getAssignmentDescription()), form.getStatus());
+        return course.getTitle();
     }
 }

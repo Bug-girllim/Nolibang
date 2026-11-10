@@ -28,4 +28,10 @@ public interface HobbyRepository extends JpaRepository<Hobby, Long> {
 
     /** 새 세부 취미를 그 대분류의 맨 뒤에 두기 위한 현재 가장 큰 정렬 순서 */
     Optional<Hobby> findTopByCategoryIdOrderBySortOrderDesc(Long categoryId);
+
+    /** 세부 취미 편집 시 같은 대분류 안 이름 중복 확인 — 자기 자신은 빼고 본다 (A-S03) */
+    boolean existsByCategoryIdAndNameAndIdNot(Long categoryId, String name, Long id);
+
+    /** 대분류 삭제 전, 그 아래 세부 취미가 남아 있는지 */
+    boolean existsByCategoryId(Long categoryId);
 }

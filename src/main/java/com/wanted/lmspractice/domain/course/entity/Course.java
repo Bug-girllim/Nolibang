@@ -73,4 +73,18 @@ public class Course {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /**
+     * 관리자 강의 편집(A-S06 콘텐츠 검수) — 강의명·소개·준비물·과제·공개 상태를 바꾼다. 수준·취미는 바꾸지 않는다(수강 기록과 연결).
+     * 호출: CourseService.updateCourse (변경 감지로 저장)
+     */
+    public void update(String title, String description, String suppliesText,
+                       String assignmentTitle, String assignmentDescription, CourseStatus newStatus) {
+        this.title = title;
+        this.description = description;
+        this.suppliesText = suppliesText;
+        this.assignmentTitle = assignmentTitle;
+        this.assignmentDescription = assignmentDescription;
+        this.status = newStatus;
+    }
 }
