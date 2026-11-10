@@ -3,11 +3,19 @@ package com.wanted.lmspractice.domain.user.controller;
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.user.dto.AccountUpdateDTO;
 import com.wanted.lmspractice.domain.user.dto.PasswordUpdateDTO;
+import com.wanted.lmspractice.domain.user.dto.WithdrawDTO;
+import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.domain.user.service.UserService;
+import com.wanted.lmspractice.domain.user.service.WithdrawalService;
+import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -19,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * [역할] 계정 설정 화면(U-S17) — "기본 정보" 탭(닉네임 변경)·"비밀번호" 탭(비밀번호 변경). 회원 탈퇴 탭은 P2라 제외.
+ * [역할] 계정 설정 화면(U-S17) — "기본 정보" 탭(닉네임 변경)·"비밀번호" 탭(비밀번호 변경)·"회원 탈퇴" 탭(학습자만).
  * [담당] 팀원 1 · #06   [화면] U-S17   [기획] FR-002, U-S17   [API] US-05
  * [연결]
  *  - 호출받음: 브라우저(GET /my/account, POST /my/account/nickname·/password) — SecurityConfig에서 로그인 사용자 세 역할 공용
@@ -37,11 +45,13 @@ public class AccountController {
     private static final String VIEW = "user/account";
     private static final String TAB_INFO = "info";
     private static final String TAB_PASSWORD = "password";
+    private static final String TAB_WITHDRAW = "withdraw";
 
     private final UserService userService;
+    private final WithdrawalService withdrawalService;
 
     /**
-     * 계정 설정 화면. 호출: GET /my/account?tab=info|password
+     * 계정 설정 화면. 호출: GET /my/account?tab=info|password|withdraw (withdraw는 학습자만, 아니면 info로 보낸다)
      */
     @GetMapping
     public String accountForm(@AuthenticationPrincipal AuthDetails details,
@@ -51,7 +61,53 @@ public class AccountController {
         nicknameForm.setNickname(userService.getAccount(details.getUserId()).getNickname());
         model.addAttribute("accountUpdateDTO", nicknameForm);
         model.addAttribute("passwordUpdateDTO", new PasswordUpdateDTO());
+        model.addAttribute("withdrawDTO", new WithdrawDTO());
+        if (TAB_WITHDRAW.equals(tab) && details.getRole() == Role.USER) {
+            return render(details, TAB_WITHDRAW, model);
+        }
         return render(details, TAB_PASSWORD.equals(tab) ? TAB_PASSWORD : TAB_INFO, model);
+    }
+
+    /**
+     * 회원 탈퇴 (학습자만). 비밀번호 불일치·진행 중 수강·안내 미확인은 같은 화면에 오류로 보여 준다.
+     * 성공하면 세션을 끝내고(로그아웃) 로그인 화면으로 보낸다 — 세션이 사라져 flash를 못 쓰므로 ?withdrawn 쿼리로 알린다.
+     * 호출: POST /my/account/withdraw (currentPassword, agree)
+     */
+    @PostMapping("/withdraw")
+    public String withdraw(@AuthenticationPrincipal AuthDetails details,
+                           @Valid @ModelAttribute("withdrawDTO") WithdrawDTO withdrawDTO,
+                           BindingResult bindingResult,
+                           Model model,
+                           HttpServletRequest request,
+                           HttpServletResponse response,
+                           Authentication authentication) {
+        if (details.getRole() != Role.USER) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
+        if (!bindingResult.hasErrors()) {
+            try {
+                withdrawalService.withdraw(details.getUserId(), withdrawDTO.getCurrentPassword());
+            } catch (BusinessException e) {
+                if (e.getErrorCode() == ErrorCode.PASSWORD_MISMATCH) {
+                    bindingResult.rejectValue("currentPassword", "mismatch", e.getErrorCode().getMessage());
+                } else if (e.getErrorCode() == ErrorCode.WITHDRAW_BLOCKED_ACTIVE_ENROLLMENT) {
+                    bindingResult.reject("blocked", e.getErrorCode().getMessage());
+                } else {
+                    throw e;
+                }
+            }
+        }
+        if (bindingResult.hasErrors()) {
+            withdrawDTO.setCurrentPassword(null);
+            AccountUpdateDTO nicknameForm = new AccountUpdateDTO();
+            nicknameForm.setNickname(userService.getAccount(details.getUserId()).getNickname());
+            model.addAttribute("accountUpdateDTO", nicknameForm);
+            model.addAttribute("passwordUpdateDTO", new PasswordUpdateDTO());
+            return render(details, TAB_WITHDRAW, model);
+        }
+
+        new SecurityContextLogoutHandler().logout(request, response, authentication);  // 세션 무효화 + 인증 정보 제거
+        return "redirect:/auth/login?withdrawn";
     }
 
     /**
@@ -121,6 +177,10 @@ public class AccountController {
     private String render(AuthDetails details, String tab, Model model) {
         model.addAttribute("account", userService.getAccount(details.getUserId()));
         model.addAttribute("tab", tab);
+        if (TAB_WITHDRAW.equals(tab)) {
+            // 진행 중 수강이 있으면 탈퇴 버튼을 막고 이유를 미리 안내한다 (최종 판단은 WithdrawalService가 다시 한다)
+            model.addAttribute("withdrawBlocked", withdrawalService.isBlockedByActiveEnrollment(details.getUserId()));
+        }
         return VIEW;
     }
 }

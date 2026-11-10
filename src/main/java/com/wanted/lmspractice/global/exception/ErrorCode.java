@@ -27,6 +27,7 @@ public enum ErrorCode {
     PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "비밀번호 변경이 필요합니다."),
     INVALID_NEW_PASSWORD(HttpStatus.BAD_REQUEST, "사용할 수 없는 비밀번호입니다."),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다."),  // #06 계정 설정 비밀번호 변경
+    WITHDRAW_BLOCKED_ACTIVE_ENROLLMENT(HttpStatus.CONFLICT, "수강 중인 강의가 있어 탈퇴할 수 없습니다. 수료하거나 수강을 취소한 뒤 다시 시도해 주세요."),
 
     /* 탐색 */
     HOBBY_NOT_FOUND(HttpStatus.NOT_FOUND, "취미를 찾을 수 없습니다."),

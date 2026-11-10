@@ -107,6 +107,16 @@ public class WaitlistService {
     }
 
     /**
+     * 학습자의 대기 줄을 모두 취소한다 — 회원 탈퇴 때 자동 확정으로 자리를 차지하지 않도록 먼저 비운다.
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안에서 호출되어 같은 트랜잭션에 합류한다)
+     */
+    @Transactional
+    public void cancelAllWaiting(Long userId) {
+        waitlistEntryRepository.findByUserIdAndStatusOrderByIdAsc(userId, WaitlistStatus.WAITING)
+                .forEach(entry -> cancel(userId, entry.getId()));
+    }
+
+    /**
      * 계약 C19(#11 추가): 한 학습자가 지금 대기 중인(WAITING) 강의 목록과 각 대기 번호 — 신청 순서대로.
      * 대기 번호는 getWaitingNumber를 그대로 쓴다(같은 규칙을 두 곳에 만들지 않는다).
      * 호출: MyLearningService.getMyLearning (GET /my/learning, API ML-01)

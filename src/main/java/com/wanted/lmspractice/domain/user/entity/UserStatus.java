@@ -8,5 +8,6 @@ package com.wanted.lmspractice.domain.user.entity;
 public enum UserStatus {
     PENDING_EMAIL,   // 가입 후 이메일 인증 전 — 로그인 불가
     ACTIVE,
-    INACTIVE        // 비활성 강사 등 — 로그인 불가
+    INACTIVE,       // 비활성 강사 등 — 로그인 불가
+    WITHDRAWN       // 본인 탈퇴(학습자) — 로그인 불가, 개인정보는 익명화(User.withdraw)
 }
