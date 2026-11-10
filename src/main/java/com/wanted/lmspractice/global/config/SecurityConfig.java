@@ -77,8 +77,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) ->
                                 response.sendRedirect(request.getContextPath() + "/error/401"))
                         .accessDeniedPage("/error/403"))
-                // ❓ API 명세 §1-5: CSRF 결정 전까지 수업 방식(disable). 켜면 fetch(JSON) 요청에 토큰 헤더 필요
-                .csrf(csrf -> csrf.disable())
+                // CSRF 보호는 Spring Security 기본값(켜짐). th:action 폼은 토큰이 자동 삽입되고,
+                // fetch·sendBeacon(작품 좋아요, 재생 진도 보고)은 페이지 meta(_csrf)의 토큰을 보낸다.
                 // #06 한 기기 로그인(U-S17·C-06): 같은 계정이 새로 로그인하면 기존 세션을 만료시킨다.
                 // 기존 브라우저는 다음 요청에서 "다른 기기에서 로그인되어 로그아웃되었습니다" 안내 화면(E-DUP)으로 이동한다.
                 // 무요청 1시간 후 만료는 application.yaml의 server.servlet.session.timeout: 60m가 맡는다.

@@ -5,11 +5,15 @@
  *    (작업분배 §5: 중복 확인·좋아요·재생 보고는 @ResponseBody + 짧은 JS 허용)
  * 버튼 속성: data-work-like(대상 표시), data-like-url(POST 주소), aria-pressed(현재 상태)
  * 라벨 span: .like-label — data-with-count 가 있으면 "♥ 좋아요 12"처럼 숫자까지 같이 바꾼다.
- * 카드의 [data-like-count] 는 같은 카드 안의 숫자 표시. (CSRF 는 현재 꺼져 있다 — 켜질 때는 토큰 헤더를 여기에 추가해야 한다)
+ * 카드의 [data-like-count] 는 같은 카드 안의 숫자 표시. (CSRF 토큰은 페이지 head의 meta _csrf·_csrf_header 에서 읽어 헤더로 보낸다)
  */
 document.querySelectorAll('[data-work-like]').forEach(function (button) {
   button.addEventListener('click', function () {
-    fetch(button.dataset.likeUrl, { method: 'POST', headers: { 'Accept': 'application/json' } })
+    var headers = { 'Accept': 'application/json' };
+    var token = document.querySelector('meta[name="_csrf"]');
+    var header = document.querySelector('meta[name="_csrf_header"]');
+    if (token && header) { headers[header.content] = token.content; }
+    fetch(button.dataset.likeUrl, { method: 'POST', headers: headers })
       .then(function (response) {
         if (!response.ok) { throw new Error('like failed'); }
         return response.json();

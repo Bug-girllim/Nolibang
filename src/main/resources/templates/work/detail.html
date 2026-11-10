@@ -23,7 +23,7 @@
   <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
   <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
   <link rel="stylesheet" th:href="@{/css/t-bell.css}">
-</head>
+<meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}"></head>
 <body>
 <div id="dc-root"><div class="sc-host">
 <div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">작품 게시판</p><nav aria-label="작품 게시판 메뉴" class="side-ctx"><a class="" th:href="@{/works}">작품 목록</a><a aria-current="page" class="active" th:href="@{/works/{id}(id=${work.workId})}">작품 상세<span class="side-sr"> (현재 페이지)</span></a></nav></aside><main class="main"><div class="ph"><div><h2>작품 상세</h2><p>작품·댓글·좋아요</p></div><div class="row"><a class="btn sm" th:href="@{/works}">← 목록으로</a><span class="sid">U-S10</span></div></div>
