@@ -1,0 +1,152 @@
+package com.wanted.lmspractice.domain.course.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.wanted.lmspractice.domain.course.entity.Course;
+import com.wanted.lmspractice.domain.course.entity.CourseLevel;
+import com.wanted.lmspractice.domain.course.entity.Lesson;
+import com.wanted.lmspractice.domain.course.repository.CourseRepository;
+import com.wanted.lmspractice.domain.course.repository.LessonRepository;
+import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
+import com.wanted.lmspractice.domain.hobby.service.HobbyService;
+import com.wanted.lmspractice.domain.user.service.InstructorAccountService;
+import com.wanted.lmspractice.global.exception.BusinessException;
+import com.wanted.lmspractice.global.exception.ErrorCode;
+import com.wanted.lmspractice.global.file.UploadedVideo;
+import com.wanted.lmspractice.global.file.VideoStorage;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * [역할] LessonVideoService 단위 테스트 — 강사 범위(자기 영상·권한 취미), 연결 시 경로·길이 변경, 연결된 영상 삭제 거부
+ * [전제] 스프링·DB 없이 Mockito로 저장소·서비스를 대신한다(공용 DB를 건드리지 않는다).
+ * 🟡 미학습 기술: Mockito mock·verify (테스트 전용)
+ */
+class LessonVideoServiceTest {
+
+    CourseRepository courseRepository;
+    LessonRepository lessonRepository;
+    HobbyService hobbyService;
+    InstructorAccountService instructorAccountService;
+    VideoStorage videoStorage;
+    LessonVideoService service;
+
+    Lesson lesson;
+    Course course;
+
+    static final String ADMIN_KEY = "videos/uploaded/a_12345678.mp4";
+    static final String T6_KEY = "videos/uploaded/instructor-6/b_12345678.mp4";
+
+    @BeforeEach
+    void setUp() {
+        courseRepository = mock(CourseRepository.class);
+        lessonRepository = mock(LessonRepository.class);
+        hobbyService = mock(HobbyService.class);
+        instructorAccountService = mock(InstructorAccountService.class);
+        videoStorage = mock(VideoStorage.class);
+        service = new LessonVideoService(courseRepository, lessonRepository, hobbyService, instructorAccountService, videoStorage);
+
+        lesson = mock(Lesson.class);
+        when(lesson.getCourseId()).thenReturn(1L);
+        when(lesson.getLessonNo()).thenReturn(1);
+        when(lessonRepository.findById(3L)).thenReturn(Optional.of(lesson));
+
+        course = mock(Course.class);
+        when(course.getHobbyId()).thenReturn(10L);
+        when(course.getLevel()).thenReturn(CourseLevel.values()[0]);
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+
+        HobbyDTO hobby = mock(HobbyDTO.class);
+        when(hobby.getName()).thenReturn("색연필화");
+        when(hobbyService.getHobbiesIgnoringVisibility(any())).thenReturn(Map.of(10L, hobby));
+
+        when(videoStorage.ownerOf(ADMIN_KEY)).thenReturn(null);
+        when(videoStorage.ownerOf(T6_KEY)).thenReturn(6L);
+        when(videoStorage.find(ADMIN_KEY)).thenReturn(video(ADMIN_KEY, null, 600.0));
+        when(videoStorage.find(T6_KEY)).thenReturn(video(T6_KEY, 6L, 30.0));
+    }
+
+    private UploadedVideo video(String key, Long owner, Double duration) {
+        return new UploadedVideo(key, key.substring(key.lastIndexOf('/') + 1), owner, 100, duration, LocalDateTime.now());
+    }
+
+    private ErrorCode codeOf(Throwable e) {
+        return ((BusinessException) e).getErrorCode();
+    }
+
+    @Test
+    @DisplayName("관리자 연결: 경로와 실제 영상 길이(소수 3자리)를 함께 바꾸고 차시 이름을 돌려준다")
+    void adminLinks() {
+        String label = service.linkVideo(ADMIN_KEY, 3L, null);
+
+        verify(lesson).changeVideo(ADMIN_KEY, new BigDecimal("600.000"));
+        assertThat(label).startsWith("색연필화 · ").endsWith(" · 1차시");
+    }
+
+    @Test
+    @DisplayName("강사 연결: 권한 받은 취미면 연결, 권한이 없으면 VIDEO_LINK_DENIED")
+    void instructorNeedsGrant() {
+        when(instructorAccountService.hasHobbyGrant(6L, 10L)).thenReturn(true);
+        service.linkVideo(T6_KEY, 3L, 6L);
+        verify(lesson).changeVideo(T6_KEY, new BigDecimal("30.000"));
+
+        when(instructorAccountService.hasHobbyGrant(6L, 10L)).thenReturn(false);
+        assertThatThrownBy(() -> service.linkVideo(T6_KEY, 3L, 6L))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.VIDEO_LINK_DENIED));
+    }
+
+    @Test
+    @DisplayName("강사는 남의 영상(관리자·다른 강사)을 연결·미리보기·삭제할 수 없다 — NOT_FOUND로 존재를 숨긴다")
+    void instructorOnlyOwnVideos() {
+        when(instructorAccountService.hasHobbyGrant(7L, 10L)).thenReturn(true);
+        for (String key : new String[]{ADMIN_KEY, T6_KEY}) {
+            assertThatThrownBy(() -> service.linkVideo(key, 3L, 7L))
+                    .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_FOUND));
+            assertThatThrownBy(() -> service.loadForPreview(key, 7L))
+                    .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_FOUND));
+            assertThatThrownBy(() -> service.delete(key, 7L))
+                    .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_FOUND));
+        }
+        verify(lesson, never()).changeVideo(anyString(), any());
+        verify(videoStorage, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("길이를 읽지 못한 영상은 VIDEO_DURATION_UNKNOWN, 없는 차시는 LESSON_NOT_FOUND")
+    void linkFailures() {
+        when(videoStorage.find(ADMIN_KEY)).thenReturn(video(ADMIN_KEY, null, null));
+        assertThatThrownBy(() -> service.linkVideo(ADMIN_KEY, 3L, null))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.VIDEO_DURATION_UNKNOWN));
+
+        when(videoStorage.find(ADMIN_KEY)).thenReturn(video(ADMIN_KEY, null, 600.0));
+        when(lessonRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.linkVideo(ADMIN_KEY, 99L, null))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.LESSON_NOT_FOUND));
+        verify(lesson, never()).changeVideo(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("차시에 연결된 영상은 VIDEO_IN_USE로 삭제를 거부하고, 연결이 없으면 지운다")
+    void deleteGuard() {
+        when(lessonRepository.existsByVideoKey(T6_KEY)).thenReturn(true);
+        assertThatThrownBy(() -> service.delete(T6_KEY, 6L))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.VIDEO_IN_USE));
+        verify(videoStorage, never()).delete(anyString());
+
+        when(lessonRepository.existsByVideoKey(T6_KEY)).thenReturn(false);
+        service.delete(T6_KEY, 6L);
+        verify(videoStorage).delete(T6_KEY);
+    }
+}

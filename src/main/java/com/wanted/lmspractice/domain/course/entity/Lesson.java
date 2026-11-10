@@ -63,4 +63,17 @@ public class Lesson {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime updatedAt;  // DB가 자동 기록
+
+    /**
+     * 차시 영상 교체 — 영상 경로와 실제 영상 길이를 함께 바꾼다(완료 판정이 길이의 60%라 길이가 틀리면 완료가 안 된다).
+     * 호출: LessonVideoService.linkVideo (관리자·강사 영상 업로드 화면의 [차시에 연결])
+     * DB CHECK ck_lessons_video(경로 비어 있지 않음, 길이 > 0)와 같은 조건을 먼저 확인한다.
+     */
+    public void changeVideo(String videoKey, BigDecimal durationSec) {
+        if (videoKey == null || videoKey.isBlank() || durationSec == null || durationSec.signum() <= 0) {
+            throw new IllegalArgumentException("영상 경로와 0보다 큰 길이가 필요합니다.");
+        }
+        this.videoKey = videoKey;
+        this.durationSec = durationSec;
+    }
 }

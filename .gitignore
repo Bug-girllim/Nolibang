@@ -35,3 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Uploaded videos (web upload, not tracked) ###
+/uploads/videos/uploaded/*
+!/uploads/videos/uploaded/.gitkeep
