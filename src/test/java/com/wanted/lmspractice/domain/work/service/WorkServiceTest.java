@@ -15,7 +15,10 @@ import com.wanted.lmspractice.domain.work.repository.WorkRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkVersionRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import com.wanted.lmspractice.global.file.FileStorage;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,6 +62,19 @@ class WorkServiceTest {
     private WorkVersionRepository workVersionRepository;
     @Autowired
     private WorkFileRepository workFileRepository;
+    @Autowired
+    private FileStorage fileStorage;
+
+    /** 저장소에서 key 를 읽을 수 있는지 — 로컬 디스크·클라우드 어느 저장소에서도 같은 방식(FileStorage.open)으로 확인한다 */
+    private boolean stored(String key) {
+        try (InputStream in = fileStorage.open(key)) {
+            return in != null;
+        } catch (BusinessException e) {
+            return false;   // NOT_FOUND — 없는 파일
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
 
     private Long userId(String loginId) {
         return userRepository.findByLoginId(loginId).orElseThrow().getId();
@@ -178,8 +194,8 @@ class WorkServiceTest {
     void updateReplacesImages() {
         Long versionId = save("제목", List.of(image("a.png", PNG)));
         Long oldFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
-        Path oldPath = workService.openFile(oldFileId, userId("learner"), Role.USER).getPath();
-        assertThat(oldPath).exists();
+        String oldKey = workService.openFile(oldFileId, userId("learner"), Role.USER).getKey();
+        assertThat(stored(oldKey)).isTrue();
 
         workService.updateFinalWorkVersion(userId("learner"), versionId, "제목", null,
                 List.of(image("x.jpg", JPG), image("y.png", PNG)));
@@ -187,8 +203,8 @@ class WorkServiceTest {
         var files = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId);
         assertThat(files).hasSize(2);
         assertThat(files).extracting(f -> f.getMimeType()).containsExactly("image/jpeg", "image/png");
-        assertThat(oldPath).doesNotExist();
-        assertThat(workService.openFile(files.get(0).getId(), userId("learner"), Role.USER).getPath()).exists();
+        assertThat(stored(oldKey)).isFalse();
+        assertThat(stored(workService.openFile(files.get(0).getId(), userId("learner"), Role.USER).getKey())).isTrue();
     }
 
     @Test
@@ -196,12 +212,12 @@ class WorkServiceTest {
     void updateFailureKeepsOld() {
         Long versionId = save("원래 제목", List.of(image("a.png", PNG)));
         Long oldFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
-        Path oldPath = workService.openFile(oldFileId, userId("learner"), Role.USER).getPath();
+        String oldKey = workService.openFile(oldFileId, userId("learner"), Role.USER).getKey();
 
         assertThatThrownBy(() -> workService.updateFinalWorkVersion(userId("learner"), versionId, "바뀐 제목", null,
                 List.of(image("fake.png", "text".getBytes(StandardCharsets.UTF_8)))))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_IMAGE_FILE));
-        assertThat(oldPath).exists();
+        assertThat(stored(oldKey)).isTrue();
         assertThat(workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId)).hasSize(1);
 
         assertThatThrownBy(() -> workService.updateFinalWorkVersion(userId("learner2"), versionId, "탈취", null, null))
@@ -216,8 +232,8 @@ class WorkServiceTest {
 
         WorkFileDTO own = workService.openFile(fileId, userId("learner"), Role.USER);
         assertThat(own.getMimeType()).isEqualTo("image/png");
-        assertThat(own.getPath()).exists();
-        assertThat(workService.openFile(fileId, userId("admin"), Role.ADMIN).getPath()).exists();
+        assertThat(stored(own.getKey())).isTrue();
+        assertThat(stored(workService.openFile(fileId, userId("admin"), Role.ADMIN).getKey())).isTrue();
 
         assertThatThrownBy(() -> workService.openFile(fileId, userId("learner2"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
@@ -233,12 +249,12 @@ class WorkServiceTest {
         var work = workRepository.findById(workIdOf(versionId)).orElseThrow();
         ReflectionTestUtils.setField(work, "visibility", Visibility.PUBLIC);   // 공개 전환은 #18 소관 — 테스트에서만 직접 세팅
 
-        assertThat(workService.openFile(fileId, userId("learner2"), Role.USER).getPath()).exists();
+        assertThat(stored(workService.openFile(fileId, userId("learner2"), Role.USER).getKey())).isTrue();
 
         ReflectionTestUtils.setField(work, "adminHidden", true);
         assertThatThrownBy(() -> workService.openFile(fileId, userId("learner2"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
-        assertThat(workService.openFile(fileId, userId("learner"), Role.USER).getPath()).exists();
+        assertThat(stored(workService.openFile(fileId, userId("learner"), Role.USER).getKey())).isTrue();
     }
 
     @Test
