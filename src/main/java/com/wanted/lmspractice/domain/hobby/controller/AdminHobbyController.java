@@ -8,8 +8,10 @@ import com.wanted.lmspractice.domain.hobby.dto.HobbyFormDTO;
 import com.wanted.lmspractice.domain.hobby.entity.ExposureState;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import jakarta.validation.Valid;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -17,17 +19,18 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * [역할] 관리자 취미 화면들 — A-S15 취미 탐색 · A-S02 대분류 관리(+대분류 추가) · A-S03 세부 취미(+세부 취미 추가) · A-S06 콘텐츠 검수
+ * [역할] 관리자 취미 화면들 — A-S15 취미 탐색(+대분류 상태 편집·상태 필터·검색) · A-S02 대분류 관리(+대분류 추가) · A-S03 세부 취미(+세부 취미 추가) · A-S06 콘텐츠 검수
  * [담당] 팀원 2 · #08   [화면] A-S15, A-S02, A-S03, A-S06   [API] HB-03
  * [연결]
- *  - 호출받음: 브라우저 GET /admin/hobbies, /admin/categories(?create=true), /admin/sub-hobbies(?create=true&categoryId=),
- *             /admin/content-review, POST /admin/categories, /admin/sub-hobbies
+ *  - 호출받음: 브라우저 GET /admin/hobbies(?state=&keyword=), /admin/categories(?create=true), /admin/sub-hobbies(?create=true&categoryId=),
+ *             /admin/content-review, POST /admin/categories, /admin/sub-hobbies, /admin/hobbies/categories/{id}/state
  *             — SecurityConfig가 /admin/**를 ADMIN만 허용한다. 메뉴는 common/layout.html의 adminMenu 조각
  *  - 호출함:   CourseCatalogService.getAdminCategories(대분류·세부 취미·강의/차시 수), getAdminCourses(전체 강의),
  *             HobbyService(이름 중복 확인·대분류·세부 취미 추가)
@@ -48,13 +51,93 @@ public class AdminHobbyController {
     private final HobbyService hobbyService;
 
     /**
-     * 비공개를 포함한 전체 취미 조회. 호출: GET /admin/hobbies (API HB-03)
-     * 모델: categories(List&lt;CategoryDTO&gt; — 하위 세부 취미에 공개/전체 강의 수·차시 수가 들어 있다)
+     * 비공개를 포함한 전체 취미 조회 + 대분류 상태 필터·검색. 호출: GET /admin/hobbies?state=&keyword= (API HB-03)
+     * state: OPERATING·PREPARING·PRIVATE 중 하나면 그 상태의 대분류만(그 밖의 값·빈 값 = 전체).
+     * keyword: 대분류 이름에 들어 있으면 그 대분류 전체, 아니면 이름에 들어 있는 세부 취미만 남긴다(대소문자 무시).
+     * 모델: categories(필터 결과), allCategories(요약 숫자용 전체), stateCounts(상태별 대분류 수), states, state(고른 상태 이름, 전체면 null), keyword
      */
     @GetMapping("/hobbies")
-    public String list(Model model) {
-        model.addAttribute("categories", courseCatalogService.getAdminCategories());
+    public String list(@RequestParam(required = false) String state,
+                       @RequestParam(required = false) String keyword,
+                       Model model) {
+        List<CategoryDTO> all = courseCatalogService.getAdminCategories();
+        ExposureState selected = parseState(state);
+        String trimmed = keyword == null ? "" : keyword.trim();
+
+        // 상태 필터 버튼 옆 개수 (상태 이름 → 대분류 수, 없는 상태는 0)
+        Map<String, Long> stateCounts = new LinkedHashMap<>();
+        for (ExposureState s : ExposureState.values()) {
+            stateCounts.put(s.name(), all.stream().filter(category -> category.getState() == s).count());
+        }
+
+        model.addAttribute("allCategories", all);
+        model.addAttribute("stateCounts", stateCounts);
+        model.addAttribute("categories", filter(all, selected, trimmed));
+        model.addAttribute("states", ExposureState.values());
+        model.addAttribute("state", selected == null ? null : selected.name());
+        model.addAttribute("keyword", trimmed);
         return "admin/hobbies";
+    }
+
+    /**
+     * 대분류 노출 상태 편집 (A-S15 대분류 상태 칸 + [편집]). 바꾼 뒤 보던 필터·검색 그대로 목록으로 돌아간다(PRG).
+     * 실패: 없는 상태 값 → 안내 문구, 없는 대분류 → HOBBY_NOT_FOUND(공통 오류 화면, 화면은 목록에서만 고르므로 조작된 요청)
+     */
+    @PostMapping("/hobbies/categories/{categoryId}/state")
+    public String changeCategoryState(@PathVariable Long categoryId,
+                                      @RequestParam(required = false) String state,
+                                      @RequestParam(required = false) String returnState,
+                                      @RequestParam(required = false) String returnKeyword,
+                                      RedirectAttributes redirectAttributes) {
+        ExposureState newState = parseState(state);
+        if (newState == null) {
+            redirectAttributes.addFlashAttribute("errorMessage", "대분류 상태를 운영 중·준비 중·비공개 중에서 골라 주세요.");
+        } else {
+            String name = hobbyService.changeCategoryState(categoryId, newState);
+            redirectAttributes.addFlashAttribute("message",
+                    "'" + name + "' 대분류를 " + newState.getLabel() + " 상태로 바꿨어요.");
+        }
+        // 보던 필터·검색 유지 — 값은 RedirectAttributes가 URL 인코딩해 붙인다
+        ExposureState back = parseState(returnState);
+        if (back != null) {
+            redirectAttributes.addAttribute("state", back.name());
+        }
+        if (returnKeyword != null && !returnKeyword.isBlank()) {
+            redirectAttributes.addAttribute("keyword", returnKeyword.trim());
+        }
+        return "redirect:/admin/hobbies";
+    }
+
+    /** 상태 이름 → ExposureState. 빈 값·모르는 값은 null(= 전체) */
+    private ExposureState parseState(String state) {
+        if (state == null || state.isBlank()) {
+            return null;
+        }
+        for (ExposureState s : ExposureState.values()) {
+            if (s.name().equals(state)) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    /** 상태 필터 → 검색어 순서로 거른 대분류 목록 (검색어가 세부 취미에만 맞으면 그 세부 취미만 남긴 사본을 만든다) */
+    private List<CategoryDTO> filter(List<CategoryDTO> all, ExposureState state, String keyword) {
+        String key = keyword.toLowerCase();
+        return all.stream()
+                .filter(category -> state == null || category.getState() == state)
+                .map(category -> {
+                    if (key.isEmpty() || category.getName().toLowerCase().contains(key)) {
+                        return category;
+                    }
+                    List<HobbyDTO> matched = category.getHobbies().stream()
+                            .filter(hobby -> hobby.getName().toLowerCase().contains(key))
+                            .toList();
+                    return matched.isEmpty() ? null : new CategoryDTO(category.getId(), category.getCode(),
+                            category.getName(), category.getState(), category.getImagePath(), matched);
+                })
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     /**

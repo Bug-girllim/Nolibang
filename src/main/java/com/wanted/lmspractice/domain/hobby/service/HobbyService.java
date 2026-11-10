@@ -236,4 +236,18 @@ public class HobbyService {
         } while (exists.test(code));
         return code;
     }
+
+    /**
+     * 대분류 노출 상태 바꾸기 (A-S15 대분류 상태 편집). 호출: AdminHobbyController.changeCategoryState
+     *
+     * @return 바꾼 대분류 이름(안내 문구용)
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류
+     */
+    @Transactional
+    public String changeCategoryState(Long categoryId, ExposureState state) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        category.changeState(state);
+        return category.getName();
+    }
 }

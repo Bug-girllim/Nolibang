@@ -64,4 +64,12 @@ public class Category {
     public static Category create(String code, String name, ExposureState state, int sortOrder) {
         return new Category(null, code, name, state, sortOrder, null, null);
     }
+
+    /**
+     * 노출 상태 바꾸기 (A-S15 대분류 상태 편집). 호출: HobbyService.changeCategoryState — 트랜잭션 안에서 바꾸면 변경 감지로 저장된다.
+     * 상태가 바뀌어도 이미 수강 중인 학습자의 학습·기록 접근은 그대로다(D-20).
+     */
+    public void changeState(ExposureState newState) {
+        this.state = newState;
+    }
 }
