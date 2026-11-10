@@ -3,9 +3,10 @@ package com.wanted.lmspractice.domain.work.controller;
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.work.dto.WorkFileDTO;
 import com.wanted.lmspractice.domain.work.service.WorkService;
+import com.wanted.lmspractice.global.file.FileStorage;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.InputStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -28,17 +29,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class WorkFileController {
 
     private final WorkService workService;
+    private final FileStorage fileStorage;
 
     @GetMapping("/{fileId}")
     public void image(@AuthenticationPrincipal AuthDetails details,
                       @PathVariable Long fileId,
                       HttpServletResponse response) throws IOException {
         WorkFileDTO file = workService.openFile(fileId, details.getUserId(), details.getRole());
-
-        response.setContentType(file.getMimeType());                       // 저장 때 매직 바이트로 확인한 MIME
-        response.setContentLengthLong(file.getSizeBytes());
-        response.setHeader("X-Content-Type-Options", "nosniff");           // 브라우저가 내용을 보고 형식을 다시 추측하지 못하게
-        response.setHeader("Cache-Control", "private, no-cache");          // 공개→비공개·숨김 전환이 바로 반영되도록 매번 권한 확인
-        Files.copy(file.getPath(), response.getOutputStream());
+        try (InputStream in = fileStorage.open(file.getKey())) {                 // 로컬 디스크든 클라우드든 같은 방식으로 읽는다
+            response.setContentType(file.getMimeType());                       // 저장 때 매직 바이트로 확인한 MIME
+            response.setContentLengthLong(file.getSizeBytes());
+            response.setHeader("X-Content-Type-Options", "nosniff");           // 브라우저가 내용을 보고 형식을 다시 추측하지 못하게
+            response.setHeader("Cache-Control", "private, no-cache");          // 공개→비공개·숨김 전환이 바로 반영되도록 매번 권한 확인
+            in.transferTo(response.getOutputStream());
+        }
     }
 }

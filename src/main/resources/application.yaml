@@ -40,9 +40,21 @@ server:
     session:
       timeout: 60m
 
-# 업로드 파일 저장 경로 (global/file 에서 사용, #16)
+# 업로드 파일 저장 (global/file 에서 사용, #16)
+#   storage=local(기본): upload-dir 폴더에 저장 — 로컬 개발용
+#   storage=s3: S3 호환 저장소(Cloudflare R2·AWS S3)에 저장 — 공용 서비스용. 아래 값은 모두 환경변수로 넣는다(키를 파일에 적지 않는다)
+#     FILE_STORAGE=s3, S3_ENDPOINT(R2: https://<계정ID>.r2.cloudflarestorage.com / AWS S3는 비움),
+#     S3_REGION(R2: auto / AWS: ap-northeast-2 등), S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY
+#   강의 영상은 같은 버킷의 videos/course-N/lesson-M.mp4 key 로 올린다(시드의 video_key 와 같은 경로)
 file:
+  storage: ${FILE_STORAGE:local}
   upload-dir: ./uploads
+  s3:
+    endpoint: ${S3_ENDPOINT:}
+    region: ${S3_REGION:auto}
+    bucket: ${S3_BUCKET:}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
 
 # ── 이메일 인증 메일 (#04, #06) ──
 #   SMTP를 쓰려면 위 spring: 아래에 mail 설정(host·port·username·password 등)을 넣는다.

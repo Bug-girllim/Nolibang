@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,8 +45,18 @@ public class FileStorage {
 
     private final Path root;
 
-    public FileStorage(@Value("${file.upload-dir}") String uploadDir) {
+    /** null 이면 로컬 디스크(file.upload-dir), 있으면 S3 호환 저장소(file.storage=s3) */
+    private final RemoteObjectStore remote;
+
+    /** 로컬 디스크 전용 — 테스트와 로컬 개발용 */
+    public FileStorage(String uploadDir) {
+        this(uploadDir, null);
+    }
+
+    @Autowired
+    public FileStorage(@Value("${file.upload-dir}") String uploadDir, @Autowired(required = false) RemoteObjectStore remote) {
         this.root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.remote = remote;
     }
 
     /**
@@ -75,11 +86,17 @@ public class FileStorage {
             throw new BusinessException(ErrorCode.INVALID_IMAGE_FILE);   // 확장자와 실제 내용이 다름 = 위장 파일
         }
         String key = "works/" + UUID.randomUUID() + "." + extension;      // 원래 파일명은 경로에 쓰지 않는다(경로 조작 방지)
-        Path target = root.resolve(key).normalize();
         try {
-            Files.createDirectories(target.getParent());
-            file.transferTo(target);
-        } catch (IOException e) {
+            if (remote != null) {
+                try (InputStream in = file.getInputStream()) {
+                    remote.put(key, in, file.getSize(), mime);
+                }
+            } else {
+                Path target = root.resolve(key).normalize();
+                Files.createDirectories(target.getParent());
+                file.transferTo(target);
+            }
+        } catch (IOException | RuntimeException e) {
             deleteQuietly(key);                              // 쓰다 만 파일이 남지 않게
             throw new BusinessException(ErrorCode.FILE_SAVE_FAILED);
         }
@@ -95,9 +112,50 @@ public class FileStorage {
         return file;
     }
 
+    /**
+     * 파일 내용을 읽는 스트림 — 로컬이든 클라우드든 같은 방식으로 읽는다. 호출한 쪽이 닫는다.
+     * 호출: WorkService.openFile → WorkFileController, LessonVideoController
+     * @throws BusinessException NOT_FOUND (없는 파일·저장 폴더 밖 key)
+     */
+    public InputStream open(String key) {
+        if (remote == null) {
+            try {
+                return Files.newInputStream(load(key));
+            } catch (IOException e) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+        }
+        if (key.contains("..")) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        try {
+            return remote.open(key);
+        } catch (RuntimeException e) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+    }
+
+    /** 클라우드 저장소일 때만 짧게 유효한 읽기 주소를 돌려준다(영상 재생용). 로컬이면 null → 서버가 직접 내려보낸다 */
+    public String presignedUrlOrNull(String key, java.time.Duration validFor) {
+        if (remote == null || key.contains("..")) {
+            return null;
+        }
+        return remote.presignedGetUrl(key, validFor);
+    }
+
+    public boolean isRemote() {
+        return remote != null;
+    }
+
     /** 삭제 — 없는 파일은 무시한다. 실패해도 예외를 던지지 않고 로그만 남긴다(이미 끝난 DB 처리를 되돌리지 않기 위해) */
     public void deleteQuietly(String key) {
         try {
+            if (remote != null) {
+                if (!key.contains("..")) {
+                    remote.delete(key);
+                }
+                return;
+            }
             Path file = root.resolve(key).normalize();
             if (file.startsWith(root)) {
                 Files.deleteIfExists(file);
