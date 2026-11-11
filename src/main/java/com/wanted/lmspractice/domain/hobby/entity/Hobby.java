@@ -81,6 +81,11 @@ public class Hobby {
         this.state = newState;
     }
 
+    /** 대표 사진 바꾸기·지우기(null). 호출: HobbyService.updateHobbyImage */
+    public void changeThumbnail(String newKey) {
+        this.thumbnailKey = newKey;
+    }
+
     /** 관리자 세부 취미 편집(A-S03) — 대분류·이름·소개·노출 상태를 바꾼다. 호출: HobbyService.updateHobby (변경 감지로 저장) */
     public void update(Long categoryId, String name, String description, ExposureState newState) {
         this.categoryId = categoryId;

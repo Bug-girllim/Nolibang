@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -228,6 +229,7 @@ public class AdminHobbyController {
     @PostMapping("/categories")
     public String createCategory(@Valid @ModelAttribute("categoryFormDTO") CategoryFormDTO categoryFormDTO,
                                  BindingResult bindingResult,
+                                 @RequestParam(required = false) MultipartFile image,
                                  Model model,
                                  RedirectAttributes redirectAttributes) {
         // 이름 중복은 형식 검증으로 알 수 없어서 BindingResult에 직접 넣는다 (AdminSectionController와 같은 방식)
@@ -245,9 +247,10 @@ public class AdminHobbyController {
             return MANAGE_VIEW;
         }
 
-        hobbyService.createCategory(categoryFormDTO);
+        Long newId = hobbyService.createCategory(categoryFormDTO);
+        String imageNote = imageNote(() -> hobbyService.applyCategoryImage(newId, image, false));
         redirectAttributes.addFlashAttribute("message",
-                "'" + categoryFormDTO.getTrimmedName() + "' 대분류를 추가했어요. 이제 세부 취미를 추가할 수 있어요.");
+                "'" + categoryFormDTO.getTrimmedName() + "' 대분류를 추가했어요. 이제 세부 취미를 추가할 수 있어요." + imageNote);
         return "redirect:/admin/categories";
     }
 
@@ -259,6 +262,8 @@ public class AdminHobbyController {
     public String updateCategory(@PathVariable Long categoryId,
                                  @Valid @ModelAttribute("categoryFormDTO") CategoryFormDTO categoryFormDTO,
                                  BindingResult bindingResult,
+                                 @RequestParam(required = false) MultipartFile image,
+                                 @RequestParam(defaultValue = "false") boolean removeImage,
                                  Model model,
                                  RedirectAttributes redirectAttributes) {
         if (!bindingResult.hasFieldErrors("name")
@@ -278,7 +283,8 @@ public class AdminHobbyController {
         }
 
         hobbyService.updateCategory(categoryId, categoryFormDTO);
-        redirectAttributes.addFlashAttribute("message", "'" + categoryFormDTO.getTrimmedName() + "' 대분류를 저장했어요.");
+        String imageNote = imageNote(() -> hobbyService.applyCategoryImage(categoryId, image, removeImage));
+        redirectAttributes.addFlashAttribute("message", "'" + categoryFormDTO.getTrimmedName() + "' 대분류를 저장했어요." + imageNote);
         return "redirect:/admin/categories";
     }
 
@@ -331,6 +337,7 @@ public class AdminHobbyController {
     @PostMapping("/sub-hobbies")
     public String createHobby(@Valid @ModelAttribute("hobbyFormDTO") HobbyFormDTO hobbyFormDTO,
                               BindingResult bindingResult,
+                              @RequestParam(required = false) MultipartFile image,
                               Model model,
                               RedirectAttributes redirectAttributes) {
         checkHobbyForm(hobbyFormDTO, bindingResult, null);
@@ -339,9 +346,10 @@ public class AdminHobbyController {
             return MANAGE_VIEW;
         }
 
-        hobbyService.createHobby(hobbyFormDTO);
+        Long newId = hobbyService.createHobby(hobbyFormDTO);
+        String imageNote = imageNote(() -> hobbyService.applyHobbyImage(newId, image, false));
         redirectAttributes.addFlashAttribute("message",
-                "'" + hobbyFormDTO.getTrimmedName() + "' 세부 취미를 추가했어요.");
+                "'" + hobbyFormDTO.getTrimmedName() + "' 세부 취미를 추가했어요." + imageNote);
         return "redirect:/admin/sub-hobbies";
     }
 
@@ -353,6 +361,8 @@ public class AdminHobbyController {
     public String updateHobby(@PathVariable Long hobbyId,
                               @Valid @ModelAttribute("hobbyFormDTO") HobbyFormDTO hobbyFormDTO,
                               BindingResult bindingResult,
+                              @RequestParam(required = false) MultipartFile image,
+                              @RequestParam(defaultValue = "false") boolean removeImage,
                               Model model,
                               RedirectAttributes redirectAttributes) {
         checkHobbyForm(hobbyFormDTO, bindingResult, hobbyId);
@@ -363,8 +373,9 @@ public class AdminHobbyController {
 
         Long oldCategoryId = hobbyService.getHobbyForm(hobbyId).getCategoryId();  // 다른 대분류로 옮기면 원래 대분류도 확인한다
         hobbyService.updateHobby(hobbyId, hobbyFormDTO);
+        String imageNote = imageNote(() -> hobbyService.applyHobbyImage(hobbyId, image, removeImage));
         redirectAttributes.addFlashAttribute("message", "'" + hobbyFormDTO.getTrimmedName() + "' 세부 취미를 저장했어요."
-                + stateResetNote(oldCategoryId, hobbyFormDTO.getCategoryId()));
+                + stateResetNote(oldCategoryId, hobbyFormDTO.getCategoryId()) + imageNote);
         return "redirect:/admin/sub-hobbies";
     }
 
@@ -427,6 +438,9 @@ public class AdminHobbyController {
         model.addAttribute("states", ExposureState.values());
         model.addAttribute("showCreateForm", showCreateForm);
         model.addAttribute("editId", editId);
+        if (editId != null) {
+            model.addAttribute("currentImage", hobbyService.getCategoryImage(editId));   // 편집 패널의 현재 사진 미리보기
+        }
     }
 
     /** A-S03 화면 공통 모델 (GET 과 검증 실패 시 다시 그릴 때 같이 쓴다) */
@@ -436,6 +450,19 @@ public class AdminHobbyController {
         model.addAttribute("states", ExposureState.values());
         model.addAttribute("showCreateForm", showCreateForm);
         model.addAttribute("editId", editId);
+        if (editId != null) {
+            model.addAttribute("currentImage", hobbyService.getHobbyImage(editId));
+        }
+    }
+
+    /** 사진 처리 결과 안내 — 사진 형식·크기 오류는 저장한 내용은 두고 안내만 덧붙인다 */
+    private String imageNote(Runnable apply) {
+        try {
+            apply.run();
+            return "";
+        } catch (BusinessException e) {
+            return " (사진은 저장하지 못했어요: " + e.getErrorCode().getMessage() + " JPG·PNG·WebP, 50MB 이하만 올릴 수 있어요.)";
+        }
     }
 
     /** A-S06 화면 공통 모델 (GET 과 검증 실패 시 다시 그릴 때 같이 쓴다) */

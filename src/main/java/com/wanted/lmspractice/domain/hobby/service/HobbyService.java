@@ -5,6 +5,7 @@ import com.wanted.lmspractice.domain.hobby.dto.CategoryFormDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDetailDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyFormDTO;
+import com.wanted.lmspractice.domain.hobby.dto.HobbyPicStyle;
 import com.wanted.lmspractice.domain.hobby.entity.Category;
 import com.wanted.lmspractice.domain.hobby.entity.ExposureState;
 import com.wanted.lmspractice.domain.hobby.entity.Hobby;
@@ -13,6 +14,8 @@ import com.wanted.lmspractice.domain.hobby.repository.HobbyRepository;
 import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import com.wanted.lmspractice.global.file.FileStorage;
+import com.wanted.lmspractice.global.file.StoredFile;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +25,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -42,6 +46,13 @@ public class HobbyService {
     private final CategoryRepository categoryRepository;
     private final HobbyRepository hobbyRepository;
     private final HobbyCatalogCache catalogCache;
+    private final FileStorage fileStorage;
+
+    /** 편집 화면에 보여 줄 현재 대표 사진 — path 가 null 이면 사진 없음, uploaded 는 관리자가 올린 사진인지(지우기 버튼용) */
+    public record ImageInfo(String path, boolean uploaded) {
+    }
+
+    private static final String IMAGE_FOLDER = "hobby";
 
     /**
      * 노출 규칙을 적용한 대분류·세부 취미 목록 (HB-01, 사이드 메뉴).
@@ -407,5 +418,76 @@ public class HobbyService {
         }
         hobby.update(form.getCategoryId(), form.getTrimmedName(), form.getTrimmedDescription(), form.getState());
         catalogCache.invalidate();
+    }
+
+    // ---------------------------------------------------------------
+    // 대표 사진 등록·교체·삭제 (관리자 A-S02·A-S03)
+    // ---------------------------------------------------------------
+
+    /** 대분류의 현재 대표 사진 (올린 사진이 없으면 시안 기본 이미지) */
+    @Transactional(readOnly = true)
+    public ImageInfo getCategoryImage(Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        return category.getImageKey() != null
+                ? new ImageInfo(HobbyPicStyle.uploadedImagePath(category.getImageKey()), true)
+                : new ImageInfo(HobbyPicStyle.categoryImage(category.getCode()), false);
+    }
+
+    /** 세부 취미의 현재 대표 사진 (올린 사진이 없으면 시안 대표 이미지, 그것도 없으면 path = null) */
+    @Transactional(readOnly = true)
+    public ImageInfo getHobbyImage(Long hobbyId) {
+        Hobby hobby = hobbyRepository.findById(hobbyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        return hobby.getThumbnailKey() != null
+                ? new ImageInfo(HobbyPicStyle.uploadedImagePath(hobby.getThumbnailKey()), true)
+                : new ImageInfo(HobbyPicStyle.heroImage(hobby.getCode()), false);
+    }
+
+    /**
+     * 대분류 대표 사진 적용 — 새 파일이 있으면 교체(등록), 없고 remove 면 삭제(시안 기본 이미지로 돌아감), 둘 다 아니면 그대로.
+     * 호출: AdminHobbyController (대분류 추가·편집)
+     * @throws BusinessException INVALID_IMAGE_FILE·FILE_TOO_LARGE·FILE_SAVE_FAILED — 사진 형식·크기 오류
+     */
+    @Transactional
+    public void applyCategoryImage(Long categoryId, MultipartFile image, boolean remove) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        String oldKey = category.getImageKey();
+        if (image != null && !image.isEmpty()) {
+            StoredFile stored = fileStorage.store(image, IMAGE_FOLDER);
+            category.changeImage(stored.getKey());
+        } else if (remove) {
+            category.changeImage(null);
+        } else {
+            return;
+        }
+        catalogCache.invalidate();
+        deleteOldImage(oldKey, category.getImageKey());
+    }
+
+    /** 세부 취미 대표 사진 적용 — 규칙은 applyCategoryImage 와 같다 */
+    @Transactional
+    public void applyHobbyImage(Long hobbyId, MultipartFile image, boolean remove) {
+        Hobby hobby = hobbyRepository.findById(hobbyId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        String oldKey = hobby.getThumbnailKey();
+        if (image != null && !image.isEmpty()) {
+            StoredFile stored = fileStorage.store(image, IMAGE_FOLDER);
+            hobby.changeThumbnail(stored.getKey());
+        } else if (remove) {
+            hobby.changeThumbnail(null);
+        } else {
+            return;
+        }
+        catalogCache.invalidate();
+        deleteOldImage(oldKey, hobby.getThumbnailKey());
+    }
+
+    /** 바뀐 뒤에 남은 옛 사진 파일을 지운다 (같은 키면 지우지 않는다). 파일 삭제 실패는 로그만 남는다 */
+    private void deleteOldImage(String oldKey, String newKey) {
+        if (oldKey != null && !oldKey.equals(newKey)) {
+            fileStorage.deleteQuietly(oldKey);
+        }
     }
 }

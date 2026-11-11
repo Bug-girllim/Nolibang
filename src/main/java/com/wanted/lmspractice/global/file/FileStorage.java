@@ -80,12 +80,17 @@ public class FileStorage {
 
     /** 1개 저장 — UUID 파일명으로 업로드 폴더 아래 works/ 에 쓴다. 앞부분이 실제 이미지가 아니면 INVALID_IMAGE_FILE */
     public StoredFile store(MultipartFile file) {
+        return store(file, "works");
+    }
+
+    /** 폴더를 정해 1개 저장 — 취미·대분류 대표 사진은 hobby/ 에 둔다. 검증·UUID 파일명은 store(file)와 같다 */
+    public StoredFile store(MultipartFile file, String folder) {
         String extension = precheck(file);
         String mime = sniffMime(file);
         if (mime == null || !mime.equals(MIME_BY_EXTENSION.get(extension))) {
             throw new BusinessException(ErrorCode.INVALID_IMAGE_FILE);   // 확장자와 실제 내용이 다름 = 위장 파일
         }
-        String key = "works/" + UUID.randomUUID() + "." + extension;      // 원래 파일명은 경로에 쓰지 않는다(경로 조작 방지)
+        String key = folder + "/" + UUID.randomUUID() + "." + extension;      // 원래 파일명은 경로에 쓰지 않는다(경로 조작 방지)
         try {
             if (remote != null) {
                 try (InputStream in = file.getInputStream()) {
