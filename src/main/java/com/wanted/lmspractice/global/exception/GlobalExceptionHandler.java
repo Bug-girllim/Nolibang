@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.tomcat.util.http.InvalidParameterException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -29,7 +30,7 @@ import org.springframework.web.servlet.support.RequestContextUtils;
  * [연결]
  *  - 호출받음: Spring MVC (모든 컨트롤러·서비스의 예외)
  *  - 호출함:   ErrorCode(상태·메시지), templates/error/{status}.html
- *  - 모델:     status(int), message(String)
+ *  - 모델:     status(int), message(String), reason(String — 일반 코드가 아닐 때만. 오류 화면 설명 줄에 실제 이유로 보인다)
  * [기술] 🟢 @ControllerAdvice (미니 프로젝트 구조). 필터에서 나는 403은 SecurityConfig의 accessDeniedPage가 맡는다
  */
 @Slf4j
@@ -39,6 +40,15 @@ public class GlobalExceptionHandler {
     /** 업로드 용량 초과 안내 문구 — 이미지 장당 50MB(D-22)·한 번에 최대 5장(D-18), 관리자 영상 500MB(application.yaml 파일당 500MB·요청 510MB) */
     static final String UPLOAD_TOO_LARGE_MESSAGE =
             "올린 파일이 너무 커요. 이미지는 한 장당 50MB 이하, 한 번에 최대 5장까지, 영상은 500MB 이하로 올릴 수 있어요.";
+
+    /**
+     * 오류 화면에 "실제 이유"(reason)로 따로 보여 주지 않는 일반 코드 — 문구가 화면 제목과 같아 다시 보여 줄 필요가 없다.
+     * 그 밖의 코드(예: VIDEO_ACCESS_DENIED "수강 기간이 끝났거나…")는 화면 설명 줄을 이 이유로 바꿔 보여 준다.
+     * 예상하지 못한 예외는 INTERNAL_ERROR 라 이유(내부 정보)가 화면에 나가지 않는다.
+     */
+    private static final Set<String> GENERIC_CODES = Set.of(
+            ErrorCode.INVALID_INPUT.name(), ErrorCode.ACCESS_DENIED.name(), ErrorCode.NOT_FOUND.name(),
+            ErrorCode.INTERNAL_ERROR.name(), "METHOD_NOT_ALLOWED");
 
     /** 업무 규칙 위반 — ErrorCode의 상태·메시지를 그대로 사용 */
     @ExceptionHandler(BusinessException.class)
@@ -150,6 +160,9 @@ public class GlobalExceptionHandler {
         mav.setStatus(status);
         mav.addObject("status", status.value());
         mav.addObject("message", message);
+        if (!GENERIC_CODES.contains(code)) {
+            mav.addObject("reason", message);  // 오류 화면 설명 줄을 이 이유로 바꿔 보여 준다(없으면 화면 기본 문구)
+        }
         return mav;
     }
 

@@ -30,9 +30,10 @@ public enum ErrorCode {
     WITHDRAW_BLOCKED_ACTIVE_ENROLLMENT(HttpStatus.CONFLICT, "수강 중인 강의가 있어 탈퇴할 수 없습니다. 수료하거나 수강을 취소한 뒤 다시 시도해 주세요."),
 
     /* 탐색 */
-    HOBBY_NOT_FOUND(HttpStatus.NOT_FOUND, "취미를 찾을 수 없습니다."),
+    // 오류 화면에 실제 이유로 보이는 문구(GlobalExceptionHandler reason) — 무엇이 문제인지와 다음에 할 일을 함께 적는다
+    HOBBY_NOT_FOUND(HttpStatus.NOT_FOUND, "취미를 찾을 수 없어요. 지금은 공개되지 않았거나 없는 취미예요."),
     HOBBY_NOT_OPEN(HttpStatus.FORBIDDEN, "운영 중인 취미가 아닙니다."),
-    COURSE_NOT_FOUND(HttpStatus.NOT_FOUND, "강의를 찾을 수 없습니다."),
+    COURSE_NOT_FOUND(HttpStatus.NOT_FOUND, "강의를 찾을 수 없어요. 비공개로 바뀌었거나 없는 강의예요."),
     LESSON_NOT_FOUND(HttpStatus.NOT_FOUND, "차시를 찾을 수 없습니다."),
 
     /* 수강 */
@@ -40,7 +41,7 @@ public enum ErrorCode {
     ALREADY_WAITING(HttpStatus.CONFLICT, "이미 대기 중인 강의입니다."),
     CANNOT_REAPPLY(HttpStatus.CONFLICT, "다시 신청할 수 없는 강의입니다."),
     NO_ASSIGNABLE_SECTION(HttpStatus.CONFLICT, "신청 가능한 분반이 없습니다."),
-    ENROLLMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "수강 정보를 찾을 수 없습니다."),
+    ENROLLMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "수강 정보를 찾을 수 없어요. 나의 학습에서 강의를 다시 선택해 주세요."),
     ENROLLMENT_EXPIRED(HttpStatus.FORBIDDEN, "수강 기간이 만료되었습니다."),
     CANCEL_NOT_ALLOWED_DURING_REVIEW(HttpStatus.CONFLICT, "평가 대기·진행 중에는 수강을 취소할 수 없습니다."),
     SECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "분반을 찾을 수 없습니다."),
@@ -49,7 +50,7 @@ public enum ErrorCode {
     INSTRUCTOR_NOT_GRANTED(HttpStatus.FORBIDDEN, "해당 취미 권한이 없는 강사입니다."),
 
     /* 학습 */
-    VIDEO_ACCESS_DENIED(HttpStatus.FORBIDDEN, "영상을 볼 수 있는 기간이 아닙니다."),
+    VIDEO_ACCESS_DENIED(HttpStatus.FORBIDDEN, "수강 기간이 끝났거나 취소한 강의라 영상을 볼 수 없어요. 수료한 강의는 기간과 관계없이 다시 볼 수 있어요."),
 
     /* 과제·평가 */
     LESSONS_NOT_COMPLETED(HttpStatus.CONFLICT, "3차시를 모두 완료해야 제출할 수 있습니다."),
@@ -66,7 +67,7 @@ public enum ErrorCode {
     VIDEO_LINK_DENIED(HttpStatus.FORBIDDEN, "권한이 있는 취미의 차시에만 영상을 연결할 수 있습니다."),
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "평가 정보를 찾을 수 없습니다."),
     NOT_ASSIGNED_INSTRUCTOR(HttpStatus.FORBIDDEN, "담당 강사만 평가할 수 있습니다."),
-    INVALID_REVIEW_STATE(HttpStatus.CONFLICT, "현재 상태에서는 처리할 수 없습니다."),
+    INVALID_REVIEW_STATE(HttpStatus.CONFLICT, "지금 상태에서는 할 수 없는 작업이에요. 이미 처리되었거나 아직 평가가 끝나지 않았을 수 있어요. 화면을 새로 고쳐 확인해 주세요."),
     FEEDBACK_TOO_SHORT(HttpStatus.BAD_REQUEST, "피드백·반려 사유는 50자 이상이어야 합니다."),
     CANNOT_CANCEL_START(HttpStatus.CONFLICT, "평가 내용을 작성한 뒤에는 시작을 취소할 수 없습니다."),
     RESUBMIT_NOT_ALLOWED(HttpStatus.CONFLICT, "재제출할 수 없습니다."),
