@@ -3,6 +3,7 @@ package com.wanted.lmspractice.domain.user.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.auth.dto.PasswordChangeDTO;
 import com.wanted.lmspractice.domain.user.dto.InstructorCreateDTO;
 import com.wanted.lmspractice.domain.user.dto.InstructorDTO;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +44,8 @@ class InstructorAccountServiceTest {
     private UserRepository userRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private SessionRegistry sessionRegistry;
 
     /** 시드와 겹치지 않는 강사 생성 입력 */
     private InstructorCreateDTO validDto() {
@@ -120,6 +124,32 @@ class InstructorAccountServiceTest {
 
         instructorAccountService.changeStatus(TEACHER_A_ID, true);
         assertThat(userRepository.findById(TEACHER_A_ID).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("비활성화하면 이미 로그인한 그 강사의 세션이 만료되고, 다른 회원의 세션은 그대로다")
+    void changeStatusExpiresLoggedInSessions() {
+        User teacher = userRepository.findById(TEACHER_A_ID).orElseThrow();
+        User learner = userRepository.findByLoginId("learner").orElseThrow();
+        AuthDetails teacherPrincipal = new AuthDetails(teacher);
+        AuthDetails learnerPrincipal = new AuthDetails(learner);
+        sessionRegistry.registerNewSession("teacher-session", teacherPrincipal);
+        sessionRegistry.registerNewSession("learner-session", learnerPrincipal);
+
+        instructorAccountService.changeStatus(TEACHER_A_ID, false);
+
+        assertThat(sessionRegistry.getSessionInformation("teacher-session").isExpired()).isTrue();
+        assertThat(sessionRegistry.getSessionInformation("learner-session").isExpired()).isFalse();
+    }
+
+    @Test
+    @DisplayName("활성화로 바꿀 때는 세션을 건드리지 않는다")
+    void activateKeepsSessions() {
+        sessionRegistry.registerNewSession("teacher-session", new AuthDetails(userRepository.findById(TEACHER_A_ID).orElseThrow()));
+
+        instructorAccountService.changeStatus(TEACHER_A_ID, true);
+
+        assertThat(sessionRegistry.getSessionInformation("teacher-session").isExpired()).isFalse();
     }
 
     @Test
