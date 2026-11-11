@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.wanted.lmspractice.domain.user.entity.User;
 import com.wanted.lmspractice.domain.user.repository.UserRepository;
+import com.wanted.lmspractice.domain.user.service.WithdrawnEmailHoldService;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
@@ -56,6 +57,8 @@ class WithdrawalAndRejoinTest {
     JdbcTemplate jdbcTemplate;
     @Autowired
     EntityManager entityManager;
+    @Autowired
+    WithdrawnEmailHoldService holdService;
 
     @MockitoBean
     JavaMailSender mailSender;
@@ -115,9 +118,11 @@ class WithdrawalAndRejoinTest {
     void rejoinAllowedAfter30Days() throws Exception {
         withdraw(activeLearnerSession());
 
+        // 이메일 원문은 남지 않으므로 확인값으로 행을 찾아 탈퇴 시각을 31일 전으로 옮긴다(CHECK: 만료 = 탈퇴 + 30일)
         entityManager.flush();
-        jdbcTemplate.update("UPDATE users SET withdrawn_at = ? WHERE email = ?",
-                LocalDateTime.now().minusDays(31), EMAIL);
+        LocalDateTime past = LocalDateTime.now().minusDays(31);
+        jdbcTemplate.update("UPDATE withdrawn_email_holds SET withdrawn_at = ?, expires_at = ? WHERE email_hash = ?",
+                past, past.plusDays(User.REJOIN_RESTRICTION_DAYS), holdService.hash(EMAIL));
         entityManager.clear();
 
         signupWithSameEmail("rejoinnew2")

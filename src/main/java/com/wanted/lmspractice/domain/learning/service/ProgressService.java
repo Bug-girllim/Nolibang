@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 3 · #12   [화면] U-S06   [기획] FR-020, D-42   [API] LE-01·LE-02·LE-03
  * [연결]
  *  - 호출받음: LessonController(화면·재생 보고), LessonVideoController(영상 접근 확인),
+ *             WithdrawalService.withdraw(회원 탈퇴 — 이 도메인의 탈퇴자 데이터 정리),
  *             계약 C10 — SubmissionPolicy(#13), MyLearningService(#11), InstructorDashboardService(#07)
  *  - 호출함:   EnrollmentService.getOwnedEnrollment(계약 C6, 본인 확인), CourseService.getLesson·getLessonsOfCourse(#12 요청 메서드),
  *             VideoAccessPolicy, LessonProgressRepository, LessonProgress.applyReport(누적 규칙)
@@ -241,5 +242,11 @@ public class ProgressService {
         }
         long days = Math.max(Duration.between(now, enrollment.getExpiresAt()).toDays(), 0);
         return "D-" + days;
+    }
+
+    /** 회원 탈퇴 — 학습자의 모든 차시 진도를 지운다(U-15 4번). 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안) */
+    @Transactional
+    public int deleteAllOfLearnerForWithdrawal(Long userId) {
+        return lessonProgressRepository.deleteAllOfLearner(userId);
     }
 }

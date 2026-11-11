@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       [API] EN-01·EN-03, CO-02(enrollStatus), ML-01
  * [연결]
  *  - 호출받음: EnrollmentController(apply·cancel), CourseCatalogService(#08, getStatusForUser·getStatusesForUser),
+ *             WithdrawalService.withdraw(회원 탈퇴 — 이 도메인의 탈퇴자 데이터 정리),
  *             팀원 3 ReviewService(#14, complete·closeAfterRejection — 계약 C5), 팀원 3·4(getOwnedEnrollment — 계약 C6)
  *  - 호출함:   CourseSectionRepository(강의 잠금), EnrollEligibilityPolicy(자격), SectionAssignPolicy(분반 선택),
  *             WaitlistService(대기 등록·순번), SeatService.fillVacancies(자리 반환 — 계약 C4),
@@ -319,5 +320,15 @@ public class EnrollmentService {
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(ErrorCode.ALREADY_ENROLLED);
         }
+    }
+
+    /**
+     * 회원 탈퇴 — 학습자의 수강 건(수료·취소·만료 이력)을 모두 지운다(U-15 4번 수강·수료·배지. 배지는 수료 건으로 계산된다).
+     * 진행 중(ACTIVE) 수강이 있으면 탈퇴 자체가 막히므로(WithdrawalService) 정원·대기열에는 영향이 없다.
+     * 진도·평가·대기·문의·최종 과제·알림을 먼저 지운 뒤 호출한다(FK). 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     */
+    @Transactional
+    public int deleteAllOfLearnerForWithdrawal(Long userId) {
+        return enrollmentRepository.deleteAllByUserId(userId);
     }
 }

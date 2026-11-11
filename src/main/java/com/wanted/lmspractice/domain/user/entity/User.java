@@ -36,6 +36,10 @@ public class User {
     public static final int REJOIN_RESTRICTION_DAYS = 30;
     /** 탈퇴 익명화 값의 접두어(아이디·닉네임·이메일). 닉네임으로는 예약어라 NicknamePolicy 가 막는다 — 남이 먼저 쓰면 그 회원의 탈퇴가 UNIQUE 충돌로 실패한다 */
     public static final String ANONYMIZED_PREFIX = "withdrawn_";
+    /** 탈퇴 계정 이메일 자리에 넣는 도메인 — .invalid 는 실제로 존재할 수 없는 도메인(RFC 2606)이라 메일이 나가지 않는다 */
+    public static final String ANONYMIZED_EMAIL_DOMAIN = "withdrawn.invalid";
+    /** 탈퇴 계정의 실명 자리 값 (real_name 은 NOT NULL) */
+    public static final String ANONYMIZED_REAL_NAME = "탈퇴회원";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -218,9 +222,10 @@ public class User {
     }
 
     /**
-     * 회원 탈퇴 — WITHDRAWN으로 바꾸고 직접 식별정보를 익명화한다. 다른 표가 users.id를 참조하므로 행은 지우지 않는다.
-     * 이메일은 "탈퇴 후 30일 재가입 제한" 확인에 쓰려고 그대로 두고, 기간이 지나면 releaseEmail로 비운다.
-     * 호출: UserService.withdraw
+     * 회원 탈퇴 — WITHDRAWN으로 바꾸고 직접 식별정보(아이디·닉네임·실명·이메일·비밀번호)를 즉시 익명화한다(U-15 3번).
+     * 다른 표가 users.id를 참조하므로 행은 지우지 않는다(비식별 껍데기 — 공개 댓글·좋아요는 이 행과도 연결을 끊는다).
+     * 재가입 제한은 이메일 원문 대신 확인값(WithdrawnEmailHoldService)으로 하므로 이메일도 여기서 바로 지운다.
+     * 호출: WithdrawalService.withdraw
      * 학습자(USER)만 탈퇴할 수 있다. 이미 탈퇴했거나 이메일 인증 전인 계정은 대상이 아니다.
      *
      * @param unusableHash 아무도 로그인할 수 없게 만든 임의 BCrypt 값
@@ -231,10 +236,11 @@ public class User {
         }
         this.loginId = ANONYMIZED_PREFIX + id;
         this.nickname = ANONYMIZED_PREFIX + id;   // USER 역할은 닉네임 필수(DB CHECK)라 지우지 않고 바꾼다
-        this.realName = "탈퇴회원";
+        this.realName = ANONYMIZED_REAL_NAME;
         this.passwordHash = unusableHash;
         this.status = UserStatus.WITHDRAWN;
         this.withdrawnAt = now;
+        removeRawEmail();
     }
 
     /** 탈퇴한 계정인지 */
@@ -243,25 +249,14 @@ public class User {
     }
 
     /**
-     * 탈퇴 후 재가입 제한 기간(30일)이 지나 이 계정의 이메일을 다른 가입에 내줄 수 있는지.
-     * 호출: releaseEmailIfExpired, UserService.isEmailAvailableForSignup(가입 화면의 이메일 중복 검사)
+     * 이메일 원문을 익명 값으로 바꾼다(email 은 NOT NULL·UNIQUE 라 id 를 넣어 겹치지 않게).
+     * 호출: withdraw, WithdrawnEmailHoldService.migrateLegacyWithdrawnEmails(이전 방식으로 원문이 남은 탈퇴 계정)
      */
-    public boolean isEmailReleasable(LocalDateTime now) {
-        return isWithdrawn() && !withdrawnAt.plusDays(REJOIN_RESTRICTION_DAYS).isAfter(now);
-    }
-
-    /**
-     * 탈퇴 후 재가입 제한 기간이 지난 계정의 이메일을 풀어 준다 — 같은 이메일로 다시 가입할 수 있게 된다.
-     * 호출: UserService.signup
-     *
-     * @return 풀었으면 true (아직 기간 안이거나 탈퇴 계정이 아니면 false)
-     */
-    public boolean releaseEmailIfExpired(LocalDateTime now) {
-        if (!isEmailReleasable(now)) {
-            return false;
+    public void removeRawEmail() {
+        if (!isWithdrawn()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
-        this.email = ANONYMIZED_PREFIX + id + "@withdrawn.invalid";
-        return true;
+        this.email = ANONYMIZED_PREFIX + id + "@" + ANONYMIZED_EMAIL_DOMAIN;
     }
 
     /** 로그인할 수 있는 활성 계정인지 (#06 계정 복구 대상 판단 — 미인증·비활성 계정에는 복구 메일을 보내지 않는다) */

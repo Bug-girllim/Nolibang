@@ -65,7 +65,8 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] RPG 성장 요소 전체 — 캐릭터(레벨·경험치), 취미별 직업·스킬 트리, 보스전, 퀘스트, 꾸미기, 배지(업적·수료), 길드 순위
  * [담당] RPG 성장 요소   [화면] game/character.html(내 캐릭터), game/guild.html(길드)
  * [연결]
- *  - 호출받음: GameController
+ *  - 호출받음: GameController,
+ *             WithdrawalService.withdraw(회원 탈퇴 — 이 도메인의 탈퇴자 데이터 정리)
  *  - 호출함:   GameStatQuery(활동 집계), QuestClaimRepository·UserAvatarRepository(같은 도메인),
  *             BadgeService.getBadges(계약 C12 — 수료 배지로 직업·해금 판단), HobbyService.getCategories(운영 중인 취미 목록),
  *             MyLearningService.getMyCourses(수강·과제 상태를 보스전으로 변환)
@@ -562,5 +563,17 @@ public class GameService {
     private ActivityStatDTO statOf(Long userId) {
         return Optional.ofNullable(gameStatQuery.findActivity(List.of(userId)).get(userId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * 회원 탈퇴 — 퀘스트 보상 기록·아바타·업적 배지·장착 배지를 지운다(U-15 4번 배지·개인 기록).
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     */
+    @Transactional
+    public void deleteAllOfUserForWithdrawal(Long userId) {
+        questClaimRepository.deleteAllByUserId(userId);
+        userAvatarRepository.deleteAllByUserId(userId);
+        userEquippedBadgeRepository.deleteAllByUserId(userId);
+        userAchievementRepository.deleteAllByUserId(userId);
     }
 }

@@ -35,7 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] 학습자 ↔ 담당 강사 1:1 문의 — 스레드 생성·메시지 작성·답변, 담당 공백 시 작성 불가(D-31), 알림 연결, 화면용 목록·스레드 조립
  * [담당] 팀원 4 · #21   [화면] U-S18·T-S06   [API] IQ-01~04, II-01~03   [기획] FR-042, D-08·D-31
  * [연결]
- *  - 호출받음: InquiryController(학습자), InstructorInquiryController(강사)
+ *  - 호출받음: InquiryController(학습자), InstructorInquiryController(강사),
+ *             WithdrawalService.withdraw(회원 탈퇴 — 이 도메인의 탈퇴자 데이터 정리)
  *  - 호출함:   EnrollmentService.getOwnedEnrollment·getMyEnrollments(C6·C18), SectionService.getCurrentInstructorId(C6, 담당 조회),
  *             CourseService(강의 이름), InstructorAccountService.getInstructor(강사 이름), NotificationService.notify(C7)
  *             InstructorInquiryQuery(강사의 담당 분반 학습자 스레드)
@@ -300,5 +301,16 @@ public class InquiryService {
         } catch (BusinessException e) {
             return "";
         }
+    }
+
+    /**
+     * 회원 탈퇴 — 학습자의 1:1 문의 스레드를 강사 답변까지 통째로 지운다(U-15 11번 "스레드 전체 즉시 삭제").
+     * 신고 기능(확장 D-33)이 없어 예외 보존 대상은 없다. 알림은 NotificationService 가 먼저 지운다.
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     */
+    @Transactional
+    public int deleteAllOfLearnerForWithdrawal(Long learnerId) {
+        messageRepository.deleteAllOfLearner(learnerId);   // 메시지 → 스레드 순서(fk_inquiry_messages_thread)
+        return threadRepository.deleteAllByLearnerId(learnerId);
     }
 }

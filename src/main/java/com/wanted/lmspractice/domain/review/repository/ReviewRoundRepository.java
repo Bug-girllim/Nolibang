@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -77,4 +78,10 @@ public interface ReviewRoundRepository extends JpaRepository<ReviewRound, Long> 
     /** [#19 연동] 회차가 속한 수강 건의 강의 id — 참고 피드백 화면에 강의명·수준을 붙이기 위함 */
     @Query(value = "SELECT e.course_id FROM enrollments e WHERE e.id = :enrollmentId", nativeQuery = true)
     Optional<Long> findCourseIdByEnrollmentId(@Param("enrollmentId") Long enrollmentId);
+
+    /** 학습자의 모든 평가 회차(공식 피드백 포함) 삭제 — 회원 탈퇴(U-15 4번). 호출: ReviewService.deleteAllOfLearnerForWithdrawal */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE rr FROM review_rounds rr JOIN enrollments e ON e.id = rr.enrollment_id WHERE e.user_id = :userId",
+            nativeQuery = true)
+    int deleteAllOfLearner(@Param("userId") Long userId);
 }

@@ -21,6 +21,7 @@ import com.wanted.lmspractice.domain.work.policy.WorkLevelPolicy;
 import com.wanted.lmspractice.domain.work.repository.WorkCommentRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkFileRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkLikeRepository;
+import com.wanted.lmspractice.domain.work.repository.WorkModerationLogRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkVersionRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
@@ -42,7 +43,7 @@ import org.springframework.web.multipart.MultipartFile;
  * [담당] 팀원 4 · #16, #19(일반 작품 등록·수정·공개 설정)   [기획] FR-022·027, D-17·D-18·D-22·D-29, NFR-01·05
  * [연결]
  *  - 호출받음: AssignmentService(#13, 계약 C8 저장·수정), WorkFileController(이미지 출력), #18·#14 화면(getWork),
- *             MyWorkController(#19, MW-01~05)
+ *             MyWorkController(#19, MW-01~05), WithdrawalService(회원 탈퇴 — 탈퇴자 작품·파일 삭제)
  *  - 호출함:   EnrollmentService.getOwnedEnrollment(본인 수강 확인), FileStorage, WorkAccessPolicy, Work·WorkVersion·WorkFile Repository,
  *             (#19) HobbyService(운영 중 취미), WorkLevelPolicy(수준 태그 ← BadgeService C12), ReviewQueryService.findLatestFeedbackForReference(C11)
  *  - 계약:     C8 saveFinalWorkVersion / updateFinalWorkVersion — 시그니처 변경 금지
@@ -66,6 +67,7 @@ public class WorkService {
     private final WorkFileRepository workFileRepository;
     private final WorkCommentRepository workCommentRepository;   // 일반 작품 삭제 시 댓글 정리(D-32)
     private final WorkLikeRepository workLikeRepository;         // 일반 작품 삭제 시 좋아요 정리(D-32)
+    private final WorkModerationLogRepository workModerationLogRepository;   // 회원 탈퇴 시 작품 조치 이력 정리
     private final FileStorage fileStorage;
     private final WorkAccessPolicy workAccessPolicy;
     private final WorkLevelPolicy workLevelPolicy;
@@ -216,6 +218,47 @@ public class WorkService {
                 .filter(comment -> !comment.isDeleted())
                 .forEach(comment -> comment.delete(now));
         workLikeRepository.deleteByWorkId(workId);   // 앞의 변경을 먼저 flush 한 뒤 한 번에 지운다
+    }
+
+    /**
+     * 회원 탈퇴 1단계 — 탈퇴자 작품의 참고 피드백·표시 버전 연결을 끊는다.
+     * 평가 회차(ReviewService)·버전을 지우기 전에 불러야 한다(fk_works_reference·fk_works_display).
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     */
+    @Transactional
+    public void detachAllOfAuthorForWithdrawal(Long authorId) {
+        workRepository.detachAllOfAuthor(authorId);
+    }
+
+    /**
+     * 회원 탈퇴 2단계 — 탈퇴자의 일반 작품·최종 과제를 이미지·버전·댓글·좋아요·조치 이력과 함께 실제로 지운다(U-15 5번).
+     * 일반 작품 직접 삭제(D-32, 논리 삭제)와 달리 개인정보 삭제라 행을 남기지 않는다. 그 작품에 달린 남의 댓글·좋아요도
+     * 게시물 삭제 원칙(02-workflow 198·282행)대로 함께 지운다.
+     * 실제 파일은 커밋이 끝난 뒤 지운다 — 중간에 실패해 롤백되면 DB 행이 그대로이므로 파일도 남아 있어야 한다.
+     * 파일 삭제가 실패하면 FileStorage 재처리 대기 목록으로 넘어간다(#161).
+     * 순서(FK): 알림(NotificationService)·평가 회차(ReviewService)·연결(detachAllOfAuthorForWithdrawal)을 먼저 지운 뒤 호출한다.
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     *
+     * @return 지운 작품 수
+     */
+    @Transactional
+    public int deleteAllOfAuthorForWithdrawal(Long authorId) {
+        List<String> fileKeys = new ArrayList<>();
+        for (WorkFile file : workFileRepository.findAllOfAuthor(authorId)) {
+            fileKeys.add(file.getOriginalKey());
+            if (file.getThumbnailKey() != null) {
+                fileKeys.add(file.getThumbnailKey());
+            }
+        }
+        workCommentRepository.deleteRepliesOnWorksOfAuthor(authorId);   // 답글 → 댓글 순서(fk_comments_parent)
+        workCommentRepository.deleteAllOnWorksOfAuthor(authorId);
+        workLikeRepository.deleteAllOnWorksOfAuthor(authorId);
+        workModerationLogRepository.deleteAllOnWorksOfAuthor(authorId);
+        workFileRepository.deleteAllOfAuthor(authorId);
+        workVersionRepository.deleteAllOfAuthor(authorId);
+        int deleted = workRepository.deleteAllOfAuthor(authorId);
+        runAfterCommit(() -> fileKeys.forEach(fileStorage::deleteQuietly));
+        return deleted;
     }
 
     @Transactional

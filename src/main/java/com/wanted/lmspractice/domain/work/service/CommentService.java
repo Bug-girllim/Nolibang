@@ -9,6 +9,7 @@ import com.wanted.lmspractice.domain.work.entity.Work;
 import com.wanted.lmspractice.domain.work.entity.WorkComment;
 import com.wanted.lmspractice.domain.work.entity.WorkLike;
 import com.wanted.lmspractice.domain.work.entity.WorkLikeId;
+import com.wanted.lmspractice.domain.work.policy.CommentMaskPolicy;
 import com.wanted.lmspractice.domain.work.policy.CommentPolicy;
 import com.wanted.lmspractice.domain.work.policy.WorkAccessPolicy;
 import com.wanted.lmspractice.domain.work.repository.WorkCommentRepository;
@@ -18,7 +19,9 @@ import com.wanted.lmspractice.domain.work.repository.WorkVersionRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] 댓글·답글 작성, 본인 수정·삭제(소프트 삭제), 좋아요 토글, 그에 따른 알림 발송
  * [담당] 팀원 4 · #18   [화면] U-S10, T-S10   [API] CM-C1·C2·C3, WB-03   [기획] FR-033, D-09
  * [연결]
- *  - 호출받음: CommentController(작성·수정·삭제), WorkBoardController.like(좋아요)
+ *  - 호출받음: CommentController(작성·수정·삭제), WorkBoardController.like(좋아요),
+ *             WithdrawalService.withdraw(회원 탈퇴 — 댓글 익명화·좋아요 익명 집계)
  *  - 호출함:   WorkAccessPolicy(열람 가능한 작품에만), CommentPolicy(작성 자격), NotificationService.notify(C7, 호출한 쪽 트랜잭션 안에서),
  *              InstructorAccountService.getGrantedInstructorIds(취미 담당 강사 알림 대상 — 계약 추가 요청)
  * [규칙]
@@ -53,6 +57,7 @@ public class CommentService {
     private final CommentPolicy commentPolicy;
     private final NotificationService notificationService;
     private final InstructorAccountService instructorAccountService;
+    private final CommentMaskPolicy commentMaskPolicy;   // 회원 탈퇴 시 댓글 본문 식별정보 가리기(D-25)
 
     /**
      * 댓글·답글 작성 (CM-C1)
@@ -117,7 +122,38 @@ public class CommentService {
             liked = true;
         }
         workLikeRepository.flush();   // 바로 아래 count 에 방금 변경이 보이도록
-        return new LikeResultDTO(liked, workLikeRepository.countByWorkId(workId));
+        return new LikeResultDTO(liked, work.totalLikeCount(workLikeRepository.countByWorkId(workId)));   // 탈퇴 회원의 익명 좋아요 포함
+    }
+
+    /**
+     * 회원 탈퇴 — 남의 작품에 단 댓글·답글을 익명화한다(U-15 6·7번, D-25).
+     * 원 계정 연결을 끊기 "전에" 정상 댓글 본문의 식별정보를 가리고(CommentMaskPolicy), 자발 삭제 댓글은 "삭제된 댓글입니다"를 유지한다.
+     * 다른 사람의 답글·이름은 건드리지 않는다. 본인 작품에 단 댓글은 작품과 함께 지워진다(WorkService.deleteAllOfAuthorForWithdrawal).
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안 — 계정을 익명화하기 전에 불러야 실명·아이디를 가릴 수 있다)
+     *
+     * @param identifiers 탈퇴자 본인의 실명·아이디·닉네임·이메일 (본문에서 가릴 값)
+     * @return 익명화한 댓글 수
+     */
+    @Transactional
+    public int anonymizeCommentsForWithdrawal(Long userId, Collection<String> identifiers) {
+        List<WorkComment> comments = workCommentRepository.findAllOnOthersWorksByAuthor(userId);
+        for (WorkComment comment : comments) {
+            String masked = comment.isDeleted() ? comment.getBody() : commentMaskPolicy.mask(comment.getBody(), identifiers);
+            comment.anonymizeForWithdrawal(masked);
+        }
+        workCommentRepository.flush();   // 다음 단계의 bulk 쿼리(clearAutomatically)가 변경을 버리기 전에 반영한다
+        return comments.size();
+    }
+
+    /**
+     * 회원 탈퇴 — 회원이 누른 좋아요의 계정 연결을 지우고, 남의 작품에 누른 것은 익명 좋아요 수로 남긴다(U-15 8번).
+     * 본인 작품에 누른 좋아요는 작품과 함께 사라지므로 옮기지 않는다.
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     */
+    @Transactional
+    public void anonymizeLikesForWithdrawal(Long userId) {
+        workRepository.addAnonymousLikesOf(userId);   // 행을 지우기 전에 숫자를 먼저 옮긴다
+        workLikeRepository.deleteAllByUserId(userId);
     }
 
     private Work findWork(Long workId) {
@@ -166,7 +202,7 @@ public class CommentService {
                 notificationService.notify(work.getAuthorId(), NotificationKind.COMMENT_ON_MY_WORK, saved.getId(),
                         "내 작품에 새 댓글", "'" + title + "' 작품에 새 댓글이 달렸습니다.");
             }
-        } else if (notified.add(parent.getAuthorId())) {
+        } else if (!parent.isAnonymous() && notified.add(parent.getAuthorId())) {   // 탈퇴한 사용자의 익명 댓글이면 받을 사람이 없다
             notificationService.notify(parent.getAuthorId(), NotificationKind.REPLY_TO_MY_COMMENT, saved.getId(),
                     "내 댓글에 새 답글", "'" + title + "' 작품의 내 댓글에 답글이 달렸습니다.");
         }

@@ -32,7 +32,7 @@ public class WorkBoardQuery {
 
     /** 관리자: 공개 작품 전체(숨김 포함) — 뷰와 같은 칼럼 이름에 숨김 상태 칼럼을 더한 인라인 뷰 (#20) */
     private static final String ADMIN_SOURCE = "(SELECT w.id AS work_id, w.kind, w.hobby_id, w.level, ver.title, w.published_at, "
-            + "u.nickname AS author_nickname, (SELECT COUNT(*) FROM work_likes l WHERE l.work_id = w.id) AS like_count, "
+            + "u.nickname AS author_nickname, (SELECT COUNT(*) FROM work_likes l WHERE l.work_id = w.id) + w.anonymous_like_count AS like_count, "   // v_public_works 와 같은 식(탈퇴 회원 익명 좋아요 포함)
             + "w.admin_hidden, w.hidden_reason "
             + "FROM works w JOIN work_versions ver ON ver.id = w.display_version_id JOIN users u ON u.id = w.author_id "
             + "WHERE w.visibility = 'PUBLIC' AND w.deleted_at IS NULL) v";

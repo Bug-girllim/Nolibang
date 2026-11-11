@@ -1,6 +1,5 @@
 package com.wanted.lmspractice.domain.user.service;
 
-import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.auth.dto.PasswordChangeDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.entity.ExposureState;
@@ -24,8 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.session.SessionInformation;
-import org.springframework.security.core.session.SessionRegistry;
+import com.wanted.lmspractice.domain.auth.service.LoginSessionService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,7 +63,7 @@ public class InstructorAccountService {
     private final InstructorHobbyGrantRepository grantRepository;
     private final PasswordEncoder passwordEncoder;
     private final HobbyService hobbyService;
-    private final SessionRegistry sessionRegistry;
+    private final LoginSessionService loginSessionService;   // 비활성화한 강사의 기존 세션 만료
 
     /**
      * 강사 목록·검색 + 각 강사의 유효한 취미 권한 (AI-01).
@@ -186,16 +184,8 @@ public class InstructorAccountService {
     public void changeStatus(Long instructorId, boolean active) {
         findInstructor(instructorId).changeActive(active);
         if (!active) {
-            expireSessions(instructorId);
+            loginSessionService.expireAll(instructorId);   // 비활성 검사(AuthDetails.isEnabled)는 로그인 시점에만 돌기 때문
         }
-    }
-
-    /** 이미 로그인한 세션도 쓰지 못하게 끊는다 — 비활성 검사(AuthDetails.isEnabled)는 로그인 시점에만 돌기 때문이다 */
-    private void expireSessions(Long userId) {
-        sessionRegistry.getAllPrincipals().stream()
-                .filter(principal -> principal instanceof AuthDetails details && userId.equals(details.getUserId()))
-                .flatMap(principal -> sessionRegistry.getAllSessions(principal, false).stream())
-                .forEach(SessionInformation::expireNow);
     }
 
     /**

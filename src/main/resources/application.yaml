@@ -182,3 +182,9 @@ app:
   token:
     # 이메일 인증 링크 유효시간: 24시간
     verify-email-hours: 24
+
+  withdrawal:
+    # 탈퇴 이메일 재가입 제한 확인값(HMAC-SHA256)의 서버 키 — WithdrawnEmailHoldService.
+    # 배포 시 WITHDRAWAL_EMAIL_HASH_KEY 를 긴 임의 문자열로 꼭 지정하고 GitHub 에 올리지 않는다.
+    # 운영 중에 바꾸면 기존 확인값이 맞지 않아 재가입 제한이 풀린다.
+    email-hash-key: ${WITHDRAWAL_EMAIL_HASH_KEY:nolibang-local-dev-email-hash-key}

@@ -5,6 +5,9 @@ import com.wanted.lmspractice.domain.user.entity.TokenPurpose;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -23,4 +26,9 @@ public interface AuthTokenRepository extends JpaRepository<AuthToken, Long> {
 
     /** 아직 쓰지 않은 같은 목적의 토큰 전부 — 재발송 시 이전 링크를 무효화하는 데 쓴다 (AU-06) */
     List<AuthToken> findByUserIdAndPurposeAndConsumedAtIsNull(Long userId, TokenPurpose purpose);
+
+    /** 회원의 인증·복구 토큰 전부 삭제 (회원 탈퇴 — 인증 비밀정보 정리, U-15 3번). 호출: WithdrawalService.withdraw */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM auth_tokens WHERE user_id = :userId", nativeQuery = true)
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

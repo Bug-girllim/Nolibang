@@ -159,7 +159,7 @@ public class WorkModerationService {
         dto.setAuthorNickname(userService.getPublicNames(Set.of(work.getAuthorId())).get(work.getAuthorId()));
         HobbyDTO hobby = hobbyService.getHobbiesIgnoringVisibility(List.of(work.getHobbyId())).get(work.getHobbyId());
         dto.setHobbyName(hobby == null ? "" : hobby.getName());
-        dto.setLikeCount(workLikeRepository.countByWorkId(work.getId()));
+        dto.setLikeCount(work.totalLikeCount(workLikeRepository.countByWorkId(work.getId())));   // 탈퇴 회원의 익명 좋아요 포함
         dto.setHidden(work.isAdminHidden());
         dto.setHiddenReason(work.getHiddenReason());
         return new ModerationViewDTO(dto, toLogDtos(logRepository.findByWorkIdOrderByIdDesc(work.getId())));
