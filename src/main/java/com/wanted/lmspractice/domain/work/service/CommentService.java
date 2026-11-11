@@ -39,9 +39,10 @@ import org.springframework.transaction.annotation.Transactional;
  *  - 답글은 1단계만(답글의 답글 불가, INVALID_INPUT). 본문 1~1000자(DB), 앞뒤 공백 제거.
  *  - 수정·삭제는 본인 댓글만. 삭제는 본문을 "삭제된 댓글입니다"로 바꾸고 답글은 유지한다.
  *  - 좋아요는 작품당 1회, 다시 누르면 취소, 본인 작품도 가능. 열람할 수 있는 작품에만 누를 수 있다.
+ *  - 좋아요 토글은 작품 행을 잠가(WorkRepository.findByIdForUpdate) 동시 클릭도 차례로 처리한다 — PK 충돌 500 방지.
  *  - 알림: 새 댓글→작품 작성자(COMMENT_ON_MY_WORK), 답글→원 댓글 작성자(REPLY_TO_MY_COMMENT), 둘 다 본인 글이면 생략.
  *         같은 사건에 취미 권한 강사에게 PUBLIC_COMMENT (본인·이미 알림 받은 사람 제외).
- * [기술] 🟢 @Transactional, 🟢 JPA 변경 감지
+ * [기술] 🟢 @Transactional, 🟢 JPA 변경 감지, 🟢 @Query(nativeQuery) + FOR UPDATE(좋아요 토글 잠금)
  */
 @Service
 @RequiredArgsConstructor
@@ -109,7 +110,10 @@ public class CommentService {
      */
     @Transactional
     public LikeResultDTO toggleLike(Long userId, Role role, Long workId) {
-        Work work = findWork(workId);
+        // 작품 행을 잠근 뒤 있는지 확인 → 넣기/지우기. 동시 클릭은 앞 요청이 커밋될 때까지 기다렸다가 바뀐 상태를 보고 반대로 토글한다
+        Work work = workRepository.findByIdForUpdate(workId)
+                .filter(w -> !w.isDeleted())
+                .orElseThrow(() -> new BusinessException(ErrorCode.WORK_NOT_FOUND));
         workAccessPolicy.checkCanView(work, userId, role);
 
         WorkLikeId id = new WorkLikeId(workId, userId);
