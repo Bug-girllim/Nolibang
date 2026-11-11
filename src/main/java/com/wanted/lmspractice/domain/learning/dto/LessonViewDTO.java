@@ -53,4 +53,6 @@ public class LessonViewDTO {
 
     /** 완료 기준(%) — 화면 문구에 쓴다 */
     private int completeThresholdPercent;
+    /** 이어보기 위치(초) — 0이면 처음부터. 화면이 data-resume-sec 로 플레이어에 넘긴다 (LessonProgress.resumePositionSec) */
+    private double resumePositionSec;
 }

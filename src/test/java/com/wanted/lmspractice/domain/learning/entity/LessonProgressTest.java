@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * [역할] LessonProgress.applyReport의 누적·완료 규칙 테스트 — 서버 관측 시간 상한, 60% 완료, 일시정지·건너뛰기·배속·중복 보고·다중 탭
@@ -172,5 +173,54 @@ class LessonProgressTest {
         }
         assertThat(p.getPlayedSec()).isLessThanOrEqualTo(shortVideo);
         assertThat(p.percent(shortVideo)).isLessThanOrEqualTo(100);
+    }
+
+    @Test
+    @DisplayName("영상이 짧은 것으로 바뀌면 이미 본 시간이 새 길이의 60% 이상일 때 바로 완료되고, 시간·위치는 새 길이를 넘지 않는다")
+    void shorterVideoCompletesImmediately() {
+        LessonProgress p = newProgress();
+        ReflectionTestUtils.setField(p, "playedSec", new BigDecimal("150"));        // 600초 영상에서 25%
+        ReflectionTestUtils.setField(p, "lastPositionSec", new BigDecimal("150"));
+
+        p.adjustToDuration(new BigDecimal("120"), T0);   // 2분 영상으로 교체
+
+        assertThat(p.isCompleted()).isTrue();
+        assertThat(p.getCompletedAt()).isEqualTo(T0);
+        assertThat(p.getPlayedSec()).isEqualByComparingTo("120");
+        assertThat(p.getLastPositionSec()).isEqualByComparingTo("120");
+    }
+
+    @Test
+    @DisplayName("이어보기 위치: 마지막 위치를 돌려주되, 3초 미만이거나 끝나기 5초 전 이후면 처음부터(0)")
+    void resumePosition() {
+        LessonProgress p = newProgress();
+        assertThat(p.resumePositionSec(DURATION)).isEqualByComparingTo("0");   // 아직 본 적 없음
+
+        ReflectionTestUtils.setField(p, "lastPositionSec", new BigDecimal("150.5"));
+        assertThat(p.resumePositionSec(DURATION)).isEqualByComparingTo("150.5");
+
+        ReflectionTestUtils.setField(p, "lastPositionSec", new BigDecimal("2.9"));
+        assertThat(p.resumePositionSec(DURATION)).isEqualByComparingTo("0");     // 거의 처음
+
+        ReflectionTestUtils.setField(p, "lastPositionSec", new BigDecimal("595"));
+        assertThat(p.resumePositionSec(DURATION)).isEqualByComparingTo("0");     // 끝나기 5초 전 이후 = 다 본 영상
+        ReflectionTestUtils.setField(p, "lastPositionSec", new BigDecimal("594.9"));
+        assertThat(p.resumePositionSec(DURATION)).isEqualByComparingTo("594.9");
+    }
+
+    @Test
+    @DisplayName("길어진 영상: 아직 60% 안 됐으면 미완료 그대로, 이미 완료한 차시는 완료를 유지한다")
+    void longerVideoKeepsState() {
+        LessonProgress notYet = newProgress();
+        ReflectionTestUtils.setField(notYet, "playedSec", new BigDecimal("150"));
+        notYet.adjustToDuration(new BigDecimal("1200"), T0);
+        assertThat(notYet.isCompleted()).isFalse();
+        assertThat(notYet.getPlayedSec()).isEqualByComparingTo("150");
+
+        LessonProgress done = newProgress();
+        ReflectionTestUtils.setField(done, "playedSec", new BigDecimal("380"));
+        ReflectionTestUtils.setField(done, "completedAt", T0.minusDays(1));
+        done.adjustToDuration(new BigDecimal("1200"), T0);
+        assertThat(done.getCompletedAt()).isEqualTo(T0.minusDays(1));   // 받은 완료를 빼앗지 않는다
     }
 }

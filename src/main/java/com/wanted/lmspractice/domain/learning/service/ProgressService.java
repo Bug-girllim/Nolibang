@@ -14,6 +14,7 @@ import com.wanted.lmspractice.domain.learning.policy.VideoAccessPolicy;
 import com.wanted.lmspractice.domain.learning.repository.LessonProgressRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -111,6 +112,9 @@ public class ProgressService {
         }
         LessonProgressDTO current = LessonProgressDTO.of(lessonId, lesson.getLessonNo(), lesson.getTitle(),
                 lesson.getDurationSec(), progressByLesson.get(lessonId));
+        // 이어보기: 이 차시를 보다 멈춘 위치(없거나 거의 처음·끝이면 0 = 처음부터)
+        LessonProgress currentRow = progressByLesson.get(lessonId);
+        double resumeSec = currentRow == null ? 0 : currentRow.resumePositionSec(lesson.getDurationSec()).doubleValue();
 
         CourseDetailDTO course = courseService.getCourseDetailForEnrolled(enrollment.getCourseId());   // D-20: 준비 중 취미여도 수강 중이면 접근
         return new LessonViewDTO(enrollment.getId(), enrollment.getCourseId(), course.getTitle(), course.getLevel().getLabel(),
@@ -118,7 +122,7 @@ public class ProgressService {
                 lesson.getDurationSec(), current.getPercent(), current.isCompleted(),
                 lessons, completedCount, REQUIRED_LESSONS, completedCount >= REQUIRED_LESSONS,
                 enrollment.getExpiresAt(), periodText(enrollment, now),
-                LessonProgress.COMPLETE_RATIO.movePointRight(2).intValue());
+                LessonProgress.COMPLETE_RATIO.movePointRight(2).intValue(), resumeSec);
     }
 
     /**
@@ -132,6 +136,27 @@ public class ProgressService {
         Lesson lesson = courseService.getLesson(lessonId);
         videoAccessPolicy.checkVideoAccess(enrollment, lesson.getCourseId(), LocalDateTime.now());
         return lesson.getVideoKey();
+    }
+
+    /**
+     * 차시 영상이 바뀌어 길이가 달라졌을 때, 그 차시의 모든 학습자 진도를 새 길이에 맞춘다(LessonProgress.adjustToDuration).
+     * 호출한 쪽(영상 연결)과 같은 트랜잭션에서 실행된다 — 영상 변경과 진도 맞춤이 함께 저장·취소된다.
+     * 호출: LessonVideoService.linkVideo (관리자·강사 영상 연결)
+     *
+     * @return 이번에 새로 완료 처리된 진도 수
+     */
+    @Transactional
+    public int applyLessonDuration(Long lessonId, BigDecimal durationSec) {
+        LocalDateTime now = LocalDateTime.now();
+        int newlyCompleted = 0;
+        for (LessonProgress progress : lessonProgressRepository.findByLessonId(lessonId)) {
+            boolean wasCompleted = progress.isCompleted();
+            progress.adjustToDuration(durationSec, now);   // 변경 감지로 저장
+            if (!wasCompleted && progress.isCompleted()) {
+                newlyCompleted++;
+            }
+        }
+        return newlyCompleted;
     }
 
     /** 계약 C10: 3차시 모두 완료했는지 (사용: SubmissionPolicy #13) */

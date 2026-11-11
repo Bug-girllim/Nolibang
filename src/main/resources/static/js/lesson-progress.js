@@ -11,6 +11,10 @@
  *  - 재생 중에는 REPORT_INTERVAL_MS마다 playing=true로 보고, 일시정지·종료에는 playing=false로 한 번 보고한다.
  *  - 적립되는 시간은 서버가 잰 경과 시간이다. 배속·건너뛰기로는 더 쌓이지 않는다.
  *  - 완료 후에도 화면을 이동시키지 않는다(기획). 비율·완료 표시만 갱신한다.
+ *
+ * 이어보기 (#lesson-root의 data-resume-sec — 서버가 정한 마지막 재생 위치, 0이면 처음부터)
+ *  - 영상 정보(길이)를 읽은 뒤 그 위치로 옮기고 "지난번에 본 m:ss부터 이어서 재생해요 [처음부터 보기]"를 보여 준다.
+ *  - 위치만 옮길 뿐 진도에는 영향이 없다: 재생을 시작하면 첫 보고가 이 위치를 기준점으로 잡는다.
  */
 (function () {
   'use strict';
@@ -39,6 +43,7 @@
 
   var reportUrl = root.getAttribute('data-report-url');
   var enrollmentId = root.getAttribute('data-enrollment-id');
+  var resumeSec = parseFloat(root.getAttribute('data-resume-sec') || '0');
   var playBtn = document.getElementById('btn-play');
   var skipBtn = document.getElementById('btn-skip');
   var speed = document.getElementById('speed');
@@ -116,6 +121,48 @@
     timer = null;
     report(false);
     streamKey = null;
+  }
+
+  // ── 이어보기 ──
+  function formatTime(sec) {
+    var m = Math.floor(sec / 60);
+    var s = Math.floor(sec % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function showResumeNote(sec) {
+    var note = document.createElement('p');
+    note.id = 'resume-note';
+    note.className = 'mu';
+    note.setAttribute('role', 'status');
+    note.style.margin = '8px 0 0';
+    note.textContent = '지난번에 본 ' + formatTime(sec) + '부터 이어서 재생해요. ';
+    var restart = document.createElement('button');
+    restart.type = 'button';
+    restart.className = 'btn sm';
+    restart.textContent = '처음부터 보기';
+    restart.addEventListener('click', function () {
+      player.currentTime = 0;
+      note.remove();
+    });
+    note.appendChild(restart);
+    var box = player.parentElement;   // 영상 틀 바로 아래에 붙인다
+    box.parentElement.insertBefore(note, box.nextSibling);
+  }
+
+  function applyResume() {
+    // 서버가 이미 "거의 처음·끝"을 0으로 걸렀지만, 실제 영상 길이로 한 번 더 확인한다
+    if (!(resumeSec > 0) || !isFinite(player.duration) || resumeSec >= player.duration - 1) {
+      return;
+    }
+    player.currentTime = resumeSec;
+    showResumeNote(resumeSec);
+  }
+
+  if (player.readyState >= 1) {   // HAVE_METADATA — 이미 길이를 안다
+    applyResume();
+  } else {
+    player.addEventListener('loadedmetadata', applyResume, { once: true });
   }
 
   player.addEventListener('play', startReporting);
