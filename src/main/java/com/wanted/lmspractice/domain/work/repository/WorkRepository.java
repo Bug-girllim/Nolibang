@@ -12,7 +12,8 @@ import org.springframework.stereotype.Repository;
 /**
  * [역할] works 표 접근 (Spring Data JPA)
  * [담당] 팀원 4 · #16 (#19 타임라인 조회 추가)
- * [연결] 호출받음: WorkService, GrowthService(#19)
+ * [연결] 호출받음: WorkService, GrowthService(#19), CommentService.toggleLike(좋아요 잠금)
+ * [기술] 🟢 쿼리 메서드, 🟢 @Query(nativeQuery = true) + FOR UPDATE (@Lock은 배우지 않아 native로 대신)
  */
 @Repository
 public interface WorkRepository extends JpaRepository<Work, Long> {
@@ -26,6 +27,14 @@ public interface WorkRepository extends JpaRepository<Work, Long> {
      * 같은 시각이면 id 가 큰(나중에 넣은) 작품이 위.
      */
     List<Work> findByAuthorIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(Long authorId);
+
+    /**
+     * 좋아요 토글용 작품 행 잠금 — 같은 작품의 토글을 한 줄로 세운다(동시 클릭 시 같은 좋아요 행을 두 번 넣다가 PK 충돌로 500 나던 문제).
+     * 순서 규칙: 좋아요 행(work_likes)을 건드리기 "전에" 이 잠금을 먼저 잡는다. 회원 탈퇴(addAnonymousLikesOf → deleteAllByUserId)도
+     * works → work_likes 순서라 교착이 생기지 않는다. 호출: CommentService.toggleLike
+     */
+    @Query(value = "SELECT * FROM works WHERE id = :workId FOR UPDATE", nativeQuery = true)
+    Optional<Work> findByIdForUpdate(@Param("workId") Long workId);
 
     /**
      * 회원 탈퇴 1단계 — 탈퇴자 작품이 가리키는 평가(reference_review_id)·표시 버전(display_version_id) 연결을 끊는다.
