@@ -69,7 +69,7 @@ class WorkModerationServiceTest {
         Long admin = userId("admin"), author = userId("learner");
         long unreadBefore = notificationService.countUnread(author);
 
-        moderationService.hide(admin, VISIBLE_WORK, REASON);
+        moderationService.hide(admin, Role.ADMIN, VISIBLE_WORK, REASON);
 
         assertThat(boardIds("learner2")).doesNotContain(VISIBLE_WORK);
         assertThatThrownBy(() -> workBoardService.getDetail(VISIBLE_WORK, userId("learner2"), Role.USER))
@@ -91,19 +91,42 @@ class WorkModerationServiceTest {
     void hideRejections() {
         Long admin = userId("admin");
 
-        assertThatThrownBy(() -> moderationService.hide(admin, HIDDEN_WORK, REASON))
+        assertThatThrownBy(() -> moderationService.hide(admin, Role.ADMIN, HIDDEN_WORK, REASON))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ALREADY_HIDDEN));
-        assertThatThrownBy(() -> moderationService.hide(admin, PRIVATE_WORK, REASON))
+        assertThatThrownBy(() -> moderationService.hide(admin, Role.ADMIN, PRIVATE_WORK, REASON))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_INPUT));
-        assertThatThrownBy(() -> moderationService.hide(admin, VISIBLE_WORK, null))
+        assertThatThrownBy(() -> moderationService.hide(admin, Role.ADMIN, VISIBLE_WORK, null))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_INPUT));
-        assertThatThrownBy(() -> moderationService.hide(admin, VISIBLE_WORK, "  짧음  "))
+        assertThatThrownBy(() -> moderationService.hide(admin, Role.ADMIN, VISIBLE_WORK, "  짧음  "))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_INPUT));
-        assertThatThrownBy(() -> moderationService.hide(admin, VISIBLE_WORK, "가".repeat(1001)))
+        assertThatThrownBy(() -> moderationService.hide(admin, Role.ADMIN, VISIBLE_WORK, "가".repeat(1001)))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_INPUT));
-        assertThatThrownBy(() -> moderationService.hide(admin, 999999L, REASON))
+        assertThatThrownBy(() -> moderationService.hide(admin, Role.ADMIN, 999999L, REASON))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
         assertThat(workRepository.findById(VISIBLE_WORK).orElseThrow().isAdminHidden()).isFalse();   // 거부된 요청은 상태를 바꾸지 않는다
+    }
+
+    @Test
+    @DisplayName("권한: 관리자가 아니면(학습자·강사·역할 없음·id 없음) 숨김·복구 모두 ACCESS_DENIED, 상태·이력은 그대로")
+    void moderationRequiresAdmin() {
+        Long author = userId("learner");
+        int logsBefore = moderationService.getAllHistory().size();
+        boolean visibleHiddenBefore = workRepository.findById(VISIBLE_WORK).orElseThrow().isAdminHidden();
+        boolean hiddenHiddenBefore = workRepository.findById(HIDDEN_WORK).orElseThrow().isAdminHidden();
+
+        for (Role role : new Role[]{Role.USER, Role.INSTRUCTOR, null}) {
+            assertThatThrownBy(() -> moderationService.hide(author, role, VISIBLE_WORK, REASON))
+                    .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ACCESS_DENIED));
+            assertThatThrownBy(() -> moderationService.restore(author, role, HIDDEN_WORK, null))   // 작성자 본인도 숨김을 풀 수 없다
+                    .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ACCESS_DENIED));
+        }
+        assertThatThrownBy(() -> moderationService.hide(null, Role.ADMIN, VISIBLE_WORK, REASON))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ACCESS_DENIED));
+
+        // 권한 검사가 작품 조회·상태 변경보다 먼저라 거부된 요청은 아무것도 바꾸지 않는다
+        assertThat(workRepository.findById(VISIBLE_WORK).orElseThrow().isAdminHidden()).isEqualTo(visibleHiddenBefore);
+        assertThat(workRepository.findById(HIDDEN_WORK).orElseThrow().isAdminHidden()).isEqualTo(hiddenHiddenBefore);
+        assertThat(moderationService.getAllHistory()).hasSize(logsBefore);
     }
 
     @Test
@@ -112,7 +135,7 @@ class WorkModerationServiceTest {
         Long admin = userId("admin"), author = userId("learner");
         long unreadBefore = notificationService.countUnread(author);
 
-        moderationService.restore(admin, HIDDEN_WORK);
+        moderationService.restore(admin, Role.ADMIN, HIDDEN_WORK);
 
         assertThat(boardIds("learner2")).contains(HIDDEN_WORK);
         assertThat(workBoardService.getDetail(HIDDEN_WORK, userId("learner2"), Role.USER)).isNotNull();
@@ -128,12 +151,12 @@ class WorkModerationServiceTest {
     @DisplayName("복구 사유를 적으면 그대로 이력에 남고, 숨김 상태가 아니면 NOT_HIDDEN")
     void restoreWithReasonAndRejection() {
         Long admin = userId("admin");
-        moderationService.restore(admin, HIDDEN_WORK, "  확인 결과 문제가 없어 복구합니다.  ");
+        moderationService.restore(admin, Role.ADMIN, HIDDEN_WORK, "  확인 결과 문제가 없어 복구합니다.  ");
         assertThat(moderationService.getTarget(HIDDEN_WORK).getLatest().getReason()).isEqualTo("확인 결과 문제가 없어 복구합니다.");
 
-        assertThatThrownBy(() -> moderationService.restore(admin, HIDDEN_WORK))
+        assertThatThrownBy(() -> moderationService.restore(admin, Role.ADMIN, HIDDEN_WORK))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_HIDDEN));
-        assertThatThrownBy(() -> moderationService.restore(admin, VISIBLE_WORK))
+        assertThatThrownBy(() -> moderationService.restore(admin, Role.ADMIN, VISIBLE_WORK))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_HIDDEN));
     }
 
@@ -143,7 +166,7 @@ class WorkModerationServiceTest {
         var work = workRepository.findById(HIDDEN_WORK).orElseThrow();
         ReflectionTestUtils.setField(work, "visibility", Visibility.PRIVATE);   // 작성자가 비공개로 전환(#19 기능을 대신해 필드 직접 세팅)
 
-        moderationService.restore(userId("admin"), HIDDEN_WORK);
+        moderationService.restore(userId("admin"), Role.ADMIN, HIDDEN_WORK);
 
         assertThat(workRepository.findById(HIDDEN_WORK).orElseThrow().getVisibility()).isEqualTo(Visibility.PRIVATE);
         assertThat(boardIds("learner2")).doesNotContain(HIDDEN_WORK);
@@ -190,7 +213,7 @@ class WorkModerationServiceTest {
         assertThat(summary.getFinalCount()).isEqualTo(1);
         assertThat(summary.getGeneralCount()).isEqualTo(1);
 
-        moderationService.hide(admin, VISIBLE_WORK, REASON);
+        moderationService.hide(admin, Role.ADMIN, VISIBLE_WORK, REASON);
         assertThat(moderationService.getAllHistory()).extracting(ModerationLogDTO::getWorkId)
                 .containsExactly(VISIBLE_WORK, HIDDEN_WORK);   // 최신순
     }

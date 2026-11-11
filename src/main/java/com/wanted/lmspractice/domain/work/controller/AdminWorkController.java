@@ -83,7 +83,7 @@ public class AdminWorkController {
                        @RequestParam String reason,
                        @RequestParam(required = false) String view,
                        RedirectAttributes redirectAttributes) {
-        workModerationService.hide(details.getUserId(), workId, reason);
+        workModerationService.hide(details.getUserId(), details.getRole(), workId, reason);
         redirectAttributes.addFlashAttribute("message", "작품을 숨겼습니다. 작성자에게 사유가 알림으로 전달돼요.");
         return backTo(view);
     }
@@ -95,7 +95,7 @@ public class AdminWorkController {
                           @RequestParam(required = false) String reason,
                           @RequestParam(required = false) String view,
                           RedirectAttributes redirectAttributes) {
-        workModerationService.restore(details.getUserId(), workId, reason);
+        workModerationService.restore(details.getUserId(), details.getRole(), workId, reason);
         redirectAttributes.addFlashAttribute("message", "숨김을 해제했습니다. 작성자가 공개로 둔 작품만 게시판에 다시 보여요.");
         return backTo(view);
     }
