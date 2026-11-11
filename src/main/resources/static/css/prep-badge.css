@@ -2,13 +2,13 @@
    쓰는 곳: 메인 캐러셀(.cat-flag), 취미 목록 대분류 카드(.bigcat-flag), 세부 취미 카드(.hb-flag: 대분류별 보기·내 담당 취미)
    시안 CSS(atelier-v2.css 의 .hb-flag 등)는 고치지 않고, 이 파일을 화면 <head> 맨 뒤에 연결해 덮어쓴다. */
 .cat-flag,.bigcat-flag,.hb-flag{position:absolute;left:50%;transform:translateX(-50%);z-index:2;white-space:nowrap;
-  padding:6px 18px;border-radius:999px;border:1.5px solid #B59A60;background:#2C3552;color:#FFFDF8;
+  padding:6px 18px;border-radius:999px;border:1.5px solid #E9B98F;background:#FBEBDD;color:#A84500;
   font-family:'Noto Serif KR',serif;font-weight:700;font-size:15px;letter-spacing:.02em;line-height:1.2;
-  box-shadow:0 2px 6px rgba(34,43,69,.35),inset 0 0 0 1px rgba(238,228,201,.35);pointer-events:none}
+  box-shadow:0 1px 4px rgba(168,69,0,.18);pointer-events:none}
 /* 위치: 메인 카드는 이름판(아래 5px, 높이 54px) 바로 위, 나머지는 이미지 아래쪽 */
 .cat-flag{top:auto;bottom:68px}
 .bigcat-flag,.hb-flag{top:auto;bottom:12px}
 
 /* 이미지 없는 곳(상태 칩) — 같은 남색 알약을 글줄 안에 그대로 쓴다. .chip.ol 등 기존 칩 스타일보다 앞서도록 .chip.prep-pill 로 겹쳐 쓴다.
    쓰는 곳: 취미 상세·강의 목록 머리·대분류 머리, 관리자 취미 관리(대분류·세부 취미), 나의 학습("준비 중 전환") */
-.chip.prep-pill{background:#2C3552;color:#FFFDF8;border:1.5px solid #B59A60;border-style:solid;border-radius:999px;font-weight:700}
+.chip.prep-pill{background:#FBEBDD;color:#A84500;border:1.5px solid #E9B98F;border-style:solid;border-radius:999px;font-weight:700}

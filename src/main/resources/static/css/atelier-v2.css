@@ -214,6 +214,3 @@ a:focus-visible,button:focus-visible,.btn:focus-visible,.lk:focus-visible,.side 
 .chip.dk{background:var(--btn-main);border-color:var(--btn-main);color:#FFFDF8}
 .bar i{background:var(--btn-main)}
 .box.click:hover{border-color:var(--btn-main);box-shadow:0 0 0 1px var(--btn-main-ring),0 10px 22px rgba(168,69,0,.14)}
-/* GNB 회원가입 버튼은 원래 남색 유지 */
-.gnb .gr a[href$="/signup"]{background:var(--navy);border-color:var(--navy);color:#FFFDF8}
-.gnb .gr a[href$="/signup"]:hover{background:var(--sky);border-color:var(--sky-d);color:var(--navy)}

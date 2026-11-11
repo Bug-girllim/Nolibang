@@ -1,0 +1,4 @@
+/* 메인 화면 머리글 — 관리자 아이콘 버튼(관리자 운영 화면으로 이동)과 알림 벨·아이콘 호버 색
+   알림 벨(.nb-btn)과 같은 크기의 원형 버튼이고, 호버 색은 버튼 공통 번트 오렌지(--btn-main-l)로 맞춘다. */
+.hd-admin { color: #222B45; }
+.nb-btn:hover, .nb-btn:focus-visible, .hd-admin:hover, .hd-admin:focus-visible { background: var(--btn-main-l, #FBEBDD); color: var(--btn-main-d, #A84500); }

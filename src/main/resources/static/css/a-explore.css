@@ -5,8 +5,9 @@
 .scope-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 18px}
 .seg{display:inline-flex;flex-wrap:wrap;border:1px solid #D8CCB5;border-radius:999px;padding:3px;background:#FFFDF8}
 .seg button{min-height:38px;padding:0 16px;border:0;border-radius:999px;background:transparent;color:#3A4666;font-size:13.5px;font-weight:600;cursor:pointer}
-.seg button.on{background:#2C3552;color:#FFFDF8}
-.seg button:focus-visible{outline:3px solid rgba(66,92,199,.45);outline-offset:2px}
+.seg button.on{background:var(--btn-main,#CC5500);color:#FFFDF8}
+.seg button:hover:not(.on){background:var(--btn-main-l,#FBEBDD);color:var(--btn-main-d,#A84500)}
+.seg button:focus-visible{outline:3px solid var(--btn-main-ring,rgba(204,85,0,.28));outline-offset:2px}
 .vis-legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px}
 .vis-legend b{color:#222B45;margin-right:4px}
 .adm-cat{gap:10px}
