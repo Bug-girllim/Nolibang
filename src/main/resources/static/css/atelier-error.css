@@ -10,7 +10,8 @@
 .errcard{position:relative;z-index:1;width:100%;max-width:700px;display:flex;flex-direction:column;align-items:center;text-align:center}
 .err-hero{display:flex;align-items:flex-end;justify-content:center;gap:26px}
 .err-code-wrap{display:flex;align-items:center;gap:8px}
-.err-code{margin:0;font-family:"Cormorant Garamond","Noto Serif KR",serif;font-weight:600;font-size:150px;line-height:.86;letter-spacing:.01em;color:#9A7B42;background:linear-gradient(180deg,#B8975A 0%,#8E743E 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+/* 오류 숫자(#131): Cormorant 숫자(4·9 등)는 기준선 아래로 내려오는데, background-clip:text는 요소 상자 안만 칠해서 줄 높이를 좁히면 아랫부분이 잘린다. 줄 높이 1 + 아래 여백으로 숫자 전체를 상자 안에 넣는다 */
+.err-code{margin:0;font-family:"Cormorant Garamond","Noto Serif KR",serif;font-weight:600;font-size:150px;line-height:1;padding:.04em 0 .16em;letter-spacing:.01em;color:#9A7B42;background:linear-gradient(180deg,#B8975A 0%,#8E743E 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .err-laurel{width:44px;height:112px;flex:none}
 .err-laurel.r{transform:scaleX(-1)}
 .err-hermes{width:140px;height:auto;aspect-ratio:499/636;object-fit:contain;flex:none;display:block}
