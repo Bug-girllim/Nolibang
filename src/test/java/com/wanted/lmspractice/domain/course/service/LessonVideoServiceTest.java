@@ -16,6 +16,7 @@ import com.wanted.lmspractice.domain.course.repository.CourseRepository;
 import com.wanted.lmspractice.domain.course.repository.LessonRepository;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
+import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.domain.user.service.InstructorAccountService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
@@ -41,6 +42,7 @@ class LessonVideoServiceTest {
     HobbyService hobbyService;
     InstructorAccountService instructorAccountService;
     VideoStorage videoStorage;
+    ProgressService progressService;
     LessonVideoService service;
 
     Lesson lesson;
@@ -56,7 +58,9 @@ class LessonVideoServiceTest {
         hobbyService = mock(HobbyService.class);
         instructorAccountService = mock(InstructorAccountService.class);
         videoStorage = mock(VideoStorage.class);
-        service = new LessonVideoService(courseRepository, lessonRepository, hobbyService, instructorAccountService, videoStorage);
+        progressService = mock(ProgressService.class);
+        service = new LessonVideoService(courseRepository, lessonRepository, hobbyService, instructorAccountService, videoStorage,
+                progressService);
 
         lesson = mock(Lesson.class);
         when(lesson.getCourseId()).thenReturn(1L);
@@ -92,6 +96,7 @@ class LessonVideoServiceTest {
         String label = service.linkVideo(ADMIN_KEY, 3L, null);
 
         verify(lesson).changeVideo(ADMIN_KEY, new BigDecimal("600.000"));
+        verify(progressService).applyLessonDuration(3L, new BigDecimal("600.000"));   // 기존 학습자 진도를 새 길이에 맞춘다
         assertThat(label).startsWith("색연필화 · ").endsWith(" · 1차시");
     }
 

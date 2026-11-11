@@ -7,6 +7,7 @@ import com.wanted.lmspractice.domain.course.repository.CourseRepository;
 import com.wanted.lmspractice.domain.course.repository.LessonRepository;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
+import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.domain.user.service.InstructorAccountService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
@@ -34,7 +35,8 @@ import org.springframework.web.multipart.MultipartFile;
  *   - 새 테이블 없음: 영상 파일은 폴더(VideoStorage), 연결 정보는 기존 lessons 표의 video_key 칸
  * [연결]
  *  - 호출받음: AdminVideoController(/admin/videos), InstructorVideoController(/instructor/videos)
- *  - 호출함:   VideoStorage(파일), LessonRepository·CourseRepository(같은 도메인), HobbyService(취미 이름), InstructorAccountService.hasHobbyGrant(C3)
+ *  - 호출함:   VideoStorage(파일), LessonRepository·CourseRepository(같은 도메인), HobbyService(취미 이름), InstructorAccountService.hasHobbyGrant(C3),
+ *             ProgressService.applyLessonDuration(영상 연결로 길이가 바뀌면 기존 학습자 진도를 새 길이에 맞춤)
  * ❓ D-59(영상은 개발자가 폴더에 넣고 시드에 적는다)와 다른 기능 — 팀 공유 필요. 시드를 다시 적재하면 연결은 시드 값으로 돌아간다.
  * [기술] 🟢 @Service·@Transactional(변경 감지로 저장), 🟢 Stream
  */
@@ -47,6 +49,7 @@ public class LessonVideoService {
     private final HobbyService hobbyService;
     private final InstructorAccountService instructorAccountService;
     private final VideoStorage videoStorage;
+    private final ProgressService progressService;
 
     /** 영상 목록 — 관리자는 전부, 강사는 자기가 올린 것만 */
     public List<UploadedVideo> getVideos(Long instructorIdOrNull) {
@@ -128,7 +131,11 @@ public class LessonVideoService {
             throw new BusinessException(ErrorCode.VIDEO_LINK_DENIED);
         }
 
-        lesson.changeVideo(videoKey, BigDecimal.valueOf(video.getDurationSec()).setScale(3, RoundingMode.HALF_UP));   // 변경 감지로 UPDATE
+        BigDecimal newDuration = BigDecimal.valueOf(video.getDurationSec()).setScale(3, RoundingMode.HALF_UP);
+        lesson.changeVideo(videoKey, newDuration);   // 변경 감지로 UPDATE
+        // 길이가 달라진 영상이면 이미 본 학습자들의 진도를 새 길이에 맞춘다(짧아져서 60%를 넘은 차시는 바로 완료).
+        // 맞추지 않으면 "100%인데 미완료"로 남아 학습자가 다시 재생해야만 완료됐다(체크리스트 ④ 검증)
+        progressService.applyLessonDuration(lessonId, newDuration);
 
         HobbyDTO hobby = hobbyService.getHobbiesIgnoringVisibility(Set.of(course.getHobbyId())).get(course.getHobbyId());
         String hobbyName = hobby == null ? "취미 #" + course.getHobbyId() : hobby.getName();
