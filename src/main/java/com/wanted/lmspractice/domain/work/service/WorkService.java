@@ -367,6 +367,19 @@ public class WorkService {
     }
 
     /**
+     * 내 수강 건의 최종 과제 — 지금 표시 중인 제출본(제목·설명·이미지). 아직 제출 전이거나 삭제됐으면 비어 있다.
+     * 호출: AssignmentService.getAssignmentView (최종 과제 화면의 "제출한 과제" 칸). 수강 건 소유 확인은 호출한 쪽이 이미 끝냈다.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<WorkDTO> findFinalWork(Long userId, Long enrollmentId) {
+        return workRepository.findByEnrollmentId(enrollmentId)
+                .filter(w -> w.isOwnedActiveBy(userId) && w.getKind() == WorkKind.FINAL && w.getDisplayVersionId() != null)
+                .flatMap(work -> workVersionRepository.findById(work.getDisplayVersionId())
+                        .map(version -> WorkDTO.of(work, version,
+                                workFileRepository.findByWorkVersionIdOrderBySortOrder(version.getId()))));
+    }
+
+    /**
      * 이미지 출력 준비 — 권한을 확인하고 실제 파일 경로·MIME을 돌려준다 (API FL-01)
      * 호출: WorkFileController.image
      * @throws BusinessException NOT_FOUND(이미지 없음·파일 없음), WORK_ACCESS_DENIED(403 — 비공개·숨김 작품을 열람 권한 없이 요청)

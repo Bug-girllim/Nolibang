@@ -75,9 +75,11 @@ public class AssignmentService {
                 .findFirst()
                 .map(Lesson::getId)
                 .orElse(null);
-        return AssignmentViewDTO.of(enrollment, course, courseService.getAssignmentTitle(enrollment.getCourseId()),
+        AssignmentViewDTO view = AssignmentViewDTO.of(enrollment, course, courseService.getAssignmentTitle(enrollment.getCourseId()),
                 firstLessonId, rounds, completedLessons, ProgressService.REQUIRED_LESSONS,
                 submissionPolicy.isPeriodOpen(enrollment, now), progressService.isAllCompleted(enrollmentId), now);
+        workService.findFinalWork(userId, enrollmentId).ifPresent(view::setSubmittedWork);   // 제출한 뒤에 무엇을 냈는지 화면에서 확인
+        return view;
     }
 
     /**
