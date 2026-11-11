@@ -53,6 +53,8 @@ public class WorkModerationService {
     public static final int MAX_REASON_LENGTH = 1000;
     /** 복구 사유를 비워 보냈을 때 이력·작성자 화면에 남기는 기본 문구 (API AW-03 사유는 선택) */
     public static final String DEFAULT_RESTORE_REASON = "관리자가 공개 노출 제한을 해제했습니다.";
+    /** 작성자가 삭제한 작품의 이력 제목 (#163) */
+    static final String DELETED_WORK_TITLE = "(삭제된 작품)";
 
     private final WorkRepository workRepository;
     private final WorkVersionRepository workVersionRepository;
@@ -178,7 +180,11 @@ public class WorkModerationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.WORK_NOT_FOUND));
     }
 
+    /** 이력·알림에 쓸 작품 제목. 작성자가 삭제한 작품은 표시 버전이 비어 있어(ck_works_deleted) 이름 대신 "(삭제된 작품)" (#163) */
     private String titleOf(Work work) {
+        if (work.getDisplayVersionId() == null) {
+            return DELETED_WORK_TITLE;
+        }
         return workVersionRepository.findById(work.getDisplayVersionId()).map(WorkVersion::getTitle).orElse("작품");
     }
 }
