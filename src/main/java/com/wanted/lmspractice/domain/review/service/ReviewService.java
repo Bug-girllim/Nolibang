@@ -31,7 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] 강사 평가 흐름 — 목록·상세 화면 조립, 평가 시작(학습자 수정 잠금)·시작 취소·초안 저장·승인/반려 → 수료·자리 반환·알림
  * [담당] 팀원 3 · #14   [화면] T-S03, T-S04   [API] RV-01~RV-07   [기획] FR-023·030·031, D-56, D-37, D-59
  * [연결]
- *  - 호출받음: InstructorReviewController
+ *  - 호출받음: InstructorReviewController,
+ *             WithdrawalService.withdraw(회원 탈퇴 — 이 도메인의 탈퇴자 데이터 정리)
  *  - 호출함:   ReviewAssignmentPolicy(현재 분반 담당 강사 확인 — C6), ReviewRound 상태 메서드,
  *             EnrollmentService.complete·closeAfterRejection(계약 C5, 팀원 2 — 내부에서 fillVacancies),
  *             NotificationService.notify(계약 C7, 팀원 4), ReviewQuery(화면용 조회)
@@ -203,5 +204,15 @@ public class ReviewService {
 
     private static long countIn(List<ReviewListDTO> rows, ReviewTab tab) {
         return rows.stream().filter(r -> tab.contains(r.getStatus())).count();
+    }
+
+    /**
+     * 회원 탈퇴 — 학습자의 모든 평가 회차(공식 피드백·반려 사유 포함)를 지운다(U-15 4번 "강사 피드백 삭제").
+     * 이 회차를 참고 피드백으로 가리키던 작품 연결은 먼저 끊겨 있어야 한다(WorkService.detachAllOfAuthorForWithdrawal).
+     * 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     */
+    @Transactional
+    public int deleteAllOfLearnerForWithdrawal(Long userId) {
+        return reviewRoundRepository.deleteAllOfLearner(userId);
     }
 }

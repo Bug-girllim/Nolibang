@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 4 · #17   [화면] U-S15·T-S09, 공통 헤더   [API] NT-01~NT-04   [기획] FR-035
  * [연결]
  *  - 호출받음: 팀원 2 SeatService·SectionService, 팀원 3 ReviewService·AssignmentService, 팀원 4 Comment·Inquiry·Moderation (notify),
+ *             WithdrawalService.withdraw(회원 탈퇴 — 이 도메인의 탈퇴자 데이터 정리),
  *             HeaderNotificationInterceptor(countUnread·getHeaderNotifications — 화면을 그리는 요청만), NotificationController(목록·열기·모두 읽음)
  *  - 호출함:   NotificationRepository, NotificationLinkResolver(대상 화면 URL·존재 확인)
  *  - 계약:     C7 notify 두 가지·countUnread — 시그니처 변경 금지
@@ -140,5 +141,14 @@ public class NotificationService {
 
     private boolean isBlank(String s) {
         return s == null || s.isBlank();
+    }
+
+    /**
+     * 회원 탈퇴 — 탈퇴자가 받은 알림과, 지워질 데이터(탈퇴자 작품·그 댓글·수강·평가·문의)를 가리키는 남의 알림을 지운다.
+     * 다른 삭제보다 먼저 불러야 FK 가 깨지지 않는다. 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안, 첫 단계)
+     */
+    @Transactional
+    public int deleteAllForWithdrawal(Long userId) {
+        return notificationRepository.deleteAllRelatedToUser(userId);
     }
 }

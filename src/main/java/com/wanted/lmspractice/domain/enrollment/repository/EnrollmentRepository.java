@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -71,4 +72,12 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
 
     /** 한 학습자의 모든 수강 건(진행·수료·취소·만료)을 최근 확정 순으로. 본인 것만 조회하려고 항상 userId로 찾는다. 호출: EnrollmentService.getMyEnrollments (#11) */
     List<Enrollment> findByUserIdOrderByConfirmedAtDesc(Long userId);
+
+    /**
+     * 학습자의 수강 건 전부 삭제 — 회원 탈퇴(U-15 4번 수강·수료·배지. 배지는 수료 건에서 계산된다).
+     * 진도·평가·대기·문의·최종 과제·알림이 먼저 지워져 있어야 한다(FK). 호출: EnrollmentService.deleteAllOfLearnerForWithdrawal
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM enrollments WHERE user_id = :userId", nativeQuery = true)
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

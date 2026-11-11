@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -41,4 +42,10 @@ public interface LessonProgressRepository extends JpaRepository<LessonProgress, 
 
     /** 완료한 차시 수 (3이면 최종 과제 제출 가능). 호출: ProgressService.isAllCompleted */
     long countByEnrollmentIdAndCompletedAtIsNotNull(Long enrollmentId);
+
+    /** 학습자의 모든 차시 진도 삭제 — 회원 탈퇴(U-15 4번). 호출: ProgressService.deleteAllOfLearnerForWithdrawal */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE lp FROM lesson_progresses lp JOIN enrollments e ON e.id = lp.enrollment_id WHERE e.user_id = :userId",
+            nativeQuery = true)
+    int deleteAllOfLearner(@Param("userId") Long userId);
 }

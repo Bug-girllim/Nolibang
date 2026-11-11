@@ -22,4 +22,9 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     @Query(value = "INSERT IGNORE INTO user_achievements (user_id, badge_code) VALUES (:userId, :badgeCode)",
             nativeQuery = true)
     int insertIgnore(@Param("userId") Long userId, @Param("badgeCode") String badgeCode);
+
+    /** 회원의 user_achievements 행 전부 삭제 — 회원 탈퇴(U-15 4번 배지·개인 기록). 호출: GameService.deleteAllOfUserForWithdrawal */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM user_achievements WHERE user_id = :userId", nativeQuery = true)
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

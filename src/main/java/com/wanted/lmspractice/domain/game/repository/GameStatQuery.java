@@ -32,6 +32,7 @@ public class GameStatQuery {
     /**
      * 사용자 여러 명의 활동 기록을 한 번에 센다 (캐릭터 1명 / 길드 순위 전체 모두 이 쿼리를 쓴다).
      * 호출: GameService.getCharacterPage, getGuildPage, equip
+     * 받은 좋아요 = 남이 누른 좋아요 행 + 탈퇴 회원이 눌렀던 익명 좋아요 수(works.anonymous_like_count, 회원 탈퇴 U-15 8번).
      *
      * @return 사용자 id → 집계. 없는 id 는 들어 있지 않다.
      */
@@ -58,7 +59,9 @@ public class GameStatQuery {
                     WHERE wc.author_id = u.id AND wc.status = 'NORMAL'),
                   (SELECT COUNT(*) FROM work_likes wl
                      JOIN works w ON w.id = wl.work_id
-                    WHERE w.author_id = u.id AND wl.user_id <> u.id AND w.deleted_at IS NULL),
+                    WHERE w.author_id = u.id AND wl.user_id <> u.id AND w.deleted_at IS NULL)
+                  + (SELECT COALESCE(SUM(w.anonymous_like_count), 0) FROM works w
+                      WHERE w.author_id = u.id AND w.deleted_at IS NULL),
                   (SELECT COALESCE(SUM(q.reward_xp), 0) FROM quest_claims q WHERE q.user_id = u.id),
                   (SELECT COUNT(*) FROM enrollments e WHERE e.user_id = u.id AND e.status = 'COMPLETED'),
                   (SELECT COUNT(*) FROM quest_claims q WHERE q.user_id = u.id)

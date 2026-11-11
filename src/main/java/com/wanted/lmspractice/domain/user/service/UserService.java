@@ -28,7 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
  *  - 호출받음: SignupController(signup·중복 확인), AuthSuccessHandler(recordFirstLogin), AuthFailHandler(findStatusByLoginId),
  *             AccountController(getAccount·changeNickname·changePassword), AccountRecoveryController(resetPassword)
  *  - 호출함:   NicknamePolicy, UserRepository, PasswordEncoder(SecurityConfig의 BCrypt Bean),
- *             EmailVerificationService(sendVerification, consumeToken — RESET_PASSWORD 목적)
+ *             EmailVerificationService(sendVerification, consumeToken — RESET_PASSWORD 목적),
+ *             WithdrawnEmailHoldService.isHeld(탈퇴 이메일 재가입 제한)
  * [기술] 🟢 @Service·@Transactional·JPA 변경 감지, 🟢 BCrypt
  */
 @Service
@@ -39,6 +40,7 @@ public class UserService {
     private final NicknamePolicy nicknamePolicy;
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationService emailVerificationService;
+    private final WithdrawnEmailHoldService withdrawnEmailHoldService;   // 탈퇴 이메일 재가입 제한(확인값)
 
     /**
      * 학습자 가입 — 중복 검사 → 닉네임 확정 → 비밀번호 암호화 → 미인증 상태로 저장 → 인증 메일 발송 (US-02).
@@ -55,18 +57,12 @@ public class UserService {
         String email = dto.getEmail().trim().toLowerCase();
         String nickname = nicknamePolicy.normalize(dto.getNickname());
 
-        // 탈퇴 후 30일이 지난 계정이 쥐고 있던 이메일은 풀어 준다(개인정보 처리방침 3항). 아직 기간 안이면 아래 중복 검사에 걸린다
-        userRepository.findByEmail(email).ifPresent(old -> {
-            if (old.releaseEmailIfExpired(LocalDateTime.now())) {
-                userRepository.saveAndFlush(old);
-            }
-        });
-
         // 화면의 중복 확인 버튼과 가입 사이에 다른 사람이 가입할 수 있어서 여기서 다시 검사한다 (US-03)
         if (userRepository.existsByLoginId(loginId)) {
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
-        if (userRepository.existsByEmail(email)) {
+        // 탈퇴 후 30×24시간이 지나지 않은 이메일도 같은 오류로 막는다(02-workflow 56행). 탈퇴 계정엔 원문이 없어 확인값으로 본다
+        if (userRepository.existsByEmail(email) || withdrawnEmailHoldService.isHeld(email, LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.DUPLICATE_EMAIL);
         }
         if (nickname != null && !nicknamePolicy.isAvailable(nickname)) {
@@ -103,17 +99,16 @@ public class UserService {
 
     /**
      * 학습자 가입용 이메일 사용 가능 여부(true = 사용 가능). 호출: SignupController.signup 검증 단계
-     * 탈퇴 후 30일이 지난 계정이 쥐고 있는 이메일은 signup 이 풀어 주므로 사용 가능으로 본다.
-     * isEmailAvailable 로 검사하면 가입 화면 단계에서 먼저 "이미 가입된 이메일"로 막혀 재가입이 영영 안 됐다.
+     * 가입된 이메일이거나 탈퇴 후 재가입 제한 기간(확인값) 안이면 사용할 수 없다 — signup 과 같은 기준.
      */
     @Transactional(readOnly = true)
     public boolean isEmailAvailableForSignup(String email) {
         if (email == null || email.isBlank()) {
             return false;
         }
-        return userRepository.findByEmail(email.trim().toLowerCase())
-                .map(user -> user.isEmailReleasable(LocalDateTime.now()))  // signup 의 releaseEmailIfExpired 와 같은 기준
-                .orElse(true);
+        String normalized = email.trim().toLowerCase();
+        return !userRepository.existsByEmail(normalized)
+                && !withdrawnEmailHoldService.isHeld(normalized, LocalDateTime.now());
     }
 
     /** 닉네임 사용 가능 여부(true = 사용 가능). 호출: SignupController.checkNickname (US-04) */

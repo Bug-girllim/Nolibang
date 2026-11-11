@@ -44,4 +44,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
             + "ORDER BY id",
             nativeQuery = true)
     List<User> searchInstructors(@Param("keyword") String keyword);
+
+    /**
+     * 이전 방식으로 탈퇴해 이메일 원문이 남아 있는 계정 — 익명화 이메일(…@{anonymizedDomain})이 아닌 탈퇴 계정.
+     * 호출: WithdrawnEmailHoldService.migrateLegacyWithdrawnEmails
+     */
+    @Query(value = "SELECT * FROM users WHERE status = 'WITHDRAWN' AND email NOT LIKE CONCAT('%@', :anonymizedDomain)",
+            nativeQuery = true)
+    List<User> findWithdrawnWithRawEmail(@Param("anonymizedDomain") String anonymizedDomain);
 }

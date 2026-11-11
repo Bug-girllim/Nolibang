@@ -147,7 +147,7 @@ public class WorkBoardService {
 
         List<WorkComment> comments = workCommentRepository.findByWorkIdOrderById(workId);
         Set<Long> userIds = new HashSet<>(Set.of(work.getAuthorId()));
-        comments.forEach(c -> userIds.add(c.getAuthorId()));
+        comments.stream().filter(c -> !c.isAnonymous()).forEach(c -> userIds.add(c.getAuthorId()));   // 탈퇴한 사용자의 익명 댓글은 작성자가 없다
         Map<Long, String> names = userService.getPublicNames(userIds);
 
         dto.setAuthorNickname(names.get(work.getAuthorId()));
@@ -158,7 +158,7 @@ public class WorkBoardService {
         }
         HobbyDTO hobby = hobbyService.getHobbiesIgnoringVisibility(List.of(work.getHobbyId())).get(work.getHobbyId());
         dto.setHobbyName(hobby == null ? "" : hobby.getName());
-        dto.setLikeCount(workLikeRepository.countByWorkId(workId));
+        dto.setLikeCount(work.totalLikeCount(workLikeRepository.countByWorkId(workId)));   // 탈퇴 회원의 익명 좋아요 포함
         dto.setLiked(workLikeRepository.existsByWorkIdAndUserId(workId, viewerId));
         dto.setCommentCount(comments.stream().filter(c -> !c.isDeleted()).count());
 

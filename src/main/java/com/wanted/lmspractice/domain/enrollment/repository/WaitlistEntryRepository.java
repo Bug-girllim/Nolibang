@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -60,4 +61,9 @@ public interface WaitlistEntryRepository extends JpaRepository<WaitlistEntry, Lo
 
     /** 이 수강 건들이 대기열을 거쳐 자동 확정된 것이면 그 대기 기록 (WaitlistEntry.enrollmentId로 이어진다). 호출: WaitlistService.getAppliedAtByEnrollmentIds (#11) */
     List<WaitlistEntry> findByEnrollmentIdIn(Collection<Long> enrollmentIds);
+
+    /** 학습자의 대기 기록 전부 삭제 — 회원 탈퇴(U-15 4번). 수강 건을 지우기 전에 불러야 한다(fk_wait_enrollment). 호출: WaitlistService.deleteAllOfUserForWithdrawal */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM waitlist_entries WHERE user_id = :userId", nativeQuery = true)
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

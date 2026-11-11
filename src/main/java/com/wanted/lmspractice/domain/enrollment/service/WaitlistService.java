@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  *       [화면] U-S05, A-S12   [기획] FR-053, D-52, D-53   [API] EN-01(대기 분기)·EN-02, WL-01
  * [연결]
  *  - 호출받음: EnrollmentService.apply(join·hasWaiting), EnrollmentService.getStatusForUser(findWaiting·getWaitingNumber),
+ *             WithdrawalService.withdraw(회원 탈퇴 — 이 도메인의 탈퇴자 데이터 정리),
  *             EnrollmentController.cancelWaiting(cancel), AdminWaitlistController(#10 WL-01)
  *  - 호출함:   WaitlistEntryRepository, CourseSectionRepository(취소 전 강의 잠금), WaitlistQuery(#10 native 조회)
  * [기술] 🟢 @Transactional, 🟢 native FOR UPDATE
@@ -199,5 +200,14 @@ public class WaitlistService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         entry.cancel(LocalDateTime.now());
         return courseId;
+    }
+
+    /**
+     * 회원 탈퇴 — 학습자의 대기 기록(대기·확정·취소 이력)을 모두 지운다(U-15 4번). 대기 중인 줄은 cancelAllWaiting 으로 먼저 취소된다.
+     * 수강 건보다 먼저 지워야 한다(fk_wait_enrollment). 호출: WithdrawalService.withdraw (탈퇴 트랜잭션 안)
+     */
+    @Transactional
+    public int deleteAllOfUserForWithdrawal(Long userId) {
+        return waitlistEntryRepository.deleteAllByUserId(userId);
     }
 }

@@ -24,4 +24,15 @@ public interface WorkLikeRepository extends JpaRepository<WorkLike, WorkLikeId> 
     int deleteByWorkId(@Param("workId") Long workId);
 
     boolean existsByWorkIdAndUserId(Long workId, Long userId);
+
+    /** 회원이 누른 좋아요 행 전부 삭제(회원 탈퇴 — 계정 연결 제거). 호출: CommentService.anonymizeLikesForWithdrawal */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM work_likes WHERE user_id = :userId", nativeQuery = true)
+    int deleteAllByUserId(@Param("userId") Long userId);
+
+    /** 탈퇴자 작품에 달린 좋아요 전부 삭제(작품이 지워지므로). 호출: WorkService.deleteAllOfAuthorForWithdrawal */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE l FROM work_likes l JOIN works w ON w.id = l.work_id WHERE w.author_id = :authorId",
+            nativeQuery = true)
+    int deleteAllOnWorksOfAuthor(@Param("authorId") Long authorId);
 }

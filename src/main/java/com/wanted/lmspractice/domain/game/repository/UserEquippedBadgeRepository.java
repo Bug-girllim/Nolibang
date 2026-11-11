@@ -31,4 +31,9 @@ public interface UserEquippedBadgeRepository extends JpaRepository<UserEquippedB
     @Modifying(flushAutomatically = true, clearAutomatically = true)   // 네이티브 쿼리는 1차 캐시를 모르므로 실행 후 캐시를 비운다
     @Query(value = "DELETE FROM user_equipped_badges WHERE user_id = :userId AND badge_code = :badgeCode", nativeQuery = true)
     int deleteByCode(@Param("userId") Long userId, @Param("badgeCode") String badgeCode);
+
+    /** 회원의 user_equipped_badges 행 전부 삭제 — 회원 탈퇴(U-15 4번 배지·개인 기록). 호출: GameService.deleteAllOfUserForWithdrawal */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "DELETE FROM user_equipped_badges WHERE user_id = :userId", nativeQuery = true)
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

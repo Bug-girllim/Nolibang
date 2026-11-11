@@ -92,6 +92,13 @@ public class Work {
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
+    /**
+     * 탈퇴한 회원이 눌렀던 좋아요 수 — 회원 연결 없이 숫자로만 남긴다(U-15 8번). 좋아요 수 = work_likes 행 수 + 이 값.
+     * 값은 WorkRepository.addAnonymousLikesOf(native UPDATE)만 바꾼다. updatable = false 로 두어 변경 감지가 덮어쓰지 않게 한다.
+     */
+    @Column(name = "anonymous_like_count", nullable = false, updatable = false)
+    private int anonymousLikeCount = 0;  // DB 기본값과 같은 초기값
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -199,6 +206,11 @@ public class Work {
 
     public boolean isAuthor(Long userId) {
         return authorId != null && authorId.equals(userId);
+    }
+
+    /** 화면에 보일 좋아요 수 = 회원 좋아요 행 수 + 탈퇴 회원의 익명 좋아요 수 (v_public_works.like_count 와 같은 식) */
+    public long totalLikeCount(long memberLikeCount) {
+        return memberLikeCount + anonymousLikeCount;
     }
 
     /** Q-02: 일반 노출 가능 = 공개 + 관리자 숨김 아님 + 삭제 아님 */

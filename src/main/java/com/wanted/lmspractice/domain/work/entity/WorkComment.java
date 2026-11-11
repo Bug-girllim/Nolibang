@@ -41,8 +41,8 @@ public class WorkComment {
     @Column(name = "parent_id")
     private Long parentId;
 
-    @Column(name = "author_id", nullable = false)
-    private Long authorId;
+    @Column(name = "author_id")
+    private Long authorId;  // null = 탈퇴한 사용자의 익명 댓글 (anonymizeForWithdrawal, schema "회원 탈퇴 개인정보 정리")
 
     @Column(name = "body", nullable = false, length = 1000)
     private String body;
@@ -95,5 +95,24 @@ public class WorkComment {
         this.status = CommentStatus.DELETED;
         this.deletedAt = now;
         this.body = DELETED_BODY;
+    }
+
+    /**
+     * 작성자 탈퇴 — 원 계정 연결(author_id)을 끊어 익명 댓글로 남긴다(U-15 6번, D-25).
+     * 자발 삭제한 댓글은 상태·"삭제된 댓글입니다" 본문을 그대로 두고(복원하지 않음), 정상 댓글만 식별정보를 가린 본문으로 바꾼다.
+     * 댓글 자리와 다른 사람의 답글(parent_id)은 그대로 유지된다. 호출: CommentService.anonymizeCommentsForWithdrawal
+     *
+     * @param maskedBody CommentMaskPolicy 가 식별정보를 가린 본문 (정상 댓글일 때만 쓴다)
+     */
+    public void anonymizeForWithdrawal(String maskedBody) {
+        this.authorId = null;
+        if (!isDeleted()) {
+            this.body = maskedBody;
+        }
+    }
+
+    /** 탈퇴한 사용자의 익명 댓글인지 */
+    public boolean isAnonymous() {
+        return authorId == null;
     }
 }

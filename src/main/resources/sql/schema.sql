@@ -714,3 +714,30 @@ CREATE TABLE user_equipped_badges (
     CONSTRAINT fk_equipped_badges_user FOREIGN KEY (user_id) REFERENCES users (id),
     CONSTRAINT ck_equipped_badges_slot CHECK (slot_no BETWEEN 1 AND 3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =================================================================
+-- 회원 탈퇴 개인정보 정리(U-15, D-25) — migration_withdrawal_privacy.sql과 같은 내용
+-- =================================================================
+CREATE TABLE withdrawn_email_holds (
+    email_hash CHAR(64) NOT NULL,
+    withdrawn_at DATETIME(6) NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (email_hash),
+    KEY idx_email_holds_expiry (expires_at),
+    CONSTRAINT ck_email_holds_period CHECK (expires_at = DATE_ADD(withdrawn_at, INTERVAL 30 DAY))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+ALTER TABLE work_comments
+    MODIFY author_id BIGINT UNSIGNED NULL;
+
+ALTER TABLE works
+    ADD COLUMN anonymous_like_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER published_at;
+
+CREATE OR REPLACE VIEW v_public_works AS
+SELECT w.id AS work_id, w.kind, w.hobby_id, w.level, v.title, w.published_at, w.created_at,
+       u.nickname AS author_nickname,
+       (SELECT COUNT(*) FROM work_likes l WHERE l.work_id = w.id) + w.anonymous_like_count AS like_count
+FROM works w
+JOIN work_versions v ON v.id = w.display_version_id
+JOIN users u ON u.id = w.author_id
+WHERE w.visibility = 'PUBLIC' AND w.admin_hidden = 0 AND w.deleted_at IS NULL;
