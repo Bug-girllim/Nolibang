@@ -148,6 +148,21 @@ class AccountRecoveryAndSettingsTest {
     }
 
     @Test
+    @DisplayName("탈퇴 익명화 닉네임(withdrawn_N)은 예약어: 가입·변경·중복 확인 모두 막혀, 남의 탈퇴를 UNIQUE 충돌로 막을 수 없다")
+    void reservedWithdrawnNickname() {
+        Long userId = seedUser("learner").getId();
+        Long victimId = seedUser("learner2").getId();
+
+        assertThatThrownBy(() -> userService.changeNickname(userId, "withdrawn_" + victimId))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.DUPLICATE_NICKNAME));
+        assertThatThrownBy(() -> userService.changeNickname(userId, "WITHDRAWN_" + victimId))   // DB 정렬 규칙이 대소문자 무시
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.DUPLICATE_NICKNAME));
+        assertThat(userService.isNicknameAvailable("withdrawn_" + victimId)).isFalse();        // 가입 화면 중복 확인·가입 저장
+        assertThat(userService.isNicknameAvailableFor(userId, "withdrawn_" + victimId)).isFalse();
+        assertThat(userService.isNicknameAvailable("withdrawn")).isTrue();                     // 접두어 전체가 아닐 때는 그대로
+    }
+
+    @Test
     @DisplayName("비밀번호 변경: 현재 비밀번호가 틀리면 PASSWORD_MISMATCH, 현재와 같으면 INVALID_NEW_PASSWORD")
     void changePassword() {
         Long userId = seedUser("learner").getId();

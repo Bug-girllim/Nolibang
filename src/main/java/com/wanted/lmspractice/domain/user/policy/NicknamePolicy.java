@@ -1,9 +1,11 @@
 package com.wanted.lmspractice.domain.user.policy;
 
+import com.wanted.lmspractice.domain.user.entity.User;
 import com.wanted.lmspractice.domain.user.repository.UserRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -42,8 +44,15 @@ public class NicknamePolicy {
         return raw.trim();
     }
 
-    /** 사용 가능 여부(true = 아직 아무도 안 씀). US-04 의미와 같다 */
+    /**
+     * 사용 가능 여부(true = 아직 아무도 안 씀). US-04 의미와 같다.
+     * 탈퇴 익명화용 접두어("withdrawn_")로 시작하는 닉네임은 예약어라 늘 false — 누군가 "withdrawn_12"를 먼저 쓰면
+     * 12번 회원의 탈퇴가 닉네임 UNIQUE 충돌로 실패한다. DB 정렬 규칙(utf8mb4_0900_ai_ci)이 대소문자를 구분하지 않아 소문자로 비교한다.
+     */
     public boolean isAvailable(String nickname) {
+        if (nickname.toLowerCase(Locale.ROOT).startsWith(User.ANONYMIZED_PREFIX)) {
+            return false;
+        }
         return !userRepository.existsByNickname(nickname);
     }
 

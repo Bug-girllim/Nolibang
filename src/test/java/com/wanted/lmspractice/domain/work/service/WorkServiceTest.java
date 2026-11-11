@@ -287,6 +287,25 @@ class WorkServiceTest {
     }
 
     @Test
+    @DisplayName("공개한 최종 과제라도 이전 제출 회차의 이미지는 fileId로 직접 요청해도 다른 학습자에게 403 (작성자·관리자는 열림)")
+    void pastVersionImageOfPublicWork() {
+        Long firstVersion = save("1차 제출", List.of(image("old.png", PNG)));
+        Long oldFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(firstVersion).get(0).getId();
+        Long secondVersion = save("재제출", List.of(image("new.png", PNG)));   // 같은 수강 → 새 버전, 표시 버전이 바뀐다
+        Long newFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(secondVersion).get(0).getId();
+        var work = workRepository.findById(workIdOf(secondVersion)).orElseThrow();
+        assertThat(work.getDisplayVersionId()).isEqualTo(secondVersion);
+        ReflectionTestUtils.setField(work, "visibility", Visibility.PUBLIC);
+
+        assertThat(stored(workService.openFile(newFileId, userId("learner2"), Role.USER).getKey())).isTrue();
+        assertThatThrownBy(() -> workService.openFile(oldFileId, userId("learner2"), Role.USER))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
+
+        assertThat(stored(workService.openFile(oldFileId, userId("learner"), Role.USER).getKey())).isTrue();
+        assertThat(stored(workService.openFile(oldFileId, userId("admin"), Role.ADMIN).getKey())).isTrue();
+    }
+
+    @Test
     @DisplayName("없는 이미지 id는 NOT_FOUND, 없는 작품 id는 WORK_NOT_FOUND")
     void notFound() {
         assertThatThrownBy(() -> workService.openFile(999999L, userId("learner"), Role.USER))
