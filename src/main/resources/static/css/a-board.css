@@ -5,7 +5,7 @@
 .scope-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px}
 .seg{display:inline-flex;border:1px solid #D8CCB5;border-radius:999px;padding:3px;background:#FFFDF8}
 .seg button{min-height:38px;padding:0 16px;border:0;border-radius:999px;background:transparent;color:#3A4666;font-size:13.5px;font-weight:600;cursor:pointer}
-.seg button.on{background:var(--btn-main,#CC5500);color:#FFFDF8}
+.seg button.on{background:var(--btn-main-l,#FBEBDD);color:var(--btn-main-d,#A84500);box-shadow:inset 0 0 0 1.5px var(--btn-main,#CC5500)}
 .seg button:hover:not(.on){background:var(--btn-main-l,#FBEBDD);color:var(--btn-main-d,#A84500)}
 .seg button:focus-visible{outline:3px solid var(--btn-main-ring,rgba(204,85,0,.28));outline-offset:2px}
 .tcard{gap:10px}

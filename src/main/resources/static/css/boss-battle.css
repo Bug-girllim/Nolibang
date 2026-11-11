@@ -6,7 +6,7 @@
 .bt-tab { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 14px; min-height: 48px; border-radius: 12px;
   border: 1.5px solid #D8C28A; background: #FFFDF8; color: #222B45; cursor: pointer; text-align: left; font: inherit; }
 .bt-tab:hover { background: var(--btn-main-l, #FBEBDD); border-color: var(--btn-main, #CC5500); }
-.bt-tab.on { background: var(--btn-main, #CC5500); border-color: var(--btn-main, #CC5500); color: #FFFDF8; }
+.bt-tab.on { background: var(--btn-main-l, #FBEBDD); border-color: var(--btn-main, #CC5500); color: var(--btn-main-d, #A84500); }
 .bt-tab-name { font-weight: 700; font-size: 14.5px; }
 .bt-tab-sub { font-size: 12px; opacity: .85; }
 .bt-tab:focus-visible { outline: 3px solid var(--btn-main-ring, rgba(204, 85, 0, .28)); outline-offset: 2px; }
