@@ -5,6 +5,8 @@ import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import com.wanted.lmspractice.global.file.FileStorage;
+import com.wanted.lmspractice.global.file.VideoRangeCheck;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +25,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -53,7 +57,9 @@ public class LessonVideoController {
     @GetMapping("/{lessonId}")
     public ResponseEntity<Resource> video(@AuthenticationPrincipal AuthDetails details,
                                           @PathVariable Long lessonId,
-                                          @RequestParam Long enrollmentId) {
+                                          @RequestParam Long enrollmentId,
+                                          @RequestHeader(value = HttpHeaders.RANGE, required = false) String range)
+            throws IOException {
         String videoKey = progressService.authorizeVideo(details.getUserId(), enrollmentId, lessonId);   // 권한 확인이 먼저
 
         // 클라우드 저장소면 짧게 유효한 주소로 보낸다(권한 확인은 위에서 끝남). 로컬이면 아래에서 서버가 직접 내려보낸다
@@ -72,10 +78,16 @@ public class LessonVideoController {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
 
+        Resource resource = new FileSystemResource(file);
+        // 범위 밖·잘못된 Range 는 본문 없이 416 (스프링에 맡기면 416 과 함께 파일 전체를 보냈다)
+        ResponseEntity<Resource> unsatisfiable = VideoRangeCheck.unsatisfiableOrNull(range, resource);
+        if (unsatisfiable != null) {
+            return unsatisfiable;
+        }
         // 본문을 Resource로 주면 Range 요청일 때 스프링이 206 + Content-Range로 잘라 보낸다
         return ResponseEntity.ok()
                 .contentType(VIDEO_MP4)
                 .cacheControl(CacheControl.noStore().cachePrivate())   // 수강 기간이 끝나면 다시 확인해야 한다
-                .body(new FileSystemResource(file));
+                .body(resource);
     }
 }
