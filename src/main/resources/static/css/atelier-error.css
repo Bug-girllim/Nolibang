@@ -23,8 +23,8 @@
 .err-desc{margin:10px 0 0;font-size:15px;line-height:1.6;color:#555F7A}
 .err-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:30px}
 .err-actions .btn{min-width:190px;min-height:48px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease}
-.err-actions .btn:hover:not(:disabled){background:#E5F1FB;border-color:#9DC4E6;color:#222B45;transform:none}
-.err-actions .btn.dk:hover:not(:disabled){background:linear-gradient(#2C3552,#2C3552) padding-box,var(--gilt) center / auto 100% border-box;color:#fff;box-shadow:0 0 0 4px #D3E8F8}
+.err-actions .btn:hover:not(:disabled){background:var(--btn-main-l,#FBEBDD);border-color:var(--btn-main,#CC5500);color:var(--btn-main-d,#A84500);transform:none}
+.err-actions .btn.dk:hover:not(:disabled){background:#F7DDC8;border-color:var(--btn-main-d,#A84500);color:var(--btn-main-d,#A84500);box-shadow:0 0 0 4px var(--btn-main-ring,rgba(204,85,0,.28))}
 .err-tag{position:relative;z-index:1;display:flex;align-items:center;gap:14px;margin-top:52px;font-family:var(--serif);font-size:15px;color:#3A4666}
 .err-tag i{display:block;width:120px;height:1px;background:linear-gradient(90deg,rgba(181,154,96,0),#B59A60)}
 .err-tag i:last-child{background:linear-gradient(90deg,#B59A60,rgba(181,154,96,0))}
@@ -52,8 +52,8 @@
 .errmdl .mb p{margin:0;font-size:13.5px;line-height:1.65;color:#3A4666}
 .errmdl .mb .sub{font-size:12.5px;color:#8E743E}
 .errmdl .mf .btn{min-height:40px;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer}
-.errmdl .mf .btn:hover:not(:disabled){background:#E5F1FB;border-color:#9DC4E6;color:#222B45;transform:none}
-.errmdl .mf .btn.dk:hover:not(:disabled){background:linear-gradient(#2C3552,#2C3552) padding-box,var(--gilt) center / auto 100% border-box;color:#fff;box-shadow:0 0 0 3px #D3E8F8}
+.errmdl .mf .btn:hover:not(:disabled){background:var(--btn-main-l,#FBEBDD);border-color:var(--btn-main,#CC5500);color:var(--btn-main-d,#A84500);transform:none}
+.errmdl .mf .btn.dk:hover:not(:disabled){background:#F7DDC8;border-color:var(--btn-main-d,#A84500);color:var(--btn-main-d,#A84500);box-shadow:0 0 0 3px var(--btn-main-ring,rgba(204,85,0,.28))}
 .errmdl .who{display:flex;gap:14px;align-items:flex-start}
 .errmdl .who img{width:62px;height:auto;aspect-ratio:499/636;object-fit:contain;flex:none}
 .errmdl .who div{display:flex;flex-direction:column;gap:8px}
