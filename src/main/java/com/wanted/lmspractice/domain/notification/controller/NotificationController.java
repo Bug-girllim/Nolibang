@@ -73,7 +73,9 @@ public class NotificationController {
     @PostMapping("/read-all")
     public String readAll(@AuthenticationPrincipal AuthDetails auth, RedirectAttributes redirectAttributes) {
         int count = notificationService.readAll(auth.getUserId());
-        redirectAttributes.addFlashAttribute("message", count + "개의 알림을 읽음으로 바꿨어요.");
+        // 안 읽은 알림이 없을 때 "0개의 알림을 읽음으로 바꿨어요"는 어색해서 따로 안내한다
+        redirectAttributes.addFlashAttribute("message",
+                count == 0 ? "새로 읽음 처리할 알림이 없어요. 모두 읽은 상태예요." : count + "개의 알림을 읽음으로 바꿨어요.");
         return "redirect:/notifications";
     }
 

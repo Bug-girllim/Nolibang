@@ -4,7 +4,8 @@
   [화면] U-S10 작품 상세   (원본: 1_learner/U-S10.dc.html)
   [연결] WorkBoardController · WB-02   → return "work/detail";   (댓글 폼은 CommentController, 좋아요는 POST /works/{id}/like)
   [상태] 2단계 연결 완료 (#18, 팀원 4)
-  [모델] work(WorkDTO), comments(CommentDTO 트리), canComment, canReply, isOwner, imageNo·imageCount·currentImageId, replyTo, editComment
+  [모델] work(WorkDTO), comments(CommentDTO 트리), canComment, canReply, isOwner, imageNo·imageCount·currentImageId, replyTo, editComment,
+         flash message(작품 수정 후 — MyWorkController, 맨 위 표시), commentMessage(댓글 작성·수정·삭제 후 — CommentController, 댓글 칸 위 표시)
   [동작] 다시 만든 것: 이미지 이전/다음(?img=), 좋아요(static/js/work-like.js, JSON) 🟡, 댓글·답글 작성(POST /comments),
          답글 입력창(?replyTo=), 수정(?editComment= + POST /comments/{id}/edit), 삭제(POST /comments/{id}/delete + confirm)
          남긴 것: 없음 ("작성자 프로필" U-S13은 만들지 않는 화면이라 버튼째 삭제)
@@ -26,7 +27,7 @@
 <meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}"></head>
 <body>
 <div id="dc-root"><div class="sc-host">
-<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><th:block th:if="${loginUser != null and loginUser.role.name() == 'INSTRUCTOR'}"><aside th:replace="~{common/layout :: teacherSide(active='T-S10')}"></aside></th:block><aside aria-label="사이드 메뉴" class="side" th:unless="${loginUser != null and loginUser.role.name() == 'INSTRUCTOR'}"><p class="st">작품 게시판</p><nav aria-label="작품 게시판 메뉴" class="side-ctx"><a class="" th:href="@{/works}">작품 목록</a></nav></aside><main class="main"><div class="ph"><div><h2>작품 상세</h2><p>작품·댓글·좋아요</p></div><div class="row"><a class="btn sm" th:href="@{/works}">← 목록으로</a><span class="sid">U-S10</span></div></div>
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><th:block th:if="${loginUser != null and loginUser.role.name() == 'INSTRUCTOR'}"><aside th:replace="~{common/layout :: teacherSide(active='T-S10')}"></aside></th:block><aside aria-label="사이드 메뉴" class="side" th:unless="${loginUser != null and loginUser.role.name() == 'INSTRUCTOR'}"><p class="st">작품 게시판</p><nav aria-label="작품 게시판 메뉴" class="side-ctx"><a class="" th:href="@{/works}">작품 목록</a></nav></aside><main class="main"><div class="ph"><div><h2>작품 상세</h2><p>작품·댓글·좋아요</p></div><div class="row"><a class="btn sm" th:href="@{/works}">← 목록으로</a><span class="sid">U-S10</span></div></div><p class="note" role="status" th:if="${message}" th:text="${message}">작품을 수정했어요.</p>
 <div class="sp"><div class="col">
   <div class="img" style="height: 280px;">
     <img th:if="${currentImageId != null}" th:src="@{/files/works/{fid}(fid=${currentImageId})}" th:alt="${work.title}" style="max-width: 100%; max-height: 100%; object-fit: contain;"/>
@@ -40,8 +41,9 @@
     <button class="btn sm" th:unless="${imageNo < imageCount}" disabled="" type="button">다음 ›</button>
   </div>
 </div>
-<div class="box"><p class="h3" th:text="${work.title}">레몬 마들렌</p><p class="mu">작성자: <span th:text="${work.authorNickname != null} ? ${work.authorNickname} : '--탈퇴한 사용자 입니다--'">차분한수달 128</span> · <span th:text="${work.hobbyName}">디저트 만들기</span> · <span th:text="${work.level.label}">입문</span> · <span th:text="${work.kind.name() == 'FINAL'} ? '최종 과제' : '일반 작품'">최종 과제</span><span th:if="${work.publishedAt != null}"> · <span th:text="${#temporals.format(work.publishedAt, 'yyyy.MM.dd')}">2026.10.08</span></span></p><p th:text="${work.description}">작품에 사용한 표현 기법과 제작 과정을 기록합니다.</p><div class="row"><button class="btn" type="button" data-work-like th:attr="data-like-url=@{/works/{id}/like(id=${work.workId})},aria-pressed=${work.liked}"><span class="sc-interp like-label" data-with-count th:text="${work.liked ? '♥ 좋아요 ' : '♡ 좋아요 '} + ${work.likeCount}">♡ 좋아요 3</span></button><!-- #140 작성자 본인 + 일반 작품만 수정 (최종 과제는 과제 화면에서만, 평가 전까지) → MyWorkController.editForm --><a class="btn" th:if="${isOwner and work.kind.name() == 'GENERAL'}" th:href="@{/my/works/{id}/edit(id=${work.workId})}">수정</a></div><p class="mu">실명·로그인 아이디는 표시하지 않습니다.</p></div></div>
-<div class="box"><div class="rowb"><p class="h3">댓글 · 답글 <span class="sc-interp" th:text="${work.commentCount}">2</span></p><span class="chip ol"><span class="sc-interp" th:text="${canComment} ? '댓글·답글 작성 가능' : (${isOwner} ? '작성자(' + ${work.authorNickname} + ') · 답글 가능' : '열람만 가능')">작성자(차분한수달 128) · 답글 가능</span></span></div><p class="mu">댓글 작성 권한: 해당 취미 배지 보유자 · 취미 권한 강사 · 작품 작성자(답글, 1단계)</p>
+<div class="box"><p class="h3" th:text="${work.title}">레몬 마들렌</p><p class="mu">작성자: <span th:text="${work.authorNickname != null} ? ${work.authorNickname} : '--탈퇴한 사용자 입니다--'">차분한수달 128</span> · <span th:text="${work.hobbyName}">디저트 만들기</span> · <span th:text="${work.level.label}">입문</span> · <span th:text="${work.kind.name() == 'FINAL'} ? '최종 과제' : '일반 작품'">최종 과제</span><span th:if="${work.publishedAt != null}"> · <span th:text="${#temporals.format(work.publishedAt, 'yyyy.MM.dd')}">2026.10.08</span></span></p><p th:text="${work.description}">작품에 사용한 표현 기법과 제작 과정을 기록합니다.</p><div class="row"><button class="btn" type="button" data-work-like th:attr="data-like-url=@{/works/{id}/like(id=${work.workId})},aria-pressed=${work.liked}"><span class="sc-interp like-label" data-with-count th:text="${work.liked ? '♥ 좋아요 ' : '♡ 좋아요 '} + ${work.likeCount}">♡ 좋아요 3</span></button></div><p class="mu">실명·로그인 아이디는 표시하지 않습니다.</p></div></div>
+<div class="box" id="comments"><div class="rowb"><p class="h3">댓글 · 답글 <span class="sc-interp" th:text="${work.commentCount}">2</span></p><span class="chip ol"><span class="sc-interp" th:text="${canComment} ? '댓글·답글 작성 가능' : (${isOwner} ? '작성자(' + ${work.authorNickname} + ') · 답글 가능' : '열람만 가능')">작성자(차분한수달 128) · 답글 가능</span></span></div><p class="mu">댓글 작성 권한: 해당 취미 배지 보유자 · 취미 권한 강사 · 작품 작성자(답글, 1단계)</p>
+<p class="note" role="status" th:if="${commentMessage}" th:text="${commentMessage}">댓글을 남겼어요.</p>
 <p class="mu" th:if="${#lists.isEmpty(comments)}">아직 댓글이 없어요.</p>
 <div class="col" style="gap: 8px;" th:unless="${#lists.isEmpty(comments)}">
   <div class="col" th:each="c : ${comments}" th:id="'comment-' + ${c.id}">
