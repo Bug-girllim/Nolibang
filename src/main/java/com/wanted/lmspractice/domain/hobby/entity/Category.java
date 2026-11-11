@@ -8,8 +8,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -47,7 +45,6 @@ public class Category {
     @Column(name = "state", nullable = false, length = 20)
     private ExposureState state = ExposureState.PRIVATE;  // DB 기본값과 같은 초기값
 
-    @JdbcTypeCode(SqlTypes.TINYINT)  // DB가 TINYINT 이라 validate 통과용 (schema.sql 기준)
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;  // DB 기본값과 같은 초기값
 

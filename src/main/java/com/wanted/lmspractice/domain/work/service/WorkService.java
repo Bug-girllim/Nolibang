@@ -393,6 +393,11 @@ public class WorkService {
         Work work = workRepository.findById(version.getWorkId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         workAccessPolicy.checkCanView(work, viewerId, viewerRole);    // 권한 확인이 파일 접근보다 먼저
+        // 공개 작품이라도 공개되는 것은 표시 버전뿐 — 이전 버전(반려된 이전 제출 회차 등)의 이미지는 작성자·관리자·현재 담당 강사만
+        if (!version.getId().equals(work.getDisplayVersionId())
+                && !workAccessPolicy.canViewPastVersions(work, viewerId, viewerRole)) {
+            throw new BusinessException(ErrorCode.WORK_ACCESS_DENIED);
+        }
         return new WorkFileDTO(file.getOriginalKey(), file.getMimeType(), file.getStoredSizeBytes());
     }
 

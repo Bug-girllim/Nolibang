@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -33,6 +34,8 @@ class HobbyCreateTest {
 
     @Autowired
     private HobbyService hobbyService;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     @DisplayName("대분류를 추가하면 관리자 목록 맨 뒤에 같은 이름·상태로 보이고, 세부 취미는 아직 없다")
@@ -46,6 +49,18 @@ class HobbyCreateTest {
         assertThat(last.getState()).isEqualTo(ExposureState.PRIVATE);
         assertThat(last.getHobbies()).isEmpty();
         assertThat(last.getCode()).startsWith("cat-");
+    }
+
+    @Test
+    @DisplayName("정렬 순서가 127을 넘어도(DB INT) 추가·목록 조회가 된다 — 예전 TINYINT 매핑은 128 이상에서 목록 전체가 깨졌다")
+    void sortOrderAbove127() {
+        jdbcTemplate.update("UPDATE categories SET sort_order = 200 WHERE id = ?", ART_CATEGORY);
+
+        Long id = hobbyService.createCategory(new CategoryFormDTO("음악·악기", ExposureState.PRIVATE));   // 200 + 1
+
+        List<CategoryDTO> categories = hobbyService.getCategories(Role.ADMIN);
+        assertThat(categories.get(categories.size() - 1).getId()).isEqualTo(id);
+        assertThat(categories).extracting(CategoryDTO::getId).contains(ART_CATEGORY);
     }
 
     @Test

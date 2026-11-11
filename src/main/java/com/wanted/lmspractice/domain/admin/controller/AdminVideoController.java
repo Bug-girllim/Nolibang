@@ -29,7 +29,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  *  - 호출받음: 브라우저(/admin/videos …) — SecurityConfig가 /admin/**를 ADMIN만 허용한다(설정 변경 없음)
  *  - 호출함:   LessonVideoService(instructorId = null → 관리자 범위)
  *  - 화면:     templates/video/manage.html (강사 화면과 공용), 관리자 사이드 메뉴 "영상 업로드"(A-VID)
- *  - 같은 기능: InstructorVideoController(/instructor/videos — 자기 영상·권한 취미만)
+ *  - 같은 기능: InstructorVideoController(/instructor/videos — 자기 영상·담당 강의 차시만)
  * 영상은 key(= lessons.video_key, 예: videos/uploaded/x.mp4)로 가리킨다 — 경로에 '/'가 들어가서 주소 경로가 아니라 key 파라미터로 받는다.
  * [기술] 🟢 @Controller, MultipartFile, RedirectAttributes(flash), ResponseEntity<Resource>(Range 요청 자동 처리 → 미리보기 구간 이동)
  */
