@@ -42,6 +42,8 @@ public class WorkDTO {
 
     // ── #18 게시판·상세용 부가 값 ──
     private String authorNickname;
+    /** 작성자 꾸밈(대표 배지 이모지·닉네임 색·닉네임 테두리). 꾸밈이 없거나 관리자 화면이면 비어 있다 */
+    private com.wanted.lmspractice.domain.game.dto.AuthorStyleDTO authorStyle = com.wanted.lmspractice.domain.game.dto.AuthorStyleDTO.none();
     private String hobbyName;
     private LocalDateTime publishedAt;
     private long likeCount;

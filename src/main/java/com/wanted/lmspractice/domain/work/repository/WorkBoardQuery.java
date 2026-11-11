@@ -77,7 +77,8 @@ public class WorkBoardQuery {
                 + "   WHERE w.id = v.work_id AND f.sort_order = 1), "
                 + "(SELECT COUNT(*) FROM work_comments m WHERE m.work_id = v.work_id AND m.author_id = ? AND m.status = 'NORMAL'), "
                 + "(SELECT COUNT(*) FROM work_likes wl WHERE wl.work_id = v.work_id AND wl.user_id = ?), "
-                + hiddenColumns + " "
+                + hiddenColumns + ", "
+                + "(SELECT aw.author_id FROM works aw WHERE aw.id = v.work_id) "   // 작성자 id(대표 배지 조회용) — 맨 끝 열(인덱스 14)
                 + "FROM " + source + " " + where + " " + order + " LIMIT ? OFFSET ?";
         Query query = entityManager.createNativeQuery(sql);
         int index = 1;
@@ -107,6 +108,7 @@ public class WorkBoardQuery {
             // admin_hidden 은 BOOLEAN(TINYINT(1)) 칼럼이라 드라이버에 따라 Boolean 또는 숫자로 온다 (일반 게시판 쪽은 상수 0)
             dto.setHidden(row[12] instanceof Boolean flag ? flag : row[12] != null && ((Number) row[12]).intValue() != 0);
             dto.setHiddenReason((String) row[13]);
+            dto.setAuthorId(row[14] == null ? null : ((Number) row[14]).longValue());
             result.add(dto);
         }
         return result;

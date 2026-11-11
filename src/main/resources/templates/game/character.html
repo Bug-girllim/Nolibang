@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] 내 캐릭터 — RPG 성장 요소(캐릭터·퀘스트·보스전·직업·꾸미기)
+  [연결] GameController.character · GET /my/character   → return "game/character";
+  [모델] page(CharacterPageDTO): character(레벨·경험치·꾸미기), xpLines(경험치 내역), dailyQuests·weeklyQuests(퀘스트),
+         classes(취미별 직업·스킬 트리), bosses(수강별 보스전), avatarGroups(꾸미기 슬롯별 아이템)
+         flash message / errorMessage — 퀘스트 보상·꾸미기 적용 결과 안내
+  [동작] 퀘스트 보상 받기 POST /my/character/quests/claim, 꾸미기 장착 POST /my/character/equip — 둘 다 처리 후 이 화면으로 redirect
+  [스타일] static/css/game.css (접두사 gm-), 나머지는 기존 공통 CSS 클래스(box·h3·mu·chip·btn·t)를 그대로 쓴다.
+  [규칙] 사용자 입력 글(닉네임 등)은 th:text 로만 출력한다.
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>내 캐릭터 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/prep-badge.css}">
+  <link rel="stylesheet" th:href="@{/css/game.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app">
+<header th:replace="~{common/layout :: gnb(menu='')}"></header>
+<div class="lay">
+  <aside aria-label="사이드 메뉴" class="side"><p class="st">마이페이지</p>
+    <nav aria-label="마이페이지 메뉴" class="side-ctx">
+      <a th:href="@{/my/works/growth}">성장 기록</a>
+      <a aria-current="page" class="active" th:href="@{/my/character}">내 캐릭터<span class="side-sr"> (현재 페이지)</span></a>
+      <a th:href="@{/my/guild}">길드 순위</a>
+      <a th:href="@{/notifications}">알림함</a>
+      <a th:href="@{/inquiries}">1:1 문의</a>
+      <a th:href="@{/my/account}">계정 설정</a>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="ph bn sm bn-learn"><div><h2>내 캐릭터</h2><p>배우고, 만들고, 나누며 레벨을 올려 보세요.</p></div></div>
+    <p class="warn" th:if="${message}" th:text="${message}">안내</p>
+    <p class="note" role="alert" th:if="${errorMessage}" th:text="${errorMessage}">오류</p>
+
+    <nav class="gm-tabs" aria-label="RPG 메뉴">
+      <a class="on" th:href="@{/my/character}">내 캐릭터</a>
+      <a th:href="@{/my/guild}">길드 순위</a>
+    </nav>
+
+    <!-- 1. 캐릭터 카드 -->
+    <div class="box" id="gm-card">
+      <div class="gm-hero">
+        <div class="gm-avatar gm-avatar-art" th:classappend="${page.character.frameClass}">
+          <img class="gm-character-img" th:src="@{${page.character.avatarImagePath}}"
+               th:alt="${page.character.avatarLabel}" width="112" height="112">
+        </div>
+        <div class="gm-grow">
+          <p class="gm-name" th:classappend="${page.character.nameColorClass}">
+            <span class="gm-lv" th:text="'Lv.' + ${page.character.level}">Lv.1</span><span th:text="${page.character.nickname}">닉네임</span>
+          </p>
+          <p class="mu"><span th:text="${page.character.title}">새싹 놀이꾼</span>
+            <span class="gm-master" th:if="${page.character.masterCount > 0}" th:text="' · 마스터 배지 ' + ${page.character.masterCount} + '개'"></span></p>
+          <p class="gm-equipped" th:if="${!#lists.isEmpty(page.equippedBadges)}">
+            <span class="gm-eq" th:each="e : ${page.equippedBadges}" th:title="${e.title}"><span aria-hidden="true" th:text="${e.emoji}">🌱</span><span th:text="${e.title}">첫걸음</span></span>
+          </p>
+          <div class="gm-bar"><i th:style="'width:' + ${page.character.percent} + '%'"></i></div>
+          <p class="gm-sub">
+            <b th:text="${page.character.totalXp}">0</b> XP
+            <span th:if="${page.character.nextLevelXp != null}" th:text="' · 다음 레벨까지 ' + (${page.character.nextLevelXp} - ${page.character.totalXp}) + ' XP'"></span>
+            <span th:unless="${page.character.nextLevelXp != null}"> · 최고 레벨이에요!</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1-1. 배지 (업적 배지 + 수료 배지) -->
+    <div class="box" id="gm-badges-box">
+      <div class="rowb"><p class="h3">업적 배지</p>
+        <span class="mu" th:text="${page.achievementEarned} + ' / ' + ${#lists.size(page.achievements)} + '개 획득 · 대표 배지 ' + ${#lists.size(page.equippedBadges)} + ' / ' + ${page.badgeSlotMax}">0 / 15개 획득</span></div>
+      <p class="gm-sub">받은 배지를 대표 배지로 장착하면 위 캐릭터 카드에 보여요. (최대 <span th:text="${page.badgeSlotMax}">3</span>개)</p>
+      <div class="gm-badges">
+        <div class="gm-badge" th:attr="data-code=${a.code}" th:each="a : ${page.achievements}" th:classappend="(${a.earned} ? 'on' : 'off') + (${a.equipped} ? ' eq' : '')"
+             th:title="${a.description}">
+          <span class="gm-badge-new" th:if="${a.fresh}">NEW</span>
+          <span class="gm-badge-ico" aria-hidden="true" th:text="${a.emoji}">🌱</span>
+          <b th:text="${a.title}">첫걸음</b>
+          <span class="gm-sub" th:text="${a.description}">설명</span>
+          <span class="gm-sub" th:if="${a.earned}" th:text="${#temporals.format(a.earnedAt, 'yyyy.MM.dd')} + ' 획득'">2026.11.11 획득</span>
+          <form method="post" class="gm-badge-form" data-ajax th:attr="data-key=${a.code}" th:if="${a.earned}" th:action="${a.equipped} ? @{/my/character/badges/unequip} : @{/my/character/badges/equip}">
+            <input type="hidden" name="code" th:value="${a.code}">
+            <button class="btn" type="submit" th:text="${a.equipped} ? '해제' : '장착'">장착</button>
+          </form>
+          <th:block th:unless="${a.earned}">
+            <span class="gm-bar"><i th:style="'width:' + ${a.percent} + '%'"></i></span>
+            <span class="gm-sub" th:text="${a.current} + ' / ' + ${a.target}">0 / 10</span>
+          </th:block>
+        </div>
+      </div>
+      <p class="h3" style="margin-top:18px">수료 배지</p>
+      <p class="mu" th:if="${#lists.isEmpty(page.courseBadges)}">아직 수료한 강의가 없어요. 최종 과제를 통과하면 수료 배지를 받아요.</p>
+      <div class="gm-badges" th:unless="${#lists.isEmpty(page.courseBadges)}">
+        <div class="gm-badge on" th:each="b : ${page.courseBadges}" th:classappend="${b.equipped} ? 'eq'">
+          <span class="gm-badge-ico" aria-hidden="true" th:text="${b.emoji}">🥉</span>
+          <b th:text="${b.hobbyName}">색연필화</b>
+          <span class="gm-sub" th:text="${b.levelLabel} + ' 수료'">입문 수료</span>
+          <form method="post" class="gm-badge-form" data-ajax th:attr="data-key=${b.code}" th:action="${b.equipped} ? @{/my/character/badges/unequip} : @{/my/character/badges/equip}">
+            <input type="hidden" name="code" th:value="${b.code}">
+            <button class="btn" type="submit" th:text="${b.equipped} ? '해제' : '장착'">장착</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 퀘스트 -->
+    <div class="box">
+      <div class="rowb"><p class="h3">오늘의 퀘스트</p><span class="mu">매일 0시에 새로 시작해요</span></div>
+      <div class="gm-grid">
+        <div class="gm-item" th:each="q : ${page.dailyQuests}" th:classappend="${q.claimable} ? 'ok'">
+          <p><b th:text="${q.title}">퀘스트</b> <span class="chip" th:text="'+' + ${q.rewardXp} + ' XP'">+20 XP</span></p>
+          <p class="gm-sub" th:text="${q.description}">설명</p>
+          <div class="gm-bar" th:classappend="${q.claimed} ? 'done'"><i th:style="'width:' + ${q.percent} + '%'"></i></div>
+          <p class="gm-sub" th:text="${q.progress} + ' / ' + ${q.target}">0 / 1</p>
+          <form method="post" class="gm-btn" th:action="@{/my/character/quests/claim}" th:if="${q.claimable}">
+            <input type="hidden" name="key" th:value="${q.key}">
+            <button class="btn dk" type="submit">보상 받기</button>
+          </form>
+          <p class="gm-sub" th:if="${q.claimed}">✔ 보상을 받았어요</p>
+        </div>
+      </div>
+    </div>
+    <div class="box">
+      <div class="rowb"><p class="h3">이번 주 퀘스트</p><span class="mu">월요일 0시에 새로 시작해요</span></div>
+      <div class="gm-grid">
+        <div class="gm-item" th:each="q : ${page.weeklyQuests}" th:classappend="${q.claimable} ? 'ok'">
+          <p><b th:text="${q.title}">퀘스트</b> <span class="chip" th:text="'+' + ${q.rewardXp} + ' XP'">+60 XP</span></p>
+          <p class="gm-sub" th:text="${q.description}">설명</p>
+          <div class="gm-bar" th:classappend="${q.claimed} ? 'done'"><i th:style="'width:' + ${q.percent} + '%'"></i></div>
+          <p class="gm-sub" th:text="${q.progress} + ' / ' + ${q.target}">0 / 3</p>
+          <form method="post" class="gm-btn" th:action="@{/my/character/quests/claim}" th:if="${q.claimable}">
+            <input type="hidden" name="key" th:value="${q.key}">
+            <button class="btn dk" type="submit">보상 받기</button>
+          </form>
+          <p class="gm-sub" th:if="${q.claimed}">✔ 보상을 받았어요</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 보스전 -->
+    <div class="box">
+      <div class="rowb"><p class="h3">보스전</p><span class="mu">수강 한 건이 보스 한 마리예요. 최종 과제가 공격이에요.</span></div>
+      <p class="mu" th:if="${#lists.isEmpty(page.bosses)}">아직 만난 보스가 없어요. 강의를 수강하면 보스가 나타나요.</p>
+      <div class="gm-grid">
+        <div class="gm-item" th:each="b : ${page.bosses}" th:classappend="${b.stateName == 'COMPLETED'} ? 'ok'">
+          <p><b th:text="${b.courseTitle}">강의</b> <span class="mu" th:text="${b.levelLabel}">입문</span>
+            <span class="chip" th:text="${b.stateLabel}">학습 중</span></p>
+          <div class="gm-bar boss"><i th:style="'width:' + ${b.hpPercent} + '%'"></i></div>
+          <p class="gm-sub" th:text="'보스 체력 ' + ${b.hpPercent} + '%'">보스 체력 100%</p>
+          <p th:text="${b.message}">메시지</p>
+          <a class="btn dk gm-btn" th:if="${b.stateName == 'COMPLETED' and b.reviewRoundId != null}"
+             th:href="@{/assignments/{id}/result(id=${b.reviewRoundId})}">전리품 보기</a>
+          <a class="btn dk gm-btn" th:if="${b.stateName == 'REJECTED'}"
+             th:href="@{/assignments(enrollmentId=${b.enrollmentId})}">재도전하기</a>
+          <a class="btn dk gm-btn" th:if="${b.stateName == 'REVIEW_WAITING' or b.stateName == 'IN_REVIEW'}"
+             th:href="@{/assignments(enrollmentId=${b.enrollmentId})}">전투 상황 보기</a>
+          <a class="btn dk gm-btn" th:if="${b.stateName == 'LEARNING' and b.completedLessons == b.totalLessons and b.totalLessons > 0}"
+             th:href="@{/assignments(enrollmentId=${b.enrollmentId})}">보스에게 도전</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 취미별 직업·스킬 트리 -->
+    <div class="box">
+      <div class="rowb"><p class="h3">취미별 직업</p><span class="mu">입문 → 중급 → 고급을 수료하면 직업이 성장해요</span></div>
+      <div class="gm-grid">
+        <div class="gm-item gm-job" th:each="c : ${page.classes}" th:classappend="${c.clearedCount == 0} ? 'off'">
+          <div class="gm-job-art" th:if="${c.imagePath != null}" th:classappend="${c.master} ? 'is-master'">
+            <img th:src="@{${c.imagePath}}" th:alt="${c.className}" width="180" height="180" loading="lazy">
+            <span class="gm-job-status" th:if="${c.clearedCount == 0}">수료하면 해금</span>
+          </div>
+          <p><b th:text="${c.className}">그림 견습생</b> <span class="gm-master" th:if="${c.master}">★ 마스터</span></p>
+          <div class="gm-steps">
+            <th:block th:each="s, st : ${c.steps}">
+              <span class="gm-arrow" th:if="${!st.first}">→</span>
+              <span class="gm-step" th:classappend="${s.cleared} ? 'on'" th:text="${s.levelLabel}">입문</span>
+            </th:block>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 꾸미기 -->
+    <div class="box" id="gm-avatar-box">
+      <div class="rowb"><p class="h3">꾸미기</p><span class="mu">레벨을 올리거나 마스터 배지를 얻으면 새 아이템이 열려요</span></div>
+      <div th:each="g : ${page.avatarGroups}">
+        <p class="h3" style="margin-top:14px" th:text="${g.slotLabel}">캐릭터</p>
+        <div class="gm-opts">
+          <div class="gm-opt" th:each="o : ${g.options}" th:classappend="${o.equipped} ? 'eq' : (${o.unlocked} ? '' : 'off')">
+            <div class="gm-prev gm-prev-art" th:if="${g.slot == 'AVATAR'}">
+              <img th:src="@{${o.imagePath}}" th:alt="${o.label}" width="76" height="76" loading="lazy">
+            </div>
+            <div class="gm-prev gm-prev-art" th:if="${g.slot == 'FRAME'}">
+              <img th:src="@{${o.imagePath}}" th:alt="${o.label}" width="76" height="76" loading="lazy">
+            </div>
+            <div class="gm-prev" th:if="${g.slot == 'NAME_COLOR'}"><b th:classappend="${o.value}">가나다</b></div>
+            <p th:text="${o.label}">이름</p>
+            <p class="gm-sub" th:if="${o.equipped}">장착 중</p>
+            <p class="gm-sub" th:if="${!o.unlocked}" th:text="'🔒 ' + ${o.hint}">잠김</p>
+            <form method="post" data-ajax th:attr="data-key=${o.slot + '-' + o.code}" th:action="@{/my/character/equip}" th:if="${o.unlocked and !o.equipped}">
+              <input type="hidden" name="slot" th:value="${o.slot}">
+              <input type="hidden" name="code" th:value="${o.code}">
+              <button class="btn" type="submit">장착</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. 경험치 내역 -->
+    <div class="box">
+      <div class="rowb"><p class="h3">경험치 내역</p><span class="mu" th:text="'합계 ' + ${page.character.totalXp} + ' XP'">합계</span></div>
+      <table class="t"><thead><tr><th>활동</th><th>횟수</th><th>경험치</th></tr></thead><tbody>
+        <tr th:each="l : ${page.xpLines}"><td th:text="${l.label}">활동</td><td th:text="${l.count}">0</td><td th:text="${l.xp} + ' XP'">0 XP</td></tr>
+      </tbody></table>
+    </div>
+  </main>
+  <!-- 새로고침 없이 처리한 결과(성공·주의)를 띄우는 안내 창 — static/js/character.js 가 채운다 -->
+  <div id="gm-toast" class="gm-toast" role="status" aria-live="polite" hidden></div>
+</div>
+<div th:replace="~{common/layout :: footer}"></div>
+</div></div>
+</div></div>
+<script th:src="@{/js/character.js}" defer></script>
+</body>
+</html>

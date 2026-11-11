@@ -2,6 +2,8 @@ package com.wanted.lmspractice.domain.work.service;
 
 import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
+import com.wanted.lmspractice.domain.game.dto.AuthorStyleDTO;
+import com.wanted.lmspractice.domain.game.service.AuthorStyleService;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.domain.user.service.InstructorAccountService;
@@ -59,6 +61,7 @@ public class WorkBoardService {
     private final UserService userService;
     private final HobbyService hobbyService;
     private final InstructorAccountService instructorAccountService;
+    private final AuthorStyleService authorStyleService;   // 작성자 꾸밈(RPG: 대표 배지·닉네임 색·테두리) — 게시판 한 쪽의 작성자를 쿼리 몇 번으로 한꺼번에 읽는다
 
     /**
      * 게시판 목록 한 페이지 (WB-01) — 조건에 맞는 공개 작품 카드
@@ -76,7 +79,7 @@ public class WorkBoardService {
 
         long total = workBoardQuery.count(cond, hobbyIds, viewerId);
         List<WorkDTO> rows = workBoardQuery.find(cond, hobbyIds, viewerId, PAGE_SIZE + 1, page * PAGE_SIZE);  // +1: 다음 쪽 유무 확인
-        return toPage(rows, total, page, grantedHobbyIds);
+        return toPage(rows, total, page, grantedHobbyIds, viewerRole != Role.ADMIN);
     }
 
     /**
@@ -89,11 +92,11 @@ public class WorkBoardService {
         List<Long> hobbyIds = hobbyFilter(cond, Role.ADMIN, Set.of(), null);
         long total = workBoardQuery.countForAdmin(cond, hobbyIds, adminId);
         List<WorkDTO> rows = workBoardQuery.findForAdmin(cond, hobbyIds, adminId, PAGE_SIZE + 1, page * PAGE_SIZE);
-        return toPage(rows, total, page, Set.of());
+        return toPage(rows, total, page, Set.of(), false);   // 관리자 화면은 작성자 꾸밈을 쓰지 않는다
     }
 
     // 한 건 더 읽은 결과를 한 페이지로 자르고 취미 이름·강사 댓글 가능 표시를 채운다
-    private WorkPageDTO toPage(List<WorkDTO> rows, long total, int page, Set<Long> grantedHobbyIds) {
+    private WorkPageDTO toPage(List<WorkDTO> rows, long total, int page, Set<Long> grantedHobbyIds, boolean decorateAuthors) {
         boolean hasNext = rows.size() > PAGE_SIZE;
         List<WorkDTO> items = new ArrayList<>(hasNext ? rows.subList(0, PAGE_SIZE) : rows);
 
@@ -104,6 +107,11 @@ public class WorkBoardService {
             item.setHobbyName(hobby == null ? "" : hobby.getName());
             item.setCommentable(grantedHobbyIds.contains(item.getHobbyId()));
         });
+        if (decorateAuthors) {   // 작성자 꾸밈 — 한 쪽의 작성자 전체를 한 번에 읽는다
+            Map<Long, AuthorStyleDTO> styles = authorStyleService.getAuthorStyles(
+                    items.stream().map(WorkDTO::getAuthorId).filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
+            items.forEach(item -> item.setAuthorStyle(styles.getOrDefault(item.getAuthorId(), AuthorStyleDTO.none())));
+        }
         return new WorkPageDTO(items, total, page, hasNext);
     }
 
@@ -143,6 +151,11 @@ public class WorkBoardService {
         Map<Long, String> names = userService.getPublicNames(userIds);
 
         dto.setAuthorNickname(names.get(work.getAuthorId()));
+        // 작성자·댓글 작성자 꾸밈 — 관리자가 보는 경우에는 읽지 않고, 탈퇴한 사용자(이름 없음)에게는 입히지 않는다
+        Map<Long, AuthorStyleDTO> styles = viewerRole == Role.ADMIN ? Map.of() : authorStyleService.getAuthorStyles(userIds);
+        if (names.get(work.getAuthorId()) != null) {
+            dto.setAuthorStyle(styles.getOrDefault(work.getAuthorId(), AuthorStyleDTO.none()));
+        }
         HobbyDTO hobby = hobbyService.getHobbiesIgnoringVisibility(List.of(work.getHobbyId())).get(work.getHobbyId());
         dto.setHobbyName(hobby == null ? "" : hobby.getName());
         dto.setLikeCount(workLikeRepository.countByWorkId(workId));
@@ -151,31 +164,37 @@ public class WorkBoardService {
 
         // [성능 개선] 댓글 자격(배지 계산 또는 강사 권한 조회)을 한 번만 구하고 답글 자격에 다시 쓴다(예전: 같은 계산 2번)
         boolean canComment = commentPolicy.canWriteComment(work, viewerId, viewerRole);
-        return new WorkDetailDTO(dto, buildCommentTree(comments, work, names, viewerId),
+        return new WorkDetailDTO(dto, buildCommentTree(comments, work, names, styles, viewerId),
                 canComment,
                 commentPolicy.canWriteReply(work, viewerId, viewerRole, canComment),
                 work.isAuthor(viewerId));
     }
 
     // 댓글 아래에 답글을 묶는다(1단계). 삭제된 댓글은 문구만 남고 답글은 유지된다
-    private List<CommentDTO> buildCommentTree(List<WorkComment> comments, Work work, Map<Long, String> names, Long viewerId) {
+    private List<CommentDTO> buildCommentTree(List<WorkComment> comments, Work work, Map<Long, String> names,
+                                              Map<Long, AuthorStyleDTO> styles, Long viewerId) {
         Map<Long, CommentDTO> roots = new LinkedHashMap<>();
         for (WorkComment c : comments) {
             if (!c.isReply()) {
-                roots.put(c.getId(), toDto(c, work, names, viewerId));
+                roots.put(c.getId(), toDto(c, work, names, styles, viewerId));
             }
         }
         for (WorkComment c : comments) {
             CommentDTO parent = c.isReply() ? roots.get(c.getParentId()) : null;
             if (parent != null) {
-                parent.getReplies().add(toDto(c, work, names, viewerId));
+                parent.getReplies().add(toDto(c, work, names, styles, viewerId));
             }
         }
         return new ArrayList<>(roots.values());
     }
 
-    private CommentDTO toDto(WorkComment c, Work work, Map<Long, String> names, Long viewerId) {
-        return CommentDTO.of(c, names.get(c.getAuthorId()), work.isAuthor(c.getAuthorId()), c.isAuthor(viewerId));
+    private CommentDTO toDto(WorkComment c, Work work, Map<Long, String> names,
+                             Map<Long, AuthorStyleDTO> styles, Long viewerId) {
+        CommentDTO dto = CommentDTO.of(c, names.get(c.getAuthorId()), work.isAuthor(c.getAuthorId()), c.isAuthor(viewerId));
+        if (names.get(c.getAuthorId()) != null) {   // 탈퇴한 사용자(이름 없음)에게는 꾸밈을 입히지 않는다
+            dto.setAuthorStyle(styles.getOrDefault(c.getAuthorId(), AuthorStyleDTO.none()));
+        }
+        return dto;
     }
 
     // 분류·세부 취미·강사 담당 범위를 합쳐 최종 취미 id 목록으로 만든다. null = 제한 없음
