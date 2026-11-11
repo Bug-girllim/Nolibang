@@ -29,7 +29,7 @@
 <div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu=${admin} ? 'admin' : 'lms')}"></header><div class="lay"><aside th:replace="${admin} ? ~{common/layout :: adminSide(active='A-VID')} : ~{common/layout :: teacherSide(active='T-VID')}"></aside><main class="main">
 <div class="ph"><div><h2>영상 업로드</h2>
   <p th:if="${admin}">MP4 · 한 개 <th:block th:text="${maxSizeMb}">500</th:block>MB 이하 · 모든 영상과 모든 차시를 관리해요 · 올린 영상은 GitHub에 올라가지 않아요</p>
-  <p th:unless="${admin}">MP4 · 한 개 <th:block th:text="${maxSizeMb}">500</th:block>MB 이하 · 내가 올린 영상만 보이고, 활동 권한을 받은 취미의 차시에만 연결할 수 있어요</p>
+  <p th:unless="${admin}">MP4 · 한 개 <th:block th:text="${maxSizeMb}">500</th:block>MB 이하 · 내가 올린 영상만 보이고, 내가 담당하는 강의의 차시에만 연결할 수 있어요</p>
 </div></div>
 
 <p class="note" role="status" th:if="${message != null}" th:text="${message}">색연필화 · 입문 · 1차시에 영상을 연결했어요.</p>
@@ -83,7 +83,7 @@
 </tbody></table>
 
 <p class="h3" style="margin-top: 24px;">차시별 현재 영상</p>
-<p class="mu" th:if="${#lists.isEmpty(lessons)}" th:text="${admin} ? '등록된 차시가 없어요.' : '활동 권한을 받은 취미에 차시가 없어요. 취미 권한은 관리자에게 요청해 주세요.'">활동 권한을 받은 취미에 차시가 없어요.</p>
+<p class="mu" th:if="${#lists.isEmpty(lessons)}" th:text="${admin} ? '등록된 차시가 없어요.' : '담당하는 강의에 차시가 없어요. 분반 배정은 관리자에게 요청해 주세요.'">담당하는 강의에 차시가 없어요.</p>
 <table class="t" th:unless="${#lists.isEmpty(lessons)}"><thead><tr><th>차시</th><th>현재 영상</th><th>길이</th><th>구분</th></tr></thead><tbody>
   <tr th:each="o : ${lessons}">
     <td th:text="${o.label}">색연필화 · 입문 · 1차시</td>

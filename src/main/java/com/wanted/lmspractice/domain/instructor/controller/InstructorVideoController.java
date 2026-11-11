@@ -45,7 +45,7 @@ public class InstructorVideoController {
 
     private final LessonVideoService lessonVideoService;
 
-    /** 업로드 화면. 모델: videos(내 영상), lessons(권한 취미의 차시), linked, admin=false, basePath, maxSizeMb */
+    /** 업로드 화면. 모델: videos(내 영상), lessons(담당 강의의 차시), linked, admin=false, basePath, maxSizeMb */
     @GetMapping
     public String list(@AuthenticationPrincipal AuthDetails details, Model model) {
         Long me = details.getUserId();

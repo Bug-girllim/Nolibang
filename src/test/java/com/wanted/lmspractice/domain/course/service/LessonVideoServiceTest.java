@@ -14,6 +14,8 @@ import com.wanted.lmspractice.domain.course.entity.CourseLevel;
 import com.wanted.lmspractice.domain.course.entity.Lesson;
 import com.wanted.lmspractice.domain.course.repository.CourseRepository;
 import com.wanted.lmspractice.domain.course.repository.LessonRepository;
+import com.wanted.lmspractice.domain.enrollment.dto.SectionDTO;
+import com.wanted.lmspractice.domain.enrollment.service.SectionService;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.learning.service.ProgressService;
@@ -24,6 +26,7 @@ import com.wanted.lmspractice.global.file.UploadedVideo;
 import com.wanted.lmspractice.global.file.VideoStorage;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +46,7 @@ class LessonVideoServiceTest {
     InstructorAccountService instructorAccountService;
     VideoStorage videoStorage;
     ProgressService progressService;
+    SectionService sectionService;
     LessonVideoService service;
 
     Lesson lesson;
@@ -59,8 +63,9 @@ class LessonVideoServiceTest {
         instructorAccountService = mock(InstructorAccountService.class);
         videoStorage = mock(VideoStorage.class);
         progressService = mock(ProgressService.class);
+        sectionService = mock(SectionService.class);
         service = new LessonVideoService(courseRepository, lessonRepository, hobbyService, instructorAccountService, videoStorage,
-                progressService);
+                progressService, sectionService);
 
         lesson = mock(Lesson.class);
         when(lesson.getCourseId()).thenReturn(1L);
@@ -68,6 +73,7 @@ class LessonVideoServiceTest {
         when(lessonRepository.findById(3L)).thenReturn(Optional.of(lesson));
 
         course = mock(Course.class);
+        when(course.getId()).thenReturn(1L);
         when(course.getHobbyId()).thenReturn(10L);
         when(course.getLevel()).thenReturn(CourseLevel.values()[0]);
         when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
@@ -100,9 +106,20 @@ class LessonVideoServiceTest {
         assertThat(label).startsWith("색연필화 · ").endsWith(" · 1차시");
     }
 
+    /** 강사가 담당하는 분반들 — 분반마다 강의 id 만 쓴다 */
+    private void assignSections(Long instructorId, Long... courseIds) {
+        List<SectionDTO> sections = java.util.Arrays.stream(courseIds).map(courseId -> {
+            SectionDTO section = mock(SectionDTO.class);
+            when(section.getCourseId()).thenReturn(courseId);
+            return section;
+        }).toList();
+        when(sectionService.getSectionsByInstructor(instructorId)).thenReturn(sections);
+    }
+
     @Test
-    @DisplayName("강사 연결: 권한 받은 취미면 연결, 권한이 없으면 VIDEO_LINK_DENIED")
+    @DisplayName("강사 연결: 담당 강의 + 권한 받은 취미면 연결, 취미 권한이 없으면 VIDEO_LINK_DENIED")
     void instructorNeedsGrant() {
+        assignSections(6L, 1L);
         when(instructorAccountService.hasHobbyGrant(6L, 10L)).thenReturn(true);
         service.linkVideo(T6_KEY, 3L, 6L);
         verify(lesson).changeVideo(T6_KEY, new BigDecimal("30.000"));
@@ -110,6 +127,32 @@ class LessonVideoServiceTest {
         when(instructorAccountService.hasHobbyGrant(6L, 10L)).thenReturn(false);
         assertThatThrownBy(() -> service.linkVideo(T6_KEY, 3L, 6L))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.VIDEO_LINK_DENIED));
+    }
+
+    @Test
+    @DisplayName("강사 연결: 취미 권한이 있어도 내가 담당하지 않는 강의(같은 취미의 다른 수준)의 차시는 VIDEO_LINK_DENIED, 목록에도 없다")
+    void instructorOnlyAssignedCourses() {
+        assignSections(6L, 2L);                                   // 같은 취미(10)의 강의 2만 담당 — 차시 3은 강의 1 소속
+        when(instructorAccountService.hasHobbyGrant(6L, 10L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.linkVideo(T6_KEY, 3L, 6L))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.VIDEO_LINK_DENIED));
+        verify(lesson, never()).changeVideo(anyString(), any());
+
+        Course other = mock(Course.class);
+        when(other.getId()).thenReturn(2L);
+        when(other.getHobbyId()).thenReturn(10L);
+        when(other.getLevel()).thenReturn(CourseLevel.values()[1]);
+        when(courseRepository.findAllByOrderByHobbyIdAscLevelAsc()).thenReturn(List.of(course, other));
+        Lesson otherLesson = mock(Lesson.class);
+        when(otherLesson.getId()).thenReturn(4L);
+        when(otherLesson.getLessonNo()).thenReturn(1);
+        when(lesson.getId()).thenReturn(3L);
+        when(lessonRepository.findByCourseIdOrderByLessonNoAsc(1L)).thenReturn(List.of(lesson));
+        when(lessonRepository.findByCourseIdOrderByLessonNoAsc(2L)).thenReturn(List.of(otherLesson));
+
+        assertThat(service.getLessonOptions(6L)).extracting(o -> o.getLessonId()).containsExactly(4L);
+        assertThat(service.getLessonOptions(null)).extracting(o -> o.getLessonId()).containsExactly(3L, 4L);   // 관리자는 전체
     }
 
     @Test
