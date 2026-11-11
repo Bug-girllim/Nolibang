@@ -10,6 +10,8 @@ import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.user.entity.Role;
+import com.wanted.lmspractice.global.exception.BusinessException;
+import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -93,16 +95,33 @@ public class CourseController {
      * 강의 상세 — 목표·준비물·필수 3차시·최종 과제·수강 기간·정원 현황. 없는 강의는 COURSE_NOT_FOUND(404).
      * 호출: GET /courses/{courseId} (API CO-02)
      * 모델: course(CourseDetailDTO), enrollStatus(EnrollmentStatusDTO — 신청 영역),
-     *       continueLessonId(이어서 학습·다시 보기가 열 차시 id — 수강 중·수료일 때만, 그 밖에는 null)
+     *       continueLessonId(이어서 학습·다시 보기가 열 차시 id — 수강 중·수료일 때만, 그 밖에는 null),
+     *       hiddenForEnrolled(true = 신규 탐색에는 숨겨진 강의를 수강·대기 기록이 있는 학습자가 연 경우 — 안내 문구용)
      */
     @GetMapping("/{courseId}")
     public String detail(@PathVariable Long courseId,
                          @AuthenticationPrincipal AuthDetails details,
                          Model model) {
-        CourseDetailDTO course = courseCatalogService.getCourseDetail(courseId, roleOf(details));
-        EnrollmentStatusDTO enrollStatus = courseCatalogService.getEnrollStatus(course, userIdOf(details), roleOf(details));
+        CourseDetailDTO course;
+        EnrollmentStatusDTO enrollStatus;
+        boolean hiddenForEnrolled = false;
+        try {
+            course = courseCatalogService.getCourseDetail(courseId, roleOf(details));
+            enrollStatus = courseCatalogService.getEnrollStatus(course, userIdOf(details), roleOf(details));
+        } catch (BusinessException e) {
+            // 닫힌 강의·준비 중 취미의 강의라도, 수강·대기 기록이 있는 학습자는 나의 학습에서 이어 온 상세를 볼 수 있다(D-20).
+            // 기록이 없으면 getEnrolledCourseView 가 다시 COURSE_NOT_FOUND 를 던져 지금처럼 404가 된다
+            if (e.getErrorCode() != ErrorCode.COURSE_NOT_FOUND || roleOf(details) != Role.USER) {
+                throw e;
+            }
+            CourseCatalogService.EnrolledCourseView view = courseCatalogService.getEnrolledCourseView(courseId, userIdOf(details));
+            course = view.course();
+            enrollStatus = view.status();
+            hiddenForEnrolled = true;
+        }
         model.addAttribute("course", course);
         model.addAttribute("enrollStatus", enrollStatus);
+        model.addAttribute("hiddenForEnrolled", hiddenForEnrolled);
         model.addAttribute("continueLessonId", courseCatalogService.getContinueLessonId(course, enrollStatus));
         model.addAttribute("sideActive", "course");
         model.addAttribute("sideHobbyId", course.getHobbyId());
