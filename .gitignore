@@ -39,3 +39,15 @@ out/
 ### Uploaded videos (web upload, not tracked) ###
 /uploads/videos/uploaded/*
 !/uploads/videos/uploaded/.gitkeep
+
+### Uploaded work images (local runs, not tracked — seed images live in uploads/seed) ###
+/uploads/works/
+
+### Local tool settings / secrets (never commit) ###
+.env
+.env.*
+/.claude/settings.local.json
+/.playwright-mcp/
+
+### Backups (scripts/backup.sh output) ###
+/backups/
