@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.learning.policy;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -62,6 +63,16 @@ class VideoAccessPolicyTest {
         Enrollment e = enrollment(EnrollmentStatus.CANCELLED, NOW.minusDays(5), NOW.plusDays(25));
         assertThatThrownBy(() -> policy.checkVideoAccess(e, 1L, NOW)).isInstanceOf(BusinessException.class)
                 .extracting(x -> ((BusinessException) x).getErrorCode()).isEqualTo(ErrorCode.VIDEO_ACCESS_DENIED);
+    }
+
+    @Test
+    @DisplayName("canWatch: 기간 안 학습 중·수료는 true, 기간 끝난 미수료·만료·취소는 false (학습 메뉴 [차시 영상 학습] 링크 표시 기준)")
+    void canWatchMatchesCheckVideoAccess() {
+        assertThat(policy.canWatch(enrollment(EnrollmentStatus.ACTIVE, NOW.minusDays(5), NOW.plusDays(25)), NOW)).isTrue();
+        assertThat(policy.canWatch(enrollment(EnrollmentStatus.COMPLETED, NOW.minusDays(60), NOW.minusDays(30)), NOW)).isTrue();
+        assertThat(policy.canWatch(enrollment(EnrollmentStatus.ACTIVE, NOW.minusDays(40), NOW.minusDays(10)), NOW)).isFalse();
+        assertThat(policy.canWatch(enrollment(EnrollmentStatus.EXPIRED, NOW.minusDays(40), NOW.minusDays(10)), NOW)).isFalse();
+        assertThat(policy.canWatch(enrollment(EnrollmentStatus.CANCELLED, NOW.minusDays(5), NOW.plusDays(25)), NOW)).isFalse();
     }
 
     @Test
