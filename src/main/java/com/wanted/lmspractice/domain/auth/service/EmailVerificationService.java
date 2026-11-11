@@ -55,6 +55,14 @@ public class EmailVerificationService {
     // SMTP 설정(spring.mail.host)이 없으면 JavaMailSender Bean이 없으므로 ObjectProvider로 받는다
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
 
+    /**
+     * 발송 계정(MAIL_USERNAME). application.yaml 에 spring.mail.host 가 늘 적혀 있어 JavaMailSender Bean 은 항상 만들어진다.
+     * 그래서 "SMTP 설정 여부"는 Bean 유무가 아니라 계정이 비었는지로 판단한다 — 비어 있으면 빈 계정으로 Gmail 로그인하다
+     * 실패해 가입·재발송·계정 복구가 INTERNAL_ERROR 로 막혔다(환경변수 없는 PC·테스트).
+     */
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
     @Value("${app.base-url}")
     private String baseUrl;
     @Value("${app.mail.from}")
@@ -249,7 +257,7 @@ public class EmailVerificationService {
      */
     private void sendMail(User user, String subject, String action, String link) {
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null) {
+        if (mailSender == null || mailUsername == null || mailUsername.isBlank()) {
             log.warn("[개발용] SMTP가 설정되지 않아 메일을 보내지 않았습니다. {} 링크: {}", subject, link);
             return;
         }
