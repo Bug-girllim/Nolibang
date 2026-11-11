@@ -1413,13 +1413,17 @@
 
 - **처리:** 본인 알림인지 확인 → 읽음 처리 → `targetType`·`targetId`로 이동 URL 결정
 - **성공:** `redirect:{대상 화면 URL}` (위 표)
+- **대상을 열 수 없을 때:** `redirect:/notifications` + flash `errorMessage`("알림이 가리키는 내용이 삭제되었거나 지금은 볼 수 없어요.") — 403·404 오류 화면으로 보내지 않는다
+  - 대상 삭제(수강·평가 회차·작품·댓글·문의 스레드·분반)
+  - 댓글 알림: 작품이 숨김·비공개가 됐고 받는 사람이 작성자가 아님 (`NotificationLinkResolver.workIdOfComment`)
+  - 강사 알림 `INQUIRY_RECEIVED`·`REVIEW_SUBMITTED`: 분반 담당이 바뀌었거나 담당 공백이 돼 받는 강사가 지금 담당이 아님 (D-59, `isCurrentInstructorOf`)
 - **실패:** `NOT_FOUND`(본인 알림 아님 포함)
 - 💡 링크 클릭(GET)으로 상태를 바꾸는 방식이다. 엄격히 하려면 POST 폼 버튼으로 바꿀 수 있음 (#17 결정)
 
 ### NT-03. 모두 읽음
 `POST /notifications/read-all` · 로그인 · 팀원 4 / #17
 
-- **성공:** `redirect:/notifications` + flash `message`
+- **성공:** `redirect:/notifications` + flash `message`("N개의 알림을 읽음으로 바꿨어요.", 안 읽은 알림이 없었으면 "새로 읽음 처리할 알림이 없어요. 모두 읽은 상태예요.")
 
 ### NT-04. 안 읽은 알림 수 — 💡 선택
 `GET /notifications/unread-count` · 로그인 · `@ResponseBody`
