@@ -73,6 +73,15 @@ public class GrowthService {
                 .map(work -> toItem(work, versions.get(work.getDisplayVersionId()), hobbies.get(work.getHobbyId())))
                 .toList();
 
+        // 모든 항목에 대표 이미지(첫 장)를 채운다 — 한 번의 조회로 버전별 첫 장만 고른다
+        Map<Long, Long> firstFileByVersion = new java.util.HashMap<>();
+        workFileRepository.findByWorkVersionIdInOrderByWorkVersionIdAscSortOrderAsc(
+                        shown.stream().map(Work::getDisplayVersionId).toList())
+                .forEach(file -> firstFileByVersion.putIfAbsent(file.getWorkVersionId(), file.getId()));
+        for (int i = 0; i < items.size(); i++) {
+            items.get(i).setThumbnailFileId(firstFileByVersion.get(shown.get(i).getDisplayVersionId()));   // shown 과 items 는 같은 순서
+        }
+
         TimelineDTO timeline = new TimelineDTO(hobbyIdOrNull, null, hobbyOptions, items, null, null);
         if (hobbyIdOrNull != null && !items.isEmpty()) {
             fillFirstAndLatest(timeline, shown, items, hobbies.get(hobbyIdOrNull));   // shown 과 items 는 같은 순서

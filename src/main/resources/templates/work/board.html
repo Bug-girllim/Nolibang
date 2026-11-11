@@ -25,7 +25,7 @@
 </head>
 <body>
 <div id="dc-root"><div class="sc-host">
-<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">작품 게시판</p><nav aria-label="작품 게시판 메뉴" class="side-ctx"><a aria-current="page" class="active" th:href="@{/works}">작품 목록<span class="side-sr"> (현재 페이지)</span></a></nav></aside><main class="main"><div class="ph bn bn-gallery"><div><h2>작품 게시판</h2><p>다른 사람들이 공개한 작품을 둘러보고, 내 작품도 전시해 보세요.</p></div><div class="row"><a class="btn pri" th:href="@{/my/works/new}">작품 등록</a><span class="sid">U-S09</span></div></div>
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='works')}"></header><div class="lay"><aside aria-label="사이드 메뉴" class="side"><p class="st">작품 게시판</p><nav aria-label="작품 게시판 메뉴" class="side-ctx"><a aria-current="page" class="active" th:href="@{/works}">작품 목록<span class="side-sr"> (현재 페이지)</span></a></nav></aside><main class="main"><div class="ph bn bn-gallery"><div><h2>작품 게시판</h2><p>다른 사람들이 공개한 작품을 둘러보고, 내 작품도 전시해 보세요.</p></div><div class="row"><a class="btn pri bn-cta" th:href="@{/my/works/new}">작품 등록</a><span class="sid">U-S09</span></div></div>
 <form class="tabs" role="tablist" method="get" th:action="@{/works}">
   <input type="hidden" name="keyword" th:value="${cond.keyword}"/>
   <input type="hidden" name="hobbyId" th:value="${cond.hobbyId}"/>

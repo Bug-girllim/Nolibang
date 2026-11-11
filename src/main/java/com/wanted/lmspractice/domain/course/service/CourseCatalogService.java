@@ -16,6 +16,8 @@ import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.learning.policy.ContinueLessonPolicy;
 import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.domain.user.entity.Role;
+import com.wanted.lmspractice.global.exception.BusinessException;
+import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +98,38 @@ public class CourseCatalogService {
         CourseDetailDTO course = courseService.getCourseDetail(courseId, viewerRole);
         course.setSeats(seatService.getSeatSummary(courseId));
         return course;
+    }
+
+    /** 기록이 있는 학습자에게 보여 주는 강의 상세와 그 학습자의 신청 상태 (getEnrolledCourseView 결과) */
+    public record EnrolledCourseView(CourseDetailDTO course, EnrollmentStatusDTO status) { }
+
+    /**
+     * 신규 탐색에는 숨겨진 강의(닫힌 강의, 준비 중·비공개 취미의 강의)를 그 강의에 수강·대기 기록이 있는 학습자에게만 보여 준다 (D-20).
+     * 나의 학습 카드·학습 화면 사이드 메뉴가 강의 상세로 연결되는데, 강의가 숨겨지면 이 링크가 404가 되던 문제를 막는다.
+     * 기록이 없으면 지금처럼 COURSE_NOT_FOUND — 신규 탐색(목록·취미 상세·신청)은 그대로 막힌다.
+     * 신청 상태는 노출 규칙을 거치지 않고 학습자의 기록 그대로(수강 중·수료·대기 n번·재신청 불가)를 쓴다.
+     * 호출: CourseController.detail — getCourseDetail 이 COURSE_NOT_FOUND 일 때만 (학습자 계정)
+     *
+     * @throws BusinessException COURSE_NOT_FOUND — 없는 강의이거나 이 학습자에게 수강·대기 기록이 없음
+     */
+    @Transactional(readOnly = true)
+    public EnrolledCourseView getEnrolledCourseView(Long courseId, Long userId) {
+        EnrollmentStatusDTO status = enrollmentService.getStatusForUser(userId, courseId);
+        if (!hasRecord(status)) {
+            throw new BusinessException(ErrorCode.COURSE_NOT_FOUND);
+        }
+        CourseDetailDTO course = courseService.getCourseDetailForEnrolled(courseId);
+        course.setSeats(seatService.getSeatSummary(courseId));
+        return new EnrolledCourseView(course, status);
+    }
+
+    /** 수강·대기 기록이 있는 상태인지 — 기록이 없으면 정원 현황으로 정한 상태(신청 가능·대기 신청·신청 불가)가 나온다 */
+    private boolean hasRecord(EnrollmentStatusDTO status) {
+        return switch (status.getState()) {
+            case EnrollmentStatusDTO.LEARNING, EnrollmentStatusDTO.COMPLETED,
+                 EnrollmentStatusDTO.WAITING, EnrollmentStatusDTO.CANNOT_REAPPLY -> true;
+            default -> false;
+        };
     }
 
     /**

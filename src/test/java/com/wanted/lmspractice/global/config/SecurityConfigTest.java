@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.global.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -91,6 +92,50 @@ class SecurityConfigTest {
     static Stream<String> anonymousUrls() {
         return Stream.of("/my/learning", "/inquiries", "/works", "/notifications", "/my/account",
                 "/instructor", "/admin", "/admin/works", "/files/works/1", "/some/unknown/url");
+    }
+
+    // ───────── 로그인 후 보던 화면으로 이어서 이동 (E-401 문구) ─────────
+
+    /** 비로그인 브라우저가 화면을 열려다 /error/401로 간 뒤, 같은 세션으로 로그인했을 때의 이동 주소 */
+    private String loginAfterVisiting(String url, String accept, String loginId, String password) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        mvc.perform(get(url).session(session).header("Accept", accept)).andExpect(redirectedUrl("/error/401"));
+        return mvc.perform(post("/auth/login").session(session).with(csrf())
+                        .param("loginId", loginId).param("password", password))
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+    }
+
+    private static final String HTML = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+
+    @Test
+    @DisplayName("로그인 전에 보려던 화면(쿼리 포함)이 있으면 로그인 후 그 화면으로 간다")
+    void loginReturnsToRequestedPage() throws Exception {
+        assertThat(loginAfterVisiting("/my/account?tab=password", HTML, "learner", "1234"))
+                .isEqualTo("/my/account?tab=password");
+        assertThat(loginAfterVisiting("/instructor/reviews", HTML, "teacherA", "1234"))
+                .isEqualTo("/instructor/reviews");
+    }
+
+    @Test
+    @DisplayName("보려던 화면을 그 역할이 볼 수 없으면(학습자 화면 → 강사 로그인) 역할별 첫 화면으로 간다")
+    void loginIgnoresPageTheRoleCannotOpen() throws Exception {
+        assertThat(loginAfterVisiting("/my/learning", HTML, "teacherA", "1234")).isEqualTo("/instructor");
+        assertThat(loginAfterVisiting("/admin", HTML, "learner", "1234")).isEqualTo("/");
+    }
+
+    @Test
+    @DisplayName("이미지·fetch 처럼 화면이 아닌 요청은 저장하지 않는다 → 역할별 첫 화면")
+    void nonPageRequestsAreNotSaved() throws Exception {
+        assertThat(loginAfterVisiting("/files/works/1", "image/avif,image/webp,*/*;q=0.8", "learner", "1234")).isEqualTo("/");
+        assertThat(loginAfterVisiting("/notifications", "application/json", "learner", "1234")).isEqualTo("/");
+    }
+
+    @Test
+    @DisplayName("임시 비밀번호 강사는 보려던 화면이 있어도 비밀번호 변경 화면이 먼저")
+    void temporaryPasswordBeatsRequestedPage() throws Exception {
+        assertThat(loginAfterVisiting("/instructor/reviews", HTML, "teacherD", "1234"))
+                .isEqualTo("/auth/instructor/password");
     }
 
     @ParameterizedTest(name = "비로그인 GET {0} → 200")
@@ -218,6 +263,17 @@ class SecurityConfigTest {
                 .andExpect(redirectedUrl("/auth/login?error=disabled"));
         mvc.perform(post("/auth/login").with(csrf()).param("loginId", "newbie").param("password", "1234"))
                 .andExpect(redirectedUrl("/auth/login?error=unverified"));
+    }
+
+    @Test
+    @DisplayName("비밀번호가 틀리면 비활성·미인증 계정도 아이디·비밀번호 불일치와 같은 안내 — 계정 존재·상태를 드러내지 않는다")
+    void wrongPasswordHidesAccountStatus() throws Exception {
+        mvc.perform(post("/auth/login").with(csrf()).param("loginId", "teacherC").param("password", "wrong"))
+                .andExpect(redirectedUrl("/auth/login?error"));
+        mvc.perform(post("/auth/login").with(csrf()).param("loginId", "newbie").param("password", "wrong"))
+                .andExpect(redirectedUrl("/auth/login?error"));
+        mvc.perform(post("/auth/login").with(csrf()).param("loginId", "nosuchuser").param("password", "wrong"))
+                .andExpect(redirectedUrl("/auth/login?error"));
     }
 
     @Test

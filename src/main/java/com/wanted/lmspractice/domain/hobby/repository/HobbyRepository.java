@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.hobby.repository;
 
+import com.wanted.lmspractice.domain.hobby.entity.ExposureState;
 import com.wanted.lmspractice.domain.hobby.entity.Hobby;
 import java.util.List;
 import java.util.Optional;
@@ -34,4 +35,7 @@ public interface HobbyRepository extends JpaRepository<Hobby, Long> {
 
     /** 대분류 삭제 전, 그 아래 세부 취미가 남아 있는지 */
     boolean existsByCategoryId(Long categoryId);
+
+    /** 그 대분류에 이 상태(예: 운영 중)인 세부 취미가 있는지 — 대분류를 운영 중으로 바꿀 수 있는지 판단 (05 §3) */
+    boolean existsByCategoryIdAndState(Long categoryId, ExposureState state);
 }

@@ -78,6 +78,9 @@ table.t{background:var(--card);border-color:var(--ln);box-shadow:none}
 .ph.bn>div:first-child{max-width:min(520px,54%)}
 .ph.bn p{font-size:15px;margin-top:8px}
 .ph.bn .row{align-self:flex-start}
+/* 배너의 주요 행동 버튼(#138 작품 게시판 [작품 등록]) — 삽화 위에서도 눈에 띄게 크게 */
+.ph.bn .btn.bn-cta{min-height:48px;padding:10px 28px;font-size:16px;font-weight:700;border-radius:10px;display:inline-flex;align-items:center;box-shadow:0 4px 14px rgba(34,43,69,.28)}
+.ph.bn .btn.bn-cta:hover:not(:disabled){box-shadow:0 4px 14px rgba(34,43,69,.2)}
 .ph.bn.sm{min-height:136px;padding:20px 28px}
 .ph.bn.sm::before{width:44%}
 .ph.bn.sm h2{font-size:26px}

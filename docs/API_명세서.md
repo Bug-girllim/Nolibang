@@ -107,7 +107,7 @@
 - 실패: `BusinessException` → HTTP 상태는 `ErrorCode.getStatus()`, 본문은 아래 형식.
 
 ```json
-{ "code": "VIDEO_ACCESS_DENIED", "message": "영상을 볼 수 있는 기간이 아닙니다." }
+{ "code": "VIDEO_ACCESS_DENIED", "message": "수강 기간이 끝났거나 취소한 강의라 영상을 볼 수 없어요. 수료한 강의는 기간과 관계없이 다시 볼 수 있어요." }
 ```
 
 - 구현 방법: `GlobalExceptionHandler`가 요청이 `@ResponseBody` 메서드인지(또는 `Accept: application/json`인지) 구분해 JSON으로 응답 — **팀원 1(#02)이 방식 결정** ❓
@@ -628,10 +628,15 @@
 |---|---|---|---|---|
 | Path | `instructorId` | Long | Y | |
 | Form | `active` | boolean | Y | `true` 활성 / `false` 비활성 |
+| Form | `emergency` | boolean | N | `true` 긴급 비활성화(갑작스러운 이탈·정지) — 기본 `false` |
+| Form | `from` | String | N | `stats` 면 성공 후 `/admin/stats`로 |
 
-- **처리:** 상태 변경. 비활성 강사는 로그인 불가
-- ❓ 비활성화한 강사가 담당 중인 분반 처리 — 기획 D-52: 담당 공백 분반은 신규 배정 제외. 관리자가 SE-04로 담당 변경
-- **실패:** `USER_NOT_FOUND`
+- **처리:** 활성화는 `InstructorAccountService.changeStatus`. 비활성화는 `SectionService.deactivateInstructor(instructorId, emergency)`
+  - 비활성 강사는 로그인 불가, 로그인 중인 세션도 끊는다 → 그 브라우저는 다음 요청에서 `/auth/login?error=disabled`("비활성화된 계정입니다", `SessionExpiredHandler`)
+  - 담당 분반이 있으면 평소에는 거부(`INSTRUCTOR_HAS_SECTIONS`) → A-S04에 이유 + [분반 관리로 가기]·[긴급 비활성화] 표시. 관리자가 SE-04로 담당을 먼저 바꾼다(D-59)
+  - `emergency=true`면 바로 비활성화하고 그 강사의 분반을 모두 **담당 공백**(`instructor_id = NULL`)으로 바꾼다 → 신규 배정 제외(D-52), A-S01 담당 공백 분반에 표시, 새 담당 지정 시 평가 대기 과제 승계
+- **성공:** `redirect:/admin/instructors` (또는 `/admin/stats`) + flash `message`(담당 공백이 된 분반 수 포함)
+- **실패:** `USER_NOT_FOUND`(에러 화면), `INSTRUCTOR_HAS_SECTIONS`(A-S04로 redirect + flash `errorMessage`·`blockedInstructorId`)
 
 ### AI-05. 취미 권한 부여
 `POST /admin/instructors/{instructorId}/hobbies` · 🛠 · 팀원 1 / #05
@@ -647,9 +652,8 @@
 ### AI-06. 취미 권한 회수
 `POST /admin/instructors/{instructorId}/hobbies/{hobbyId}/revoke` · 🛠 · 팀원 1 / #05
 
-- **처리:** `InstructorAccountService.revokeHobby(instructorId, hobbyId)`
-- ❓ 해당 취미 분반을 담당 중일 때 회수 허용 여부 (담당 중이면 거부 💡)
-- **실패:** `USER_NOT_FOUND`, `HOBBY_NOT_FOUND`
+- **처리:** `SectionService.revokeHobbyGrant(instructorId, hobbyId)` — 그 취미의 분반을 담당 중이면 거부, 아니면 `InstructorAccountService.revokeHobby`
+- **실패:** `USER_NOT_FOUND`, `HOBBY_NOT_FOUND`, `GRANT_IN_USE`(A-S04 취미 권한 탭으로 redirect + flash `errorMessage`)
 
 ---
 
@@ -1409,13 +1413,17 @@
 
 - **처리:** 본인 알림인지 확인 → 읽음 처리 → `targetType`·`targetId`로 이동 URL 결정
 - **성공:** `redirect:{대상 화면 URL}` (위 표)
+- **대상을 열 수 없을 때:** `redirect:/notifications` + flash `errorMessage`("알림이 가리키는 내용이 삭제되었거나 지금은 볼 수 없어요.") — 403·404 오류 화면으로 보내지 않는다
+  - 대상 삭제(수강·평가 회차·작품·댓글·문의 스레드·분반)
+  - 댓글 알림: 작품이 숨김·비공개가 됐고 받는 사람이 작성자가 아님 (`NotificationLinkResolver.workIdOfComment`)
+  - 강사 알림 `INQUIRY_RECEIVED`·`REVIEW_SUBMITTED`: 분반 담당이 바뀌었거나 담당 공백이 돼 받는 강사가 지금 담당이 아님 (D-59, `isCurrentInstructorOf`)
 - **실패:** `NOT_FOUND`(본인 알림 아님 포함)
 - 💡 링크 클릭(GET)으로 상태를 바꾸는 방식이다. 엄격히 하려면 POST 폼 버튼으로 바꿀 수 있음 (#17 결정)
 
 ### NT-03. 모두 읽음
 `POST /notifications/read-all` · 로그인 · 팀원 4 / #17
 
-- **성공:** `redirect:/notifications` + flash `message`
+- **성공:** `redirect:/notifications` + flash `message`("N개의 알림을 읽음으로 바꿨어요.", 안 읽은 알림이 없었으면 "새로 읽음 처리할 알림이 없어요. 모두 읽은 상태예요.")
 
 ### NT-04. 안 읽은 알림 수 — 💡 선택
 `GET /notifications/unread-count` · 로그인 · `@ResponseBody`
@@ -1593,22 +1601,24 @@
 | `USER_NOT_FOUND` | 404 | 회원을 찾을 수 없습니다. | 에러 화면 | AI-03, AI-04, AI-05, AI-06, SE-04 |
 | `PASSWORD_CHANGE_REQUIRED` | 403 | 비밀번호 변경이 필요합니다. | 화면 요청은 C-09로 redirect, JSON 요청은 403 💡 | `PasswordChangeInterceptor` (AU-13·AU-14) |
 | `INVALID_NEW_PASSWORD` | 400 | 사용할 수 없는 비밀번호입니다. | flash | AU-12, AU-14, US-07 |
-| `HOBBY_NOT_FOUND` | 404 | 취미를 찾을 수 없습니다. | 에러 화면 | AI-05, AI-06, HB-02, CO-01, MW-02 |
+| `HOBBY_NOT_FOUND` | 404 | 취미를 찾을 수 없어요. 지금은 공개되지 않았거나 없는 취미예요. | 에러 화면 | AI-05, AI-06, HB-02, CO-01, MW-02 |
 | `HOBBY_NOT_OPEN` | 403 | 운영 중인 취미가 아닙니다. | 에러 화면 | HB-02, EN-01 |
-| `COURSE_NOT_FOUND` | 404 | 강의를 찾을 수 없습니다. | 에러 화면 | CO-02, EN-01, SE-01, SE-02 |
+| `COURSE_NOT_FOUND` | 404 | 강의를 찾을 수 없어요. 비공개로 바뀌었거나 없는 강의예요. | 에러 화면 | CO-02, EN-01, SE-01, SE-02 |
 | `LESSON_NOT_FOUND` | 404 | 차시를 찾을 수 없습니다. | 에러 화면 | LE-01, LE-02, VD-01 |
 | `ALREADY_ENROLLED` | 409 | 이미 수강 중인 강의입니다. | flash | EN-01 |
 | `ALREADY_WAITING` | 409 | 이미 대기 중인 강의입니다. | flash | EN-01 |
 | `CANNOT_REAPPLY` | 409 | 다시 신청할 수 없는 강의입니다. | flash | CO-02, EN-01 |
 | `NO_ASSIGNABLE_SECTION` | 409 | 신청 가능한 분반이 없습니다. | flash | EN-01 |
-| `ENROLLMENT_NOT_FOUND` | 404 | 수강 정보를 찾을 수 없습니다. | 에러 화면 | EN-03, LE-01, LE-02, AS-01, IQ-02, IN-03 |
+| `ENROLLMENT_NOT_FOUND` | 404 | 수강 정보를 찾을 수 없어요. 나의 학습에서 강의를 다시 선택해 주세요. | 에러 화면 | EN-03, LE-01, LE-02, AS-01, IQ-02, IN-03 |
 | `ENROLLMENT_EXPIRED` | 403 | 수강 기간이 만료되었습니다. | 에러 화면 | LE-02, AS-02, AS-03, AS-04 |
 | `CANCEL_NOT_ALLOWED_DURING_REVIEW` | 409 | 평가 대기·진행 중에는 수강을 취소할 수 없습니다. | flash | EN-03 |
 | `SECTION_NOT_FOUND` | 404 | 분반을 찾을 수 없습니다. | 에러 화면 | SE-03, SE-04, IN-02 |
 | `CAPACITY_OUT_OF_RANGE` | 400 | 정원은 1~30명입니다. | flash | SE-02, SE-03 |
 | `CAPACITY_BELOW_ACTIVE` | 409 | 현재 수강 인원보다 정원을 줄일 수 없습니다. | flash | SE-03 |
 | `INSTRUCTOR_NOT_GRANTED` | 403 | 해당 취미 권한이 없는 강사입니다. | 에러 화면 | SE-02, SE-04 |
-| `VIDEO_ACCESS_DENIED` | 403 | 영상을 볼 수 있는 기간이 아닙니다. | 에러 화면 | LE-01, LE-02, VD-01 |
+| `INSTRUCTOR_HAS_SECTIONS` | 409 | 담당 분반이 있는 강사는 비활성화할 수 없어요. 분반 관리에서 담당 강사를 먼저 바꿔 주세요. … | A-S04 flash | AI-04 |
+| `GRANT_IN_USE` | 409 | 이 취미의 분반을 담당 중이라 권한을 회수할 수 없어요. 분반 관리에서 담당 강사를 먼저 바꿔 주세요. | A-S04 flash | AI-06 |
+| `VIDEO_ACCESS_DENIED` | 403 | 수강 기간이 끝났거나 취소한 강의라 영상을 볼 수 없어요. 수료한 강의는 기간과 관계없이 다시 볼 수 있어요. | 에러 화면 | LE-01, LE-02, VD-01 |
 | `LESSONS_NOT_COMPLETED` | 409 | 3차시를 모두 완료해야 제출할 수 있습니다. | flash | AS-02 |
 | `SUBMISSION_LOCKED` | 409 | 평가가 시작되어 수정할 수 없습니다. | flash | AS-03 |
 | `ALREADY_SUBMITTED` | 409 | 이미 평가 대기 중인 과제가 있습니다. | flash | AS-02, AS-04 |
@@ -1618,7 +1628,7 @@
 | `FILE_SAVE_FAILED` | 500 | 파일 저장에 실패했습니다. | 에러 화면 | AS-02, MW-02 |
 | `REVIEW_NOT_FOUND` | 404 | 평가 정보를 찾을 수 없습니다. | 에러 화면 | AS-03, AS-05, RV-02 |
 | `NOT_ASSIGNED_INSTRUCTOR` | 403 | 담당 강사만 평가할 수 있습니다. | 에러 화면 | RV-02, RV-03, RV-04, RV-05, RV-06, II-02, II-03, IN-02, IN-03 |
-| `INVALID_REVIEW_STATE` | 409 | 현재 상태에서는 처리할 수 없습니다. | flash | EN-03, AS-05, RV-03, RV-04, RV-05, RV-06 |
+| `INVALID_REVIEW_STATE` | 409 | 지금 상태에서는 할 수 없는 작업이에요. 이미 처리되었거나 아직 평가가 끝나지 않았을 수 있어요. 화면을 새로 고쳐 확인해 주세요. | flash | EN-03, AS-05, RV-03, RV-04, RV-05, RV-06 |
 | `FEEDBACK_TOO_SHORT` | 400 | 피드백·반려 사유는 50자 이상이어야 합니다. | flash | RV-06 |
 | `CANNOT_CANCEL_START` | 409 | 평가 내용을 작성한 뒤에는 시작을 취소할 수 없습니다. | flash | RV-04 |
 | `RESUBMIT_NOT_ALLOWED` | 409 | 재제출할 수 없습니다. | flash | AS-04 |

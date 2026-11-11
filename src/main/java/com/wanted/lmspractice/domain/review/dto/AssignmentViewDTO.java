@@ -4,10 +4,12 @@ import com.wanted.lmspractice.domain.course.dto.CourseBriefDTO;
 import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
 import com.wanted.lmspractice.domain.review.entity.ReviewRound;
 import com.wanted.lmspractice.domain.review.entity.ReviewStatus;
+import com.wanted.lmspractice.domain.work.dto.WorkDTO;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
 /**
@@ -25,6 +27,9 @@ import lombok.ToString;
 public class AssignmentViewDTO {
 
     private Long enrollmentId;
+    /** 지금 제출돼 있는 최종 과제(표시 중인 버전의 제목·설명·이미지). 아직 제출 전이면 null */
+    @Setter
+    private WorkDTO submittedWork;
     /** 사이드 메뉴 "수강 신청·대기"(강의 상세) 링크용 */
     private Long courseId;
     /** 사이드 메뉴 "차시 영상 학습" 링크용 — 강의의 1차시. 차시가 없으면 null */

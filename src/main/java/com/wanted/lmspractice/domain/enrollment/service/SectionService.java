@@ -31,7 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 2 · #10   [화면] A-S05   [기획] FR-052, D-52, D-59   [API] SE-01~04
  * [연결]
  *  - 호출받음: AdminSectionController(SE-01~04), AdminWaitlistController(WL-01 분반별 남은 자리),
- *             AdminInstructorController(#05, 담당 분반 수 — C6), 팀원 1 #07(C6 getSectionsByInstructor),
+ *             AdminInstructorController(#05, 담당 분반 수 — C6, 강사 비활성화·권한 회수 — deactivateInstructor·revokeHobbyGrant),
+ *             팀원 1 #07(C6 getSectionsByInstructor),
  *             팀원 3 #14·팀원 4(C6 getCurrentInstructorId — 평가 권한·작품 열람·문의)
  *  - 호출함:   CourseSectionRepository(잠금·저장), EnrollmentRepository(활성 수강 수), SectionQuery(현황 조회),
  *             CourseService(강의 확인·취미 id), InstructorAccountService(강사 확인·C3 hasHobbyGrant),
@@ -203,6 +204,61 @@ public class SectionService {
         }
         sectionRepository.flush();  // 배정 대상(assignable)이 된 것을 fillVacancies의 native 조회가 보도록 먼저 반영
         return seatService.fillVacancies(section.getCourseId());
+    }
+
+    // ───────────────────────── 강사 상태와 담당 분반 (AI-04·AI-06) ─────────────────────────
+    // InstructorAccountService가 이 서비스를 주입하면 순환 참조가 되므로(그쪽 [주의] 참고),
+    // "담당 분반과 엮인 강사 계정 변경"은 이 서비스가 맡아 한 트랜잭션으로 처리한다.
+
+    /**
+     * 강사 비활성화 (AI-04).
+     * - 평소(emergency = false): 담당 분반이 있으면 거부한다 — 관리자가 분반 담당을 먼저 바꾸게 한다(D-59 "강사 교체 = 분반 담당 변경").
+     * - 긴급(emergency = true, 갑작스러운 이탈·정지): 바로 비활성화하고 그 강사의 분반을 모두 담당 공백으로 바꾼다.
+     *   담당 공백 분반은 신규 배정에서 빠지고(D-52) 관리자 대시보드 "담당 공백 분반"에 나타나 바로 새 담당을 지정할 수 있다.
+     *   비활성 강사가 담당으로 남아 있으면 신규 학습자가 평가해 줄 사람이 없는 분반에 배정되기 때문이다.
+     * 호출: AdminInstructorController.changeStatus (POST /admin/instructors/{instructorId}/status, active=false)
+     *
+     * @return 담당 공백으로 바뀐 분반 수
+     * @throws BusinessException USER_NOT_FOUND, INSTRUCTOR_HAS_SECTIONS(평소 비활성화인데 담당 분반이 있음)
+     */
+    @Transactional
+    public int deactivateInstructor(Long instructorId, boolean emergency) {
+        instructorAccountService.getInstructor(instructorId);  // 강사가 아니면 USER_NOT_FOUND
+        if (!emergency && sectionRepository.existsByInstructorId(instructorId)) {
+            throw new BusinessException(ErrorCode.INSTRUCTOR_HAS_SECTIONS);
+        }
+        instructorAccountService.changeStatus(instructorId, false);  // 로그인 중인 세션도 끊는다
+
+        int released = 0;
+        for (Long courseId : sectionRepository.findCourseIdsByInstructorId(instructorId)) {
+            // 신청·대기 확정과 같은 순서로 강의 분반 행을 먼저 잠근 뒤 바꾼다 (배정 중인 신청과 겹치지 않게)
+            for (CourseSection section : sectionRepository.findByCourseIdForUpdate(courseId)) {
+                if (instructorId.equals(section.getInstructorId())) {
+                    section.releaseInstructor();  // 변경 감지로 저장
+                    released++;
+                }
+            }
+        }
+        return released;
+    }
+
+    /**
+     * 취미 활동 권한 회수 (AI-06) — 그 취미의 분반을 담당 중이면 거부한다(API 💡 "담당 중이면 거부").
+     * 권한 없는 강사가 분반 담당으로 남지 않게 한다(담당 지정 때 checkAssignable과 같은 규칙).
+     * 호출: AdminInstructorController.revokeHobby (POST /admin/instructors/{instructorId}/hobbies/{hobbyId}/revoke)
+     *
+     * @throws BusinessException USER_NOT_FOUND, HOBBY_NOT_FOUND, GRANT_IN_USE(그 취미 분반 담당 중)
+     */
+    @Transactional
+    public void revokeHobbyGrant(Long instructorId, Long hobbyId) {
+        boolean teachesHobby = sectionQuery.findByInstructorId(instructorId).stream()
+                .map(SectionDTO::getCourseId)
+                .distinct()
+                .anyMatch(courseId -> hobbyId.equals(findCourse(courseId).getHobbyId()));
+        if (teachesHobby) {
+            throw new BusinessException(ErrorCode.GRANT_IN_USE);
+        }
+        instructorAccountService.revokeHobby(instructorId, hobbyId);
     }
 
     // ───────────────────────── 계약 C6 ─────────────────────────

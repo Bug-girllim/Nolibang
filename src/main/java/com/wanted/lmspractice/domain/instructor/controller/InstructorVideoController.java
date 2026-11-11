@@ -4,11 +4,14 @@ import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import com.wanted.lmspractice.domain.course.service.LessonVideoService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.file.UploadedVideo;
+import com.wanted.lmspractice.global.file.VideoRangeCheck;
 import com.wanted.lmspractice.global.file.VideoStorage;
+import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -70,11 +74,18 @@ public class InstructorVideoController {
 
     /** 미리보기 — 자기 영상만(남의 영상은 404) */
     @GetMapping("/file")
-    public ResponseEntity<Resource> preview(@AuthenticationPrincipal AuthDetails details, @RequestParam String key) {
+    public ResponseEntity<Resource> preview(@AuthenticationPrincipal AuthDetails details, @RequestParam String key,
+                                            @RequestHeader(value = HttpHeaders.RANGE, required = false) String range)
+            throws IOException {
+        Resource resource = new FileSystemResource(lessonVideoService.loadForPreview(key, details.getUserId()));
+        ResponseEntity<Resource> unsatisfiable = VideoRangeCheck.unsatisfiableOrNull(range, resource);   // 범위 밖이면 본문 없는 416
+        if (unsatisfiable != null) {
+            return unsatisfiable;
+        }
         return ResponseEntity.ok()
                 .contentType(VIDEO_MP4)
                 .cacheControl(CacheControl.noStore().cachePrivate())
-                .body(new FileSystemResource(lessonVideoService.loadForPreview(key, details.getUserId())));
+                .body(resource);
     }
 
     /** 차시 연결 — 권한 받은 취미의 차시만 */

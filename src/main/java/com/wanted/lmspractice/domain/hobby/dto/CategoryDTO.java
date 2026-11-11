@@ -64,6 +64,14 @@ public class CategoryDTO {
         return hobbies.stream().filter(HobbyDTO::isOperating).count();
     }
 
+    /**
+     * D-31 대분류 상태 재설정 필요 — 운영 중인데 운영 중 세부 취미가 하나도 없다(05 §3 조건이 깨짐).
+     * 시스템이 상태를 자동으로 바꾸지 않고 관리자 화면(A-S15·A-S02)에 표시만 한다. 관리자용 DTO(세부 취미 전체)에서 의미가 있다.
+     */
+    public boolean isStateResetNeeded() {
+        return state == ExposureState.OPERATING && getOperatingCount() == 0;
+    }
+
     /** 이 대분류 아래 공개(OPEN) 강의 수의 합 — 관리자 화면(A-S15)의 요약 숫자용. 세부 취미에 집계가 채워진 경우에만 의미가 있다 */
     public int getOpenCourseCount() {
         return hobbies.stream().mapToInt(HobbyDTO::getOpenCourseCount).sum();

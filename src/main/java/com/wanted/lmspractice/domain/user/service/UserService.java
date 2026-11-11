@@ -95,10 +95,25 @@ public class UserService {
         return loginId != null && !loginId.isBlank() && !userRepository.existsByLoginId(loginId.trim());
     }
 
-    /** 이메일 사용 가능 여부(true = 사용 가능). 호출: SignupController.signup 검증 단계 */
+    /** 이메일 사용 가능 여부(true = 사용 가능). 호출: AdminInstructorController(강사 계정 생성 검증 단계) */
     @Transactional(readOnly = true)
     public boolean isEmailAvailable(String email) {
         return email != null && !email.isBlank() && !userRepository.existsByEmail(email.trim().toLowerCase());
+    }
+
+    /**
+     * 학습자 가입용 이메일 사용 가능 여부(true = 사용 가능). 호출: SignupController.signup 검증 단계
+     * 탈퇴 후 30일이 지난 계정이 쥐고 있는 이메일은 signup 이 풀어 주므로 사용 가능으로 본다.
+     * isEmailAvailable 로 검사하면 가입 화면 단계에서 먼저 "이미 가입된 이메일"로 막혀 재가입이 영영 안 됐다.
+     */
+    @Transactional(readOnly = true)
+    public boolean isEmailAvailableForSignup(String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        return userRepository.findByEmail(email.trim().toLowerCase())
+                .map(user -> user.isEmailReleasable(LocalDateTime.now()))  // signup 의 releaseEmailIfExpired 와 같은 기준
+                .orElse(true);
     }
 
     /** 닉네임 사용 가능 여부(true = 사용 가능). 호출: SignupController.checkNickname (US-04) */
@@ -123,14 +138,19 @@ public class UserService {
 
     /**
      * 로그인 아이디의 계정 상태 조회 — 로그인이 막힌 이유(미인증/비활성)를 구분해 안내하려고 쓴다.
+     * 비밀번호까지 맞을 때만 상태를 돌려준다. Spring Security 는 비밀번호 비교 전에 isEnabled 를 먼저 검사하므로,
+     * 비밀번호 확인 없이 상태를 알려 주면 비밀번호를 모르는 사람도 "이 아이디가 있고 미인증/비활성"임을 알 수 있다.
+     * 비밀번호가 틀리면 빈 값 → 호출한 쪽이 아이디·비밀번호 불일치와 같은 문구를 보여 준다.
      * 호출: AuthFailHandler.onAuthenticationFailure (DisabledException일 때만)
      */
     @Transactional(readOnly = true)
-    public Optional<UserStatus> findStatusByLoginId(String loginId) {
-        if (loginId == null || loginId.isBlank()) {
+    public Optional<UserStatus> findStatusByLoginId(String loginId, String rawPassword) {
+        if (loginId == null || loginId.isBlank() || rawPassword == null) {
             return Optional.empty();
         }
-        return userRepository.findByLoginId(loginId.trim()).map(User::getStatus);
+        return userRepository.findByLoginId(loginId.trim())
+                .filter(user -> passwordEncoder.matches(rawPassword, user.getPasswordHash()))
+                .map(User::getStatus);
     }
 
     // ───────────────────────── #06 계정 설정·비밀번호 재설정 ─────────────────────────

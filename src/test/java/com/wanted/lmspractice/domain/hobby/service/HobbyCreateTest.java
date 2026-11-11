@@ -85,9 +85,15 @@ class HobbyCreateTest {
     @Test
     @DisplayName("대분류 상태를 바꾸면 노출 규칙이 바로 따라간다 (공예: 준비 중 → 운영 중이면 비회원에게 보임, 비공개면 강사에게도 숨김)")
     void changeCategoryState() {
-        final long craft = 3L;  // 시드: 공예(준비 중)
+        final long craft = 3L;     // 시드: 공예(준비 중)
+        final long woodwork = 4L;  // 시드: 목공(준비 중, 공예)
         assertThat(hobbyService.getCategories(null)).extracting(CategoryDTO::getId).doesNotContain(craft);
 
+        // 05 §3: 운영 중 세부 취미가 없으면 운영 중으로 바꿀 수 없다 → 목공을 먼저 운영 중으로
+        assertThatThrownBy(() -> hobbyService.changeCategoryState(craft, ExposureState.OPERATING))
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(ErrorCode.CATEGORY_NEEDS_OPERATING_HOBBY));
+        hobbyService.changeHobbyState(woodwork, ExposureState.OPERATING);
         String name = hobbyService.changeCategoryState(craft, ExposureState.OPERATING);
 
         assertThat(name).isEqualTo("공예");

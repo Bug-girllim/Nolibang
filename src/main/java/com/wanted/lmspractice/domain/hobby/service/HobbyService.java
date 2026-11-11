@@ -216,9 +216,14 @@ public class HobbyService {
      * 호출: AdminHobbyController.createCategory
      *
      * @return 만든 대분류 id
+     * @throws BusinessException CATEGORY_NEEDS_OPERATING_HOBBY — 운영 중으로 추가하려 함(세부 취미가 아직 없다)
      */
     @Transactional
     public Long createCategory(CategoryFormDTO form) {
+        // 새 대분류에는 세부 취미가 없으므로 운영 중으로 만들 수 없다 (05 §3) — 화면은 컨트롤러가 먼저 칸 오류로 막는다
+        if (form.getState() == ExposureState.OPERATING) {
+            throw new BusinessException(ErrorCode.CATEGORY_NEEDS_OPERATING_HOBBY);
+        }
         int sortOrder = categoryRepository.findTopByOrderBySortOrderDesc()
                 .map(category -> category.getSortOrder() + 1)
                 .orElse(1);
@@ -258,15 +263,51 @@ public class HobbyService {
     }
 
     /**
+     * 대분류를 운영 중으로 둘 수 있는지 — 운영 중인 세부 취미가 1개 이상 있어야 한다 (05 §3).
+     * 호출: AdminHobbyController(추가·편집 화면의 칸 오류), 이 클래스의 상태 변경 메서드(최종 확인)
+     *
+     * @param categoryIdOrNull 새로 추가하는 대분류면 null — 세부 취미가 없으므로 항상 false
+     */
+    @Transactional(readOnly = true)
+    public boolean canOperateCategory(Long categoryIdOrNull) {
+        return categoryIdOrNull != null && hobbyRepository.existsByCategoryIdAndState(categoryIdOrNull, ExposureState.OPERATING);
+    }
+
+    /**
+     * 이 세부 취미가 속한 대분류가 "운영 중인데 운영 중 세부 취미가 하나도 없는" 상태인지 (D-31 대분류 상태 재설정 필요).
+     * 세부 취미를 준비 중·비공개로 바꾸거나 다른 대분류로 옮겨 조건이 깨져도 대분류를 자동으로 바꾸지 않고 관리자에게 알린다.
+     * 호출: AdminHobbyController.changeHobbyState·updateHobby (저장 후 안내 문구)
+     *
+     * @return 재설정이 필요한 대분류 이름, 필요 없으면 null
+     */
+    @Transactional(readOnly = true)
+    public String categoryNeedingStateReset(Long categoryId) {
+        return categoryRepository.findById(categoryId)
+                .filter(category -> category.getState() == ExposureState.OPERATING && !canOperateCategory(categoryId))
+                .map(Category::getName)
+                .orElse(null);
+    }
+
+    /** 운영 중이 아니던 대분류를 운영 중으로 바꾸려는데 운영 중 세부 취미가 없으면 막는다. 이미 운영 중이면(이름만 편집 등) 막지 않는다(D-31) */
+    private void checkCanOperate(Category category, ExposureState newState) {
+        if (newState == ExposureState.OPERATING && category.getState() != ExposureState.OPERATING
+                && !canOperateCategory(category.getId())) {
+            throw new BusinessException(ErrorCode.CATEGORY_NEEDS_OPERATING_HOBBY);
+        }
+    }
+
+    /**
      * 대분류 노출 상태 바꾸기 (A-S15 대분류 상태 편집). 호출: AdminHobbyController.changeCategoryState
      *
      * @return 바꾼 대분류 이름(안내 문구용)
-     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류,
+     *                           CATEGORY_NEEDS_OPERATING_HOBBY — 운영 중 세부 취미 없이 운영 중으로 바꾸려 함
      */
     @Transactional
     public String changeCategoryState(Long categoryId, ExposureState state) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        checkCanOperate(category, state);
         category.changeState(state);
         catalogCache.invalidate();
         return category.getName();
@@ -306,12 +347,14 @@ public class HobbyService {
     /**
      * 대분류 편집 (A-S02) — 이름·노출 상태. 호출: AdminHobbyController.updateCategory
      *
-     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류
+     * @throws BusinessException HOBBY_NOT_FOUND — 없는 대분류,
+     *                           CATEGORY_NEEDS_OPERATING_HOBBY — 운영 중 세부 취미 없이 운영 중으로 바꾸려 함
      */
     @Transactional
     public void updateCategory(Long categoryId, CategoryFormDTO form) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        checkCanOperate(category, form.getState());
         category.update(form.getTrimmedName(), form.getState());
         catalogCache.invalidate();
     }

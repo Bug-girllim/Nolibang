@@ -12,6 +12,7 @@ import com.wanted.lmspractice.domain.course.service.CourseService;
 import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
 import com.wanted.lmspractice.domain.enrollment.entity.EnrollmentStatus;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
+import com.wanted.lmspractice.domain.learning.policy.VideoAccessPolicy;
 import com.wanted.lmspractice.domain.review.dto.BadgeDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewDetailDTO;
 import com.wanted.lmspractice.domain.review.entity.ReviewRound;
@@ -51,7 +52,8 @@ class ReviewResultServiceTest {
         courseService = mock(CourseService.class);
         badgeService = mock(BadgeService.class);
         instructorService = mock(InstructorAccountService.class);
-        service = new ReviewResultService(repository, enrollmentService, courseService, badgeService, instructorService);
+        service = new ReviewResultService(repository, enrollmentService, courseService, badgeService, instructorService,
+                new VideoAccessPolicy());
 
         when(courseService.getCourseBriefs(anyCollection())).thenReturn(
                 Map.of(1L, new CourseBriefDTO(1L, 7L, "색연필화", true, CourseLevel.INTERMEDIATE, "색연필화 응용")));

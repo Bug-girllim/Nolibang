@@ -36,6 +36,9 @@ public interface LessonProgressRepository extends JpaRepository<LessonProgress, 
     /** [성능 개선] 여러 수강의 차시 진도를 한 번에. 호출: ProgressService.getProgressByEnrollmentIds */
     List<LessonProgress> findByEnrollmentIdIn(Collection<Long> enrollmentIds);
 
+    /** 한 차시의 모든 학습자 진도 — 차시 영상이 바뀌었을 때 새 길이에 맞추려고 쓴다. 호출: ProgressService.applyLessonDuration */
+    List<LessonProgress> findByLessonId(Long lessonId);
+
     /** 완료한 차시 수 (3이면 최종 과제 제출 가능). 호출: ProgressService.isAllCompleted */
     long countByEnrollmentIdAndCompletedAtIsNotNull(Long enrollmentId);
 }

@@ -3,22 +3,24 @@ spring:
     name: lms-practice
 
   # ==================================================
-  # 1. MySQL DB 연결
+  # 1. MySQL DB 연결 — 기본은 항상 로컬 MySQL
   # ==================================================
-  # 환경변수 미설정: 로컬 MySQL 사용
-  # 환경변수 설정: 공용 MySQL 사용
+  # 공용 원격 DB(Aiven)는 왕복이 길어 화면이 느려서, 실행·테스트 기본값은 로컬 DB로 둔다.
+  # 환경변수 DB_URL·DB_USERNAME·DB_PASSWORD 가 설정돼 있어도 기본 실행에서는 쓰지 않는다.
   #
-  # DB_URL
-  # DB_USERNAME
-  # DB_PASSWORD
+  # 공용 DB로 실행하려면 프로필 shared 를 켠다 (application-shared.yaml 이 DB_URL·DB_USERNAME·DB_PASSWORD 를 읽는다)
+  #   - IntelliJ: 실행 설정 → Active profiles 에 shared
+  #   - 환경변수: SPRING_PROFILES_ACTIVE=shared
+  # 배포(prod 프로필)도 DB_URL·DB_USERNAME·DB_PASSWORD 를 읽는다 (application-prod.yaml)
   #
+  # 로컬 MySQL 계정이 wanted/wanted 가 아니면 LOCAL_DB_URL·LOCAL_DB_USERNAME·LOCAL_DB_PASSWORD 로 바꿀 수 있다.
   # 공용 DB 비밀번호는 GitHub에 올리지 않는다.
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL:jdbc:mysql://localhost:3306/nolibang?characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
-    username: ${DB_USERNAME:wanted}
-    password: ${DB_PASSWORD:wanted}
+    url: ${LOCAL_DB_URL:jdbc:mysql://localhost:3306/nolibang?characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${LOCAL_DB_USERNAME:wanted}
+    password: ${LOCAL_DB_PASSWORD:wanted}
 
     # ── 1-1. DB 왕복 줄이기 (공용 원격 DB는 왕복 1번에 100ms 이상이라, 쿼리 수보다 "주고받는 횟수"가 속도를 정한다) ──
     # 기본 설정이면 @Transactional 메서드 하나마다 쿼리와 별개로 아래 명령이 DB와 따로따로 오간다:
