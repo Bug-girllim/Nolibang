@@ -5,6 +5,8 @@ import com.wanted.lmspractice.domain.course.entity.Course;
 import com.wanted.lmspractice.domain.course.entity.Lesson;
 import com.wanted.lmspractice.domain.course.repository.CourseRepository;
 import com.wanted.lmspractice.domain.course.repository.LessonRepository;
+import com.wanted.lmspractice.domain.enrollment.dto.SectionDTO;
+import com.wanted.lmspractice.domain.enrollment.service.SectionService;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.learning.service.ProgressService;
@@ -31,11 +33,13 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * [역할] 관리자·강사 영상 업로드 — 올리기·목록·미리보기·삭제 + 차시 연결(lessons.video_key·duration_sec 변경)
  *   - 관리자(instructorId = null): 모든 영상·모든 차시
- *   - 강사(instructorId): 자기가 올린 영상만, 활동 권한을 받은 취미의 차시에만 연결 (계약 C3 hasHobbyGrant)
+ *   - 강사(instructorId): 자기가 올린 영상만, 자기가 담당하는 강의(담당 분반이 있는 강의)의 차시에만 연결 — 취미 활동 권한(계약 C3)도 함께 확인.
+ *     같은 취미의 다른 강사 강의 차시는 권한이 있어도 바꿀 수 없다(팀 결정 2026-11-11)
  *   - 새 테이블 없음: 영상 파일은 폴더(VideoStorage), 연결 정보는 기존 lessons 표의 video_key 칸
  * [연결]
  *  - 호출받음: AdminVideoController(/admin/videos), InstructorVideoController(/instructor/videos)
  *  - 호출함:   VideoStorage(파일), LessonRepository·CourseRepository(같은 도메인), HobbyService(취미 이름), InstructorAccountService.hasHobbyGrant(C3),
+ *             SectionService.getSectionsByInstructor(계약 C6 — 강사의 담당 분반 → 담당 강의),
  *             ProgressService.applyLessonDuration(영상 연결로 길이가 바뀌면 기존 학습자 진도를 새 길이에 맞춤)
  * ❓ D-59(영상은 개발자가 폴더에 넣고 시드에 적는다)와 다른 기능 — 팀 공유 필요. 시드를 다시 적재하면 연결은 시드 값으로 돌아간다.
  * [기술] 🟢 @Service·@Transactional(변경 감지로 저장), 🟢 Stream
@@ -50,6 +54,7 @@ public class LessonVideoService {
     private final InstructorAccountService instructorAccountService;
     private final VideoStorage videoStorage;
     private final ProgressService progressService;
+    private final SectionService sectionService;
 
     /** 영상 목록 — 관리자는 전부, 강사는 자기가 올린 것만 */
     public List<UploadedVideo> getVideos(Long instructorIdOrNull) {
@@ -57,14 +62,16 @@ public class LessonVideoService {
     }
 
     /**
-     * 연결할 수 있는 차시 목록(취미·수준·차시 순서) — 관리자는 전체, 강사는 활동 권한을 받은 취미의 차시만.
+     * 연결할 수 있는 차시 목록(취미·수준·차시 순서) — 관리자는 전체, 강사는 담당 강의(활동 권한이 있는 취미)의 차시만.
      */
     @Transactional(readOnly = true)
     public List<LessonVideoOptionDTO> getLessonOptions(Long instructorIdOrNull) {
         List<Course> courses = courseRepository.findAllByOrderByHobbyIdAscLevelAsc();
         if (instructorIdOrNull != null) {
+            Set<Long> assigned = assignedCourseIds(instructorIdOrNull);
             Map<Long, Boolean> granted = new HashMap<>();   // 같은 취미를 여러 번 묻지 않도록
             courses = courses.stream()
+                    .filter(c -> assigned.contains(c.getId()))
                     .filter(c -> granted.computeIfAbsent(c.getHobbyId(),
                             hobbyId -> instructorAccountService.hasHobbyGrant(instructorIdOrNull, hobbyId)))
                     .toList();
@@ -114,7 +121,7 @@ public class LessonVideoService {
     /**
      * 차시에 영상 연결 — lessons.video_key 와 duration_sec(실제 영상 길이)를 바꾼다. 이전 영상 파일은 지우지 않는다.
      * @return 연결한 차시 이름 (예: 색연필화 · 입문 · 1차시)
-     * @throws BusinessException NOT_FOUND(영상 없음·남의 영상), VIDEO_DURATION_UNKNOWN, LESSON_NOT_FOUND, VIDEO_LINK_DENIED(권한 없는 취미)
+     * @throws BusinessException NOT_FOUND(영상 없음·남의 영상), VIDEO_DURATION_UNKNOWN, LESSON_NOT_FOUND, VIDEO_LINK_DENIED(담당하지 않는 강의·권한 없는 취미)
      */
     @Transactional
     public String linkVideo(String videoKey, Long lessonId, Long instructorIdOrNull) {
@@ -127,8 +134,9 @@ public class LessonVideoService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.LESSON_NOT_FOUND));
         Course course = courseRepository.findById(lesson.getCourseId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_NOT_FOUND));
-        if (instructorIdOrNull != null && !instructorAccountService.hasHobbyGrant(instructorIdOrNull, course.getHobbyId())) {
-            throw new BusinessException(ErrorCode.VIDEO_LINK_DENIED);
+        if (instructorIdOrNull != null && (!assignedCourseIds(instructorIdOrNull).contains(course.getId())
+                || !instructorAccountService.hasHobbyGrant(instructorIdOrNull, course.getHobbyId()))) {
+            throw new BusinessException(ErrorCode.VIDEO_LINK_DENIED);   // 같은 취미라도 남이 담당하는 강의의 차시는 바꿀 수 없다
         }
 
         BigDecimal newDuration = BigDecimal.valueOf(video.getDurationSec()).setScale(3, RoundingMode.HALF_UP);
@@ -153,6 +161,13 @@ public class LessonVideoService {
             throw new BusinessException(ErrorCode.VIDEO_IN_USE);
         }
         videoStorage.delete(videoKey);
+    }
+
+    /** 강사가 담당하는 강의 id — 지금 그 강사가 담당 강사로 지정된 분반이 하나라도 있는 강의 (담당 공백 분반·이전 담당은 제외) */
+    private Set<Long> assignedCourseIds(Long instructorId) {
+        return sectionService.getSectionsByInstructor(instructorId).stream()
+                .map(SectionDTO::getCourseId)
+                .collect(Collectors.toSet());
     }
 
     /** 업로드 영상 key 인지 확인하고, 강사면 자기 폴더 파일인지 확인한다 */

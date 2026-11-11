@@ -68,7 +68,7 @@ public enum ErrorCode {
     VIDEO_TOO_LARGE(HttpStatus.BAD_REQUEST, "영상은 500MB 이하여야 합니다."),
     VIDEO_DURATION_UNKNOWN(HttpStatus.BAD_REQUEST, "영상 길이를 읽을 수 없어 차시에 연결할 수 없습니다."),
     VIDEO_IN_USE(HttpStatus.CONFLICT, "차시에 연결된 영상은 삭제할 수 없습니다. 다른 영상으로 바꾼 뒤 삭제해 주세요."),
-    VIDEO_LINK_DENIED(HttpStatus.FORBIDDEN, "권한이 있는 취미의 차시에만 영상을 연결할 수 있습니다."),
+    VIDEO_LINK_DENIED(HttpStatus.FORBIDDEN, "내가 담당하는 강의의 차시에만 영상을 연결할 수 있습니다."),
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "평가 정보를 찾을 수 없습니다."),
     NOT_ASSIGNED_INSTRUCTOR(HttpStatus.FORBIDDEN, "담당 강사만 평가할 수 있습니다."),
     INVALID_REVIEW_STATE(HttpStatus.CONFLICT, "지금 상태에서는 할 수 없는 작업이에요. 이미 처리되었거나 아직 평가가 끝나지 않았을 수 있어요. 화면을 새로 고쳐 확인해 주세요."),

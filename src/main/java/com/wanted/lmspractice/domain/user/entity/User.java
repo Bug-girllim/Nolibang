@@ -34,7 +34,8 @@ public class User {
 
     /** 탈퇴 후 같은 이메일로 재가입할 수 없는 기간 (개인정보 처리방침 3항) */
     public static final int REJOIN_RESTRICTION_DAYS = 30;
-    private static final String ANONYMIZED_PREFIX = "withdrawn_";
+    /** 탈퇴 익명화 값의 접두어(아이디·닉네임·이메일). 닉네임으로는 예약어라 NicknamePolicy 가 막는다 — 남이 먼저 쓰면 그 회원의 탈퇴가 UNIQUE 충돌로 실패한다 */
+    public static final String ANONYMIZED_PREFIX = "withdrawn_";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
