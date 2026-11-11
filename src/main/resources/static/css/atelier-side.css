@@ -10,3 +10,7 @@
 .side .side-common a.here{background:#EEF2FA;color:#222B45;font-weight:700;box-shadow:inset 3px 0 0 #B59A60}
 .side .side-common a.here::after{content:"현재 위치";float:right;font-size:10.5px;font-weight:500;color:#68728D;line-height:20px}
 @media not all{.side nav{display:flex;flex-wrap:wrap;gap:4px;width:100%}.side .side-common a.here::after{content:none}}
+
+/* 갈 곳이 없는 메뉴(learning/side.html) — 위치는 유지하고 회색으로 눌러지지 않게 */
+.side .side-ctx a.off{color:#9AA0AE;cursor:not-allowed;pointer-events:auto}
+.side .side-ctx a.off:hover{background:transparent;color:#9AA0AE}

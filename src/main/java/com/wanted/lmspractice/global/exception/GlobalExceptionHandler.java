@@ -11,6 +11,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -159,6 +162,11 @@ public class GlobalExceptionHandler {
         ModelAndView mav = new ModelAndView("error/" + viewStatus(status));
         mav.setStatus(status);
         mav.addObject("status", status.value());
+        // @ControllerAdvice 의 @ModelAttribute(loginUser)는 예외 처리 화면에는 적용되지 않아서, 머리글이 비로그인으로 보이지 않게 직접 넣는다
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof AuthDetails details) {
+            mav.addObject("loginUser", details.getLoginUser());
+        }
         mav.addObject("message", message);
         if (!GENERIC_CODES.contains(code)) {
             mav.addObject("reason", message);  // 오류 화면 설명 줄을 이 이유로 바꿔 보여 준다(없으면 화면 기본 문구)
