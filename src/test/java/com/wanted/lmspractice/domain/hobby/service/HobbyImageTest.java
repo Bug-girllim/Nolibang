@@ -75,12 +75,12 @@ class HobbyImageTest {
         hobbyService.applyCategoryImage(1L, null, true);
         assertThat(categoryKey(1L)).isNull();
         assertThat(hobbyService.getCategories(Role.ADMIN).get(0).getImagePath()).isEqualTo(before.path());
-        assertThatThrownBy(() -> fileStorage.load(key)).isInstanceOf(BusinessException.class);   // 옛 파일은 지워졌다
+        assertThat(fileStorage.load(key)).exists();   // 옛 파일은 커밋 뒤에 지운다(#176) — 커밋 뒤 삭제는 HobbyImageCommitTest
     }
 
     @Test
-    @DisplayName("사진을 새로 올리면 이전 사진 파일은 지워진다 (교체)")
-    void replaceDeletesOldFile() {
+    @DisplayName("사진을 새로 올리면 표시 주소는 새 파일로 바뀌고, 이전 사진 파일은 커밋 전까지 남아 있다 (교체)")
+    void replaceKeepsOldFileUntilCommit() {
         hobbyService.applyCategoryImage(1L, png(), false);
         String first = categoryKey(1L);
         storedKeys.add(first);
@@ -90,7 +90,7 @@ class HobbyImageTest {
         storedKeys.add(second);
 
         assertThat(second).isNotEqualTo(first);
-        assertThatThrownBy(() -> fileStorage.load(first)).isInstanceOf(BusinessException.class);
+        assertThat(fileStorage.load(first)).exists();   // 커밋 전 — 커밋이 실패하면 DB가 다시 이 파일을 가리킨다
         assertThat(fileStorage.load(second)).exists();
     }
 
