@@ -64,7 +64,7 @@ public class NotificationController {
         return notificationService.open(auth.getUserId(), notificationId)
                 .map(url -> "redirect:" + url)
                 .orElseGet(() -> {
-                    redirectAttributes.addFlashAttribute("errorMessage", "알림이 가리키는 내용이 삭제되어 열 수 없어요.");
+                    redirectAttributes.addFlashAttribute("errorMessage", "알림이 가리키는 내용이 삭제되었거나 지금은 볼 수 없어요.");
                     return "redirect:/notifications";
                 });
     }

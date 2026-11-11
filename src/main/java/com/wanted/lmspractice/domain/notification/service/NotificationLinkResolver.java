@@ -34,7 +34,7 @@ public class NotificationLinkResolver {
             case WORK_HIDDEN, WORK_RESTORED ->
                     existsIn("works", id, " AND deleted_at IS NULL") ? Optional.of("/my/works/" + id + "/moderation") : Optional.empty();
             case COMMENT_ON_MY_WORK, REPLY_TO_MY_COMMENT, PUBLIC_COMMENT ->
-                    workIdOfComment(id).map(workId -> "/works/" + workId);
+                    workIdOfComment(id, n.getUserId()).map(workId -> "/works/" + workId);
             case INQUIRY_ANSWERED ->
                     existsIn("inquiry_threads", id, "") ? Optional.of("/inquiries/" + id) : Optional.empty();
             case INQUIRY_RECEIVED ->
@@ -53,12 +53,19 @@ public class NotificationLinkResolver {
         return count.longValue() > 0;
     }
 
-    /** 삭제된 댓글이나 삭제된 작품의 댓글이면 empty */
-    private Optional<Long> workIdOfComment(Long commentId) {
+    /**
+     * 댓글이 달린 작품 id. 삭제된 댓글·삭제된 작품이면 empty.
+     * 작품이 관리자 숨김·비공개로 바뀐 경우에도, 받는 사람이 작성자가 아니면 empty — 작품을 열 권한이 없어
+     * 링크를 따라가면 403 오류 화면이 됐다(강사의 공개 댓글 알림 등). empty 면 알림함에서 "볼 수 없어요"로 안내한다.
+     * 작성자는 숨김·비공개여도 자기 작품을 볼 수 있으므로 그대로 이동한다(WorkAccessPolicy 와 같은 기준).
+     */
+    private Optional<Long> workIdOfComment(Long commentId, Long recipientId) {
         List<?> rows = em.createNativeQuery(
                         "SELECT c.work_id FROM work_comments c JOIN works w ON w.id = c.work_id "
-                                + "WHERE c.id = :id AND c.status = 'NORMAL' AND w.deleted_at IS NULL")
+                                + "WHERE c.id = :id AND c.status = 'NORMAL' AND w.deleted_at IS NULL "
+                                + "AND ((w.visibility = 'PUBLIC' AND w.admin_hidden = FALSE) OR w.author_id = :recipientId)")
                 .setParameter("id", commentId)
+                .setParameter("recipientId", recipientId)
                 .getResultList();
         return rows.isEmpty() ? Optional.empty() : Optional.of(((Number) rows.get(0)).longValue());
     }
