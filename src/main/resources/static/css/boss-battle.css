@@ -1,0 +1,194 @@
+/* 보스 대치 화면 (bt-*) — 내 캐릭터 ↔ 취미별 보스, 학습 행동에 따른 짧은 연출
+   쓰는 곳: templates/game/character.html (#gm-battle), 연출 클래스는 static/js/boss-battle.js 가 붙였다 뗀다 */
+.gm-battle { background: linear-gradient(180deg, #FFFDF8 0%, #F6EFE0 100%); }
+/* 강의별 탭 — 누르면 그 보스와의 대치가 열린다 */
+.bt-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+.bt-tab { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 14px; min-height: 48px; border-radius: 12px;
+  border: 1.5px solid #D8C28A; background: #FFFDF8; color: #222B45; cursor: pointer; text-align: left; font: inherit; }
+.bt-tab:hover { background: var(--btn-main-l, #FBEBDD); border-color: var(--btn-main, #CC5500); }
+.bt-tab.on { background: var(--btn-main, #CC5500); border-color: var(--btn-main, #CC5500); color: #FFFDF8; }
+.bt-tab-name { font-weight: 700; font-size: 14.5px; }
+.bt-tab-sub { font-size: 12px; opacity: .85; }
+.bt-tab:focus-visible { outline: 3px solid var(--btn-main-ring, rgba(204, 85, 0, .28)); outline-offset: 2px; }
+.bt-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.bt-boss-name { margin: 0; font-size: 19px; }
+.bt-course { margin: 2px 0 0; }
+.bt-hp { flex: 1 1 220px; max-width: 360px; }
+.bt-hp .gm-bar i { transition: width 1s ease; }
+
+.bt-stage { position: relative; display: grid; grid-template-columns: 1fr minmax(60px, 120px) 1fr; align-items: end; justify-items: center;
+  min-height: 200px; margin: 10px 0 6px; padding: 14px 8px 0; overflow: hidden; border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 100%, #EFE5CF 0%, rgba(239, 229, 207, 0) 70%); }
+.bt-hero { position: relative; animation: btIdle 1.8s ease-in-out infinite; }
+.bt-hero img { display: block; width: 112px; height: 112px; object-fit: contain; }
+.bt-hit { position: absolute; top: -6px; right: -4px; font-size: 26px; opacity: 0; }
+.bt-boss { position: relative; width: 160px; height: 160px; animation: btFloat 3s ease-in-out infinite; transform-origin: 50% 90%; }
+.bt-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.bt-boss.lv-2 { width: 176px; height: 176px; }
+.bt-boss.lv-3 { width: 192px; height: 192px; }
+.bt-fx { position: relative; width: 100%; height: 100%; }
+.bt-tool, .bt-ult { position: absolute; left: 0; bottom: 70px; font-size: 34px; opacity: 0; line-height: 1; }
+.bt-ult { left: 50%; bottom: 40px; font-size: 64px; transform: translateX(-50%) scale(.4); }
+.bt-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 14px; border-radius: 999px;
+  background: #2C3552; color: #FFFDF8; font-size: 13px; font-weight: 700; z-index: 3; white-space: nowrap; }
+.bt-banner[hidden] { display: none; }
+.bt-sparkle { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+
+/* 방어막 — 강사 판정 대기 */
+.bt-shield { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid rgba(80, 160, 230, .75);
+  background: radial-gradient(circle, rgba(120, 190, 250, .12), rgba(120, 190, 250, .34)); animation: btShield 2s ease-in-out infinite; pointer-events: none; }
+/* 반려 — 보스가 붉게 달아오른 채 반격 대기 */
+.bt-REJECTED .bt-boss .bt-svg { filter: drop-shadow(0 0 8px rgba(214, 69, 69, .7)) saturate(1.2); }
+.bt-REJECTED .bt-hero img { filter: grayscale(.35); }
+/* 격파 */
+.bt-DEFEATED .bt-boss { animation: none; opacity: .18; filter: grayscale(1); transform: scale(.9); }
+.bt-DEFEATED .bt-hero { animation: btCheer 1.1s ease-in-out infinite; }
+
+.bt-todo { margin-top: 8px; }
+.bt-msg { margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #222B45; }
+.bt-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.bt-main { min-height: 48px; padding: 0 28px; font-size: 16px; }
+.bt-main:disabled { opacity: .55; cursor: not-allowed; }
+.bt-note { margin: 8px 0 0; font-size: 12.5px; }
+
+/* 격파 보상 */
+.bt-victory { margin-top: 12px; text-align: center; }
+.bt-done { margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #8E743E; }
+.bt-chest { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 28px; border: 0; border-radius: 16px;
+  background: linear-gradient(#FFF3D6, #F3D9A2); font-size: 56px; line-height: 1; cursor: pointer; box-shadow: 0 6px 18px rgba(184, 134, 11, .35);
+  animation: btChest 1s ease-in-out infinite; }
+.bt-chest span { font-size: 13px; font-weight: 700; color: #6E5F33; }
+.bt-chest[hidden], .bt-reward[hidden], .bt-done[hidden], .bt-reward-toggle[hidden], .bt-replay[hidden], .bt-panel[hidden] { display: none; }
+.bt-reward { margin: 10px auto 0; max-width: 460px; padding: 14px 18px; text-align: left; background: #FFFDF8; border: 1px solid #D8C28A; border-radius: 12px; }
+.bt-reward-title { margin: 0 0 6px; font-weight: 800; color: #8E743E; }
+.bt-reward ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.bt-reward-img { display: block; margin: 10px auto 0; width: 120px; height: 120px; object-fit: contain; }
+.bt-reward.bt-pop { animation: btPop .5s ease both; }
+
+/* ---- 연출 (JS가 클래스를 붙였다 뗀다) ---- */
+.bt-stage.play-attack .bt-tool { animation: btTool .9s ease-in forwards; }
+.bt-stage.play-attack .bt-boss { animation: btHit .5s ease .85s 1; }
+.bt-stage.play-attack .bt-hero { animation: btLunge .5s ease 0s 1; }
+.bt-stage.play-ult .bt-ult { animation: btUlt 1.4s ease-out forwards; }
+.bt-stage.play-ult .bt-boss { animation: btHit .9s ease .7s 1; }
+.bt-stage.play-ult .bt-hero { animation: btLunge .6s ease 0s 1; }
+.bt-stage.play-counter .bt-boss { animation: btCounter 1s ease 1; }
+.bt-stage.play-counter .bt-hit { animation: btHurt 1s ease .45s 1; }
+.bt-stage.play-counter .bt-hero { animation: btShake .5s ease .5s 1; }
+.bt-stage.play-defeat .bt-boss { animation: btDefeat 1.8s ease forwards; opacity: 1; filter: none; transform: none; }
+.bt-stage.play-defeat .bt-sparkle { animation: btSparkle 1.8s ease forwards; background:
+  radial-gradient(circle at 30% 40%, #FFF3A0 0 4px, transparent 5px), radial-gradient(circle at 70% 30%, #FFD1A0 0 5px, transparent 6px),
+  radial-gradient(circle at 55% 65%, #FFFFFF 0 4px, transparent 5px), radial-gradient(circle at 20% 70%, #FFE9A8 0 3px, transparent 4px),
+  radial-gradient(circle at 80% 70%, #FFF3A0 0 4px, transparent 5px); }
+
+@keyframes btIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes btCheer { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.04); } }
+@keyframes btFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes btShield { 0%, 100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.04); } }
+@keyframes btTool { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 85% { opacity: 1; transform: translate(150%, -30px) rotate(540deg); } 100% { opacity: 0; transform: translate(170%, -30px) rotate(600deg) scale(1.6); } }
+@keyframes btHit { 0%, 100% { transform: translateX(0); filter: none; } 20% { transform: translateX(10px); filter: brightness(1.8); } 40% { transform: translateX(-8px); } 60% { transform: translateX(6px); } 80% { transform: translateX(-4px); } }
+@keyframes btLunge { 0%, 100% { transform: translateX(0); } 40% { transform: translateX(26px); } }
+@keyframes btUlt { 0% { opacity: 0; transform: translateX(-50%) scale(.4); } 30% { opacity: 1; transform: translateX(-50%) scale(1.5); } 70% { opacity: 1; transform: translateX(10%) scale(1.8); } 100% { opacity: 0; transform: translateX(120%) scale(2.4); } }
+@keyframes btCounter { 0% { transform: translateX(0) scale(1); } 40% { transform: translateX(-80px) scale(1.12); } 55% { transform: translateX(-80px) scale(1.12); } 100% { transform: translateX(0) scale(1); } }
+@keyframes btHurt { 0%, 100% { opacity: 0; } 30%, 70% { opacity: 1; } }
+@keyframes btShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+@keyframes btDefeat { 0% { opacity: 1; transform: scale(1); filter: none; } 60% { opacity: .9; transform: scale(1.12); filter: brightness(2.4); } 100% { opacity: 0; transform: scale(1.5); filter: brightness(3) blur(6px); } }
+@keyframes btSparkle { 0% { opacity: 0; transform: scale(.6); } 50% { opacity: 1; } 100% { opacity: 0; transform: scale(1.4) translateY(-20px); } }
+@keyframes btChest { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
+@keyframes btPop { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 640px) {
+  .bt-stage { grid-template-columns: 1fr 60px 1fr; }
+  .bt-hero img { width: 84px; height: 84px; }
+  .bt-boss, .bt-boss.lv-2, .bt-boss.lv-3 { width: 120px; height: 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bt-hero, .bt-boss, .bt-shield, .bt-chest, .bt-DEFEATED .bt-hero { animation: none; }
+  .bt-hp .gm-bar i { transition: none; }
+}
+
+/* 완성 이미지 전투 무대 — 일반공격·필살기는 투명 PNG를 이동/확대해 재생한다. */
+.bt-stage {
+  grid-template-columns: 1fr minmax(20px,.25fr) 1fr; min-height: 330px; padding: 50px 16px 30px;
+  background: radial-gradient(ellipse at 24% 85%, #53618050 0%, transparent 35%),
+    radial-gradient(ellipse at 78% 80%, #94714550 0%, transparent 35%),
+    radial-gradient(circle at 15% 15%, #f9e2a9 0 1px, transparent 2px),
+    radial-gradient(circle at 65% 25%, #f9e2a9 0 1px, transparent 2px),
+    linear-gradient(160deg,#17223b,#2b3552 60%,#192238);
+  border: 1px solid #9e8659; box-shadow: inset 0 0 60px #090e2140;
+}
+.bt-hero { grid-column: 1; z-index: 1; }
+.bt-hero .gm-outfit-body { width: 210px; height: 210px; object-fit: contain; }
+.bt-hero-label { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  font-size: 12px; color: #fff2d5; background: #17223b; border: 1px solid #a88c50; padding: 3px 12px; border-radius: 999px; }
+.bt-boss { grid-column: 3; width: 220px; height: 220px; z-index: 1; }
+.bt-boss.lv-2 { width: 238px; height: 238px; }
+.bt-boss.lv-3 { width: 254px; height: 254px; }
+.bt-monster-art { position: relative; }
+.bt-monster-art .bt-monster-img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.bt-monster-crown { position: absolute; top: -20px; left: calc(50% - 30px); width: 60px; height: 60px; object-fit: contain; }
+.bt-monster-rank { position: absolute; right: 0; bottom: -16px; padding: 3px 8px; color: #ffe8b0; background: #17223b; border: 1px solid #b99b5e; border-radius: 999px; font-size: 10px; letter-spacing: .08em; }
+.bt-fx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+.bt-tool { left: 23%; bottom: 32%; width: 120px; height: 120px; }
+.bt-ult { left: 52%; top: 42%; bottom: auto; width: 240px; height: 240px; transform: translate(-50%,-50%) scale(.4); }
+.bt-tool img, .bt-ult img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.bt-hit { z-index: 7; top: 24%; right: 12%; width: 72px; height: 72px; }
+.bt-hero .bt-hit img { width: 100%; height: 100%; object-fit: contain; }
+.bt-shield { inset: -10px; border: 0; background: radial-gradient(circle,#8bcff521,transparent 70%); z-index: 3; }
+.bt-shield img { width: 100%; height: 100%; object-fit: contain; opacity: .68; }
+.bt-banner { max-width: calc(100% - 24px); white-space: normal; width: max-content; text-align: center; line-height: 1.5;
+  top: 12px; border: 1px solid #b99b5e; background: #17223bf0; color: #ffe8ad; z-index: 8; }
+.bt-skills { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 16px; }
+.bt-skill { display: flex; align-items: center; gap: 12px; text-align: left; border: 1px solid #d8c28a; border-radius: 12px;
+  padding: 10px 14px; background: #fffaf0; color: #243458; font: inherit; cursor: pointer; }
+.bt-skill:hover { border-color: #b08a3f; box-shadow: 0 3px 12px #17223b15; }
+.bt-skill:focus-visible { outline: 3px solid #b99b5e; outline-offset: 2px; }
+.bt-skill:disabled { opacity: .6; cursor: wait; }
+.bt-skill img { width: 64px; height: 64px; object-fit: contain; flex: none; }
+.bt-skill span { display: grid; gap: 3px; min-width: 0; }
+.bt-skill small { color: #716760; font-size: 11px; }
+.bt-skill b { font-size: 15px; }
+.bt-learning-actions { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; margin: 16px 0; }
+.bt-learning-action { display: flex; align-items: center; flex-direction: column; gap: 4px; padding: 10px 4px;
+  border: 1px solid #e2d7c3; background: #fffdf8; border-radius: 12px; text-align: center; }
+.bt-learning-action img { width: 52px; height: 52px; object-fit: contain; }
+.bt-learning-action b { font-size: 12px; }
+.bt-learning-action span { color: #716760; font-size: 11px; }
+.bt-learning-action.is-current { border-color: #b28b3f; background: #fff5dd; box-shadow: inset 0 0 0 1px #e8d4a6; }
+.bt-chest { padding: 8px 24px 14px; }
+.bt-chest img { width: 140px; height: 140px; object-fit: contain; }
+.bt-reward-outfit { width: 160px; margin: 10px auto 0; }
+.bt-reward-outfit .bt-reward-img { width: 140px; height: 140px; margin: auto; }
+.bt-reward-outfit .gm-rank-medal { bottom: 16px; right: 12%; }
+.bt-reward-outfit img.gm-rank-crown { top: -10px; }
+@keyframes btTool {
+  0% { opacity: 0; transform: translateX(0) scale(.65); }
+  15% { opacity: 1; }
+  80% { opacity: 1; transform: translateX(var(--bt-travel,240px)) scale(1.15); }
+  100% { opacity: 0; transform: translateX(var(--bt-travel,240px)) scale(1.7); }
+}
+@keyframes btUlt {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.2) rotate(-12deg); }
+  35% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+  70% { opacity: 1; transform: translate(-20%,-50%) scale(1.35) rotate(8deg); }
+  100% { opacity: 0; transform: translate(10%,-50%) scale(1.7); }
+}
+@media (max-width: 640px) {
+  .bt-stage { grid-template-columns: 1fr 8px 1fr; min-height: 240px; padding: 48px 6px 28px; }
+  .bt-hero .gm-outfit-body { width: 128px; height: 150px; }
+  .bt-boss, .bt-boss.lv-2, .bt-boss.lv-3 { width: 144px; height: 158px; }
+  .bt-tool { left: 16%; width: 90px; height: 90px; }
+  .bt-ult { width: 180px; height: 180px; }
+  .bt-learning-actions { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .bt-hero .gm-rank-medal { right: 6%; bottom: 18px; }
+  .bt-hero img.gm-rank-crown { width: 38px; height: 38px; left: calc(50% - 19px); }
+}
+@media (max-width: 420px) {
+  .bt-hero .gm-outfit-body { width: 108px; height: 140px; }
+  .bt-boss, .bt-boss.lv-2, .bt-boss.lv-3 { width: 120px; height: 144px; }
+  .bt-skills { grid-template-columns: 1fr; }
+  .bt-learning-actions { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bt-stage *, .bt-chest, .bt-reward.bt-pop { animation: none !important; transition: none !important; }
+}

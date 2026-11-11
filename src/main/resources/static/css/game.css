@@ -128,3 +128,62 @@
 .gm-toast[hidden] { display: none; }
 .gm-toast.ok { background: #2b3a2f; color: #fff; }
 .gm-toast.warn { background: #fff4d6; color: #5c3b00; border: 2px solid #d4a017; font-weight: 700; }
+
+/* 선택 동물의 취미 의상과 단계 휘장: 동물 정체성은 모든 단계에서 유지한다. */
+.gm-outfit { position: relative; isolation: isolate; }
+.gm-rank-medal { position: absolute; bottom: 30px; right: 18%; width: 28px; height: 28px;
+  display: grid; place-items: center; z-index: 3; border: 2px solid #fff2d5; border-radius: 50%;
+  color: #fff9ed; background: #ad794b; box-shadow: 0 2px 6px #17223b30; font-size: 13px; }
+.gm-rank-medal::before { content: '✦'; }
+.rank-skilled .gm-rank-medal { background: linear-gradient(135deg,#dce6ee,#8194a5); color: #243458; }
+.rank-skilled .gm-rank-medal::before { content: '✦✦'; font-size: 9px; }
+.rank-expert .gm-rank-medal, .rank-master .gm-rank-medal { background: linear-gradient(135deg,#ffe7a0,#b68a3b); color: #604316; }
+.rank-expert .gm-rank-medal::before { content: '✦✦✦'; font-size: 7px; }
+.rank-master .gm-rank-medal::before { content: '★'; }
+.gm-outfit img.gm-rank-crown { position: absolute; top: 0; left: calc(50% - 24px); width: 48px; height: 48px; object-fit: contain; z-index: 4; filter: drop-shadow(0 0 7px #ffd77890); }
+.gm-job-art.rank-skilled { box-shadow: inset 0 0 0 1px #b3c1cd; }
+.gm-job-art.rank-expert { box-shadow: inset 0 0 0 1px #d8b875; }
+.gm-job-art.rank-master { box-shadow: inset 0 0 0 2px #cda34b, 0 0 16px #f3d36b30; }
+.gm-outfit .gm-rank-crown[hidden] { display: none; }
+
+/* 왕관은 직업 단계와 독립된 장착 슬롯이다. 선택 동물·의상 위에 겹친다. */
+.gm-card-crown { position: absolute; z-index: 4; top: 8px; left: calc(50% - 21px); width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 2px 4px #9d702650); }
+.gm-promotion-replay { margin: 2px 0 8px; font-size: 12px; }
+.gm-promotion { width: min(740px,calc(100% - 24px)); max-height: calc(100dvh - 32px); overflow: auto;
+  border: 1px solid #b99b5e; border-radius: 22px; padding: 0; background: #fbf7ee; color: #243458;
+  box-shadow: 0 24px 100px #10192d60; }
+.gm-promotion::backdrop { background: #10192dbb; backdrop-filter: blur(5px); }
+.gm-promotion-inner { padding: 28px; text-align: center; position: relative; }
+.gm-promotion-close { position: absolute; right: 14px; top: 12px; font-size: 12px; }
+.gm-promotion-eyebrow { color: #9d7838; font-size: 11px; letter-spacing: .18em; margin: 20px 0 8px; }
+.gm-promotion h2 { margin: 0 0 8px; font-size: clamp(20px,4vw,27px); }
+.gm-ceremony { position: relative; display: grid; grid-template-columns: .85fr 1.15fr; align-items: end; justify-items: center;
+  min-height: 310px; padding: 30px 30px 18px; margin-top: 20px; border-radius: 16px; overflow: hidden;
+  background: radial-gradient(ellipse at 65% 85%,#d1a95555,transparent 50%),
+    radial-gradient(circle at 20% 20%,#f8e1aa 0 1px,transparent 2px), linear-gradient(150deg,#17223b,#354160); }
+.gm-ceremony::after { content: ''; position: absolute; left: 45%; right: 7%; bottom: 18px; height: 20px;
+  border: 1px solid #e5c779aa; border-radius: 50%; box-shadow: 0 0 18px #ffd77870; pointer-events: none; }
+.gm-ceremony-hermes { display: block; width: 180px; height: 230px; object-fit: contain; z-index: 1; filter: drop-shadow(0 6px 9px #0004); }
+.gm-ceremony-avatar { width: 240px; height: 260px; position: relative; z-index: 2; }
+.gm-ceremony-body { display: block; width: 100%; height: 100%; object-fit: contain; }
+.gm-ceremony-crown { position: absolute; top: 0; left: calc(50% - 35px); width: 70px; height: 70px; object-fit: contain; z-index: 3; filter: drop-shadow(0 0 10px #ffdf9790); }
+.is-awarding .gm-ceremony-crown { animation: gmCoronation 2.3s cubic-bezier(.2,.6,.3,1) both; }
+.is-awarding .gm-ceremony-hermes { animation: gmHermesBless 2.3s ease both; }
+.gm-promotion-message { margin: 18px 0; font-size: 14px; line-height: 1.8; }
+@keyframes gmCoronation {
+  0% { opacity: 0; transform: translate(-150px,30px) scale(.6) rotate(-16deg); }
+  20% { opacity: 1; transform: translate(-120px,-20px) scale(.85) rotate(-8deg); }
+  65% { opacity: 1; transform: translate(0,-28px) scale(1.06); }
+  85%,100% { opacity: 1; transform: translate(0,0) scale(1); }
+}
+@keyframes gmHermesBless { 0%,100% { transform: translateY(0); } 40%,65% { transform: translateY(-8px); } }
+@media (max-width: 520px) {
+  .gm-promotion-inner { padding: 18px 12px; }
+  .gm-ceremony { min-height: 240px; padding: 26px 4px 16px; gap: 4px; }
+  .gm-ceremony-hermes { width: 118px; height: 180px; }
+  .gm-ceremony-avatar { width: 160px; height: 200px; }
+  .gm-ceremony-crown { width: 48px; height: 48px; left: calc(50% - 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-awarding .gm-ceremony-crown, .is-awarding .gm-ceremony-hermes { animation: none; }
+}

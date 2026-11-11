@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.wanted.lmspractice.domain.game.dto.AchievementDTO;
+import com.wanted.lmspractice.domain.game.dto.AvatarGroupDTO;
 import com.wanted.lmspractice.domain.game.dto.CharacterPageDTO;
 import com.wanted.lmspractice.domain.game.dto.GuildPageDTO;
 import com.wanted.lmspractice.domain.game.dto.QuestDTO;
@@ -67,7 +68,8 @@ class GameServiceTest {
         assertThat(page.getXpLines()).hasSize(7);
         assertThat(page.getDailyQuests()).isNotEmpty();
         assertThat(page.getWeeklyQuests()).isNotEmpty();
-        assertThat(page.getAvatarGroups()).hasSize(3);
+        assertThat(page.getAvatarGroups()).extracting(AvatarGroupDTO::getSlot)
+                .containsExactly("AVATAR", "OUTFIT", "HEAD", "FRAME", "NAME_COLOR");
         assertThat(page.getClasses()).isNotEmpty();
         // 경험치 내역의 합 = 총 경험치
         assertThat(page.getXpLines().stream().mapToLong(l -> l.getXp()).sum()).isEqualTo(page.getCharacter().getTotalXp());
@@ -106,8 +108,11 @@ class GameServiceTest {
         assertThat(gameService.equip(LEARNER, "AVATAR", "chick")).isEqualTo(EquipResult.EQUIPPED);
         assertThat(userAvatarRepository.findById(LEARNER)).get().extracting("avatarCode").isEqualTo("chick");
 
-        assertThat(gameService.equip(LEARNER, "AVATAR", "crown")).isEqualTo(EquipResult.LOCKED);   // 마스터 배지 없이는 잠김
-        assertThat(userAvatarRepository.findById(LEARNER)).get().extracting("avatarCode").isEqualTo("chick");   // 바뀌지 않았다
+        assertThat(gameService.equip(LEARNER, "HEAD", "crown")).isEqualTo(EquipResult.LOCKED);   // 마스터 배지 없이는 잠김
+        assertThat(userAvatarRepository.findById(LEARNER)).get().extracting("headCode").isNull();   // 머리 장식은 바뀌지 않았다
+        assertThat(userAvatarRepository.findById(LEARNER)).get().extracting("avatarCode").isEqualTo("chick");   // 동물도 그대로
+        assertThatThrownBy(() -> gameService.equip(LEARNER, "AVATAR", "crown"))   // 왕관은 더 이상 동물 목록에 없다
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
 
         assertThatThrownBy(() -> gameService.equip(LEARNER, "AVATAR", "nothing"))
                 .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));

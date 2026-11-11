@@ -32,6 +32,12 @@ public class UserAvatar {
     @Column(name = "name_color_code", length = 30)
     private String nameColorCode;
 
+    @Column(name = "outfit_code", length = 30)
+    private String outfitCode;
+
+    @Column(name = "head_code", length = 30)
+    private String headCode;
+
     public static UserAvatar create(Long userId) {
         UserAvatar avatar = new UserAvatar();
         avatar.userId = userId;
@@ -43,6 +49,8 @@ public class UserAvatar {
             case AVATAR -> this.avatarCode = code;
             case FRAME -> this.frameCode = code;
             case NAME_COLOR -> this.nameColorCode = code;
+            case OUTFIT -> this.outfitCode = code;
+            case HEAD -> this.headCode = code;
         }
     }
 
@@ -51,6 +59,8 @@ public class UserAvatar {
             case AVATAR -> avatarCode;
             case FRAME -> frameCode;
             case NAME_COLOR -> nameColorCode;
+            case OUTFIT -> outfitCode;
+            case HEAD -> headCode;
         };
     }
 }

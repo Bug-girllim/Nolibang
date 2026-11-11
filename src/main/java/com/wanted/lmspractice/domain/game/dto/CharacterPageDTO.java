@@ -14,6 +14,7 @@ public class CharacterPageDTO {
     private List<QuestDTO> weeklyQuests;
     private List<HobbyClassDTO> classes;
     private List<BossDTO> bosses;
+    private BossDTO featuredBoss;                  // 대치 화면에 크게 보여 줄 보스(없으면 null)
     private List<AvatarGroupDTO> avatarGroups;
     private List<AchievementDTO> achievements;   // 업적 배지 전체(받은 것 + 못 받은 것)
     private int achievementEarned;                // 받은 업적 배지 수

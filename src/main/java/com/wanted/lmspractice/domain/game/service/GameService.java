@@ -25,6 +25,7 @@ import com.wanted.lmspractice.domain.game.entity.UserAchievementId;
 import com.wanted.lmspractice.domain.game.entity.UserEquippedBadge;
 import com.wanted.lmspractice.domain.game.entity.UserAvatar;
 import com.wanted.lmspractice.domain.game.policy.AchievementType;
+import com.wanted.lmspractice.domain.game.policy.BossType;
 import com.wanted.lmspractice.domain.game.policy.GameRules;
 import com.wanted.lmspractice.domain.game.policy.QuestType;
 import com.wanted.lmspractice.domain.game.repository.GameStatQuery;
@@ -36,6 +37,7 @@ import com.wanted.lmspractice.domain.hobby.dto.CategoryDTO;
 import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.learning.dto.LearningFilter;
+import com.wanted.lmspractice.domain.learning.dto.LearningState;
 import com.wanted.lmspractice.domain.learning.dto.LessonProgressDTO;
 import com.wanted.lmspractice.domain.learning.dto.MyCourseDTO;
 import com.wanted.lmspractice.domain.learning.service.MyLearningService;
@@ -132,13 +134,23 @@ public class GameService {
                 new AchievementType.AchievementContext(stat, level, masterCount), Set.copyOf(equippedCodes));
         int achievementEarned = (int) achievements.stream().filter(AchievementDTO::isEarned).count();
         List<CourseBadgeDTO> courseBadges = buildCourseBadges(badges, Set.copyOf(equippedCodes));
+        List<HobbyClassDTO> classes = buildClasses(badges);
+        List<BossDTO> bosses = buildBosses(userId, classes, courseBadges);
+        for (BossDTO boss : bosses) {
+            String stage = classes.stream().filter(c -> c.getHobbyCode().equals(boss.getBossCode()))
+                    .map(HobbyClassDTO::getImageStage).findFirst().orElse("apprentice");
+            boss.applyAppearance(character, stage);
+            boss.setRecordOwner(userId);
+        }
+        BossDTO featured = bosses.stream().max(Comparator.comparingInt(BossDTO::getPriority)).orElse(null);
         return new CharacterPageDTO(
                 character,
                 buildXpLines(stat),
                 quests(userId, QuestType.Period.DAILY),
                 quests(userId, QuestType.Period.WEEKLY),
-                buildClasses(badges),
-                buildBosses(userId),
+                classes,
+                bosses,
+                featured,
                 groups,
                 achievements,
                 achievementEarned,
@@ -155,7 +167,9 @@ public class GameService {
                 equippedItem(avatar, AvatarItem.Slot.AVATAR, level, masterCount > 0).getValue(),
                 equippedItem(avatar, AvatarItem.Slot.FRAME, level, masterCount > 0).getValue(),
                 equippedItem(avatar, AvatarItem.Slot.NAME_COLOR, level, masterCount > 0).getValue(),
-                masterCount);
+                masterCount).withEquipment(
+                        equippedItem(avatar, AvatarItem.Slot.OUTFIT, level, masterCount > 0).getCode(),
+                        "crown".equals(equippedItem(avatar, AvatarItem.Slot.HEAD, level, masterCount > 0).getCode()));
     }
 
     /** 장착한 아이템 — 기록이 없거나 지금은 잠긴 아이템(예: 마스터 배지를 잃음)이면 슬롯 기본 아이템으로 되돌려 보여 준다 */
@@ -339,10 +353,10 @@ public class GameService {
     // 보스전 (수강 1건 = 보스 1마리)
     // ---------------------------------------------------------------
 
-    private List<BossDTO> buildBosses(Long userId) {
+    private List<BossDTO> buildBosses(Long userId, List<HobbyClassDTO> classes, List<CourseBadgeDTO> courseBadges) {
         List<BossDTO> bosses = new ArrayList<>();
         for (MyCourseDTO card : myLearningService.getMyCourses(userId, LearningFilter.ALL)) {
-            BossDTO boss = toBoss(card);
+            BossDTO boss = toBoss(card, classes, courseBadges);
             if (boss != null) {
                 bosses.add(boss);
             }
@@ -350,47 +364,89 @@ public class GameService {
         return bosses;
     }
 
-    /** 수강 카드 → 보스 카드. 대기·취소는 아직 보스가 나타나지 않았으므로 null */
-    private BossDTO toBoss(MyCourseDTO card) {
+    /**
+     * 수강 카드 → 보스 카드. 대기·취소는 아직 보스가 나타나지 않았으므로 null.
+     * 체력은 "학습 진행도에 따른 연출"이다 — 차시를 끝낼 때마다 줄고(100 → 40), 판정 대기 중에는 40, 반려되면 55로 회복, 수료하면 0.
+     */
+    private BossDTO toBoss(MyCourseDTO card, List<HobbyClassDTO> classes, List<CourseBadgeDTO> courseBadges) {
         List<LessonProgressDTO> lessons = card.getLessons() == null ? List.of() : card.getLessons();
         int done = (int) lessons.stream().filter(LessonProgressDTO::isCompleted).count();
-        String message;
-        int hp;
+        int total = lessons.size();
+        int levelNo = card.getLevel() == null ? 1 : card.getLevel().getCode();
+        String levelLabel = card.getLevel() == null ? "" : card.getLevel().getLabel();
+        BossType type = BossType.of(card.getHobbyName());
+        Long roundId = card.getReview() == null ? null : card.getReview().getReviewRoundId();
+        String assignmentUrl = "/assignments?enrollmentId=" + card.getEnrollmentId();
+        String feedbackUrl = roundId == null ? null : "/assignments/" + roundId + "/result";
+        String lessonUrl = card.getContinueLessonId() == null ? null
+                : "/lessons/" + card.getContinueLessonId() + "?enrollmentId=" + card.getEnrollmentId();
+
+        BossDTO.BossDTOBuilder b = BossDTO.builder()
+                .enrollmentId(card.getEnrollmentId())
+                .reviewRoundId(roundId)
+                .courseTitle(card.getCourseTitle())
+                .levelLabel(levelLabel)
+                .levelNo(levelNo)
+                .stateName(card.getState().name())
+                .stateLabel(card.getState().getLabel())
+                .completedLessons(done)
+                .totalLessons(total)
+                .bossCode(type.getCode())
+                .bossName(type.getBossName())
+                .toolEmoji(type.getToolEmoji())
+                .attackName(type.getAttackName())
+                .ultimateEmoji(type.getUltimateEmoji())
+                .ultimateName(type.getUltimateName());
+
         switch (card.getState()) {
             case LEARNING -> {
-                hp = 100;
-                message = card.isAllLessonsCompleted()
-                        ? "보스의 방이 열렸어요! 최종 과제로 도전하세요."
-                        : "수련 중 — 차시를 모두 마치면 보스의 방이 열려요. (" + done + "/" + lessons.size() + ")";
+                int hp = total == 0 ? 100 : 100 - Math.round(done * 60f / total);
+                if (card.isAllLessonsCompleted()) {
+                    b.phase("ROOM_OPEN").hpPercent(hp)
+                            .message("보스의 방이 열렸어요! 최종 과제로 도전하세요.")
+                            .actionLabel("최종 과제로 도전").actionUrl(assignmentUrl);
+                } else {
+                    b.phase("LEARNING").hpPercent(hp)
+                            .message("차시 " + done + " / " + total + " 완료 · 최종 과제 도전 준비 중")
+                            .actionLabel("이어서 수련하기").actionUrl(lessonUrl);
+                }
             }
-            case REVIEW_WAITING -> {
-                hp = 60;
-                message = "공격을 마쳤어요! 강사님의 판정을 기다리는 중이에요.";
-            }
-            case IN_REVIEW -> {
-                hp = 40;
-                message = "격전 중! 강사님이 과제를 확인하고 있어요.";
-            }
-            case REJECTED -> {
-                hp = 70;
-                message = "일격을 맞았어요… 피드백을 읽고 기간 안에 재도전하세요.";
-            }
+            case REVIEW_WAITING, IN_REVIEW -> b.phase("WAITING").hpPercent(40)
+                    .message(card.getState() == LearningState.IN_REVIEW
+                            ? "보스가 방어막을 펼쳤어요! 강사님이 과제를 확인하고 있어요."
+                            : "보스가 방어막을 펼쳤어요! 공격을 마치고 강사님의 판정을 기다리는 중이에요.")
+                    .actionLabel("강사 판정 대기").actionUrl(null).actionDisabled(true)
+                    .subLabel("제출한 과제 확인").subUrl(assignmentUrl);
+            case REJECTED -> b.phase("REJECTED").hpPercent(55)
+                    .message("보스가 반격했어요… 피드백을 읽고 기간 안에 재도전하세요.")
+                    .actionLabel(feedbackUrl == null ? "재도전하기" : "피드백 확인하기")
+                    .actionUrl(feedbackUrl == null ? assignmentUrl : feedbackUrl)
+                    .subLabel(feedbackUrl == null ? null : "재도전하기").subUrl(feedbackUrl == null ? null : assignmentUrl);
             case COMPLETED -> {
-                hp = 0;
-                message = "보스 격파! 수료 경험치와 배지를 얻었어요.";
+                b.phase("DEFEATED").hpPercent(0)
+                        .message("보스 격파! 수료 경험치와 배지를 얻었어요.")
+                        .actionLabel("강사 피드백 보기").actionUrl(feedbackUrl)
+                        .rewardXp(GameRules.XP_BOSS_BASE + (long) GameRules.XP_BOSS_PER_LEVEL * levelNo);
+                String badgeLevel = levelLabel;
+                courseBadges.stream()
+                        .filter(c -> !c.isMaster() && c.getHobbyName().equals(card.getHobbyName()) && c.getLevelLabel().equals(badgeLevel))
+                        .findFirst()
+                        .ifPresent(c -> b.rewardBadge(c.getEmoji() + " " + c.getHobbyName() + " " + c.getLevelLabel() + " 수료 배지"));
+                classes.stream().filter(c -> c.getHobbyName().equals(card.getHobbyName())).findFirst().ifPresent(c ->
+                        b.rewardClassName(c.getClassName()).rewardClassImage(c.getImagePath())
+                                .rewardClassStage(switch (c.getImageStage()) {
+                                    case "master" -> "마스터";
+                                    case "expert" -> "전문가";
+                                    case "skilled" -> "숙련";
+                                    default -> "견습";
+                                }));
             }
-            case EXPIRED -> {
-                hp = 100;
-                message = "시간 초과 — 이번 도전은 끝났어요.";
-            }
+            case EXPIRED -> b.phase("EXPIRED").hpPercent(100).message("시간 초과 — 이번 도전은 끝났어요.");
             default -> {
                 return null;
             }
         }
-        Long roundId = card.getReview() == null ? null : card.getReview().getReviewRoundId();
-        return new BossDTO(card.getEnrollmentId(), roundId, card.getCourseTitle(),
-                card.getLevel() == null ? "" : card.getLevel().getLabel(),
-                card.getState().name(), card.getState().getLabel(), message, hp, done, lessons.size());
+        return b.build();
     }
 
     // ---------------------------------------------------------------

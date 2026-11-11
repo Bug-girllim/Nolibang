@@ -18,7 +18,13 @@ public enum AvatarItem {
     AVATAR_PANDA(Slot.AVATAR, "panda", "판다", "🐼", 4, false),
     AVATAR_OWL(Slot.AVATAR, "owl", "부엉이", "🦉", 6, false),
     AVATAR_DRAGON(Slot.AVATAR, "dragon", "용", "🐲", 10, false),
-    AVATAR_CROWN(Slot.AVATAR, "crown", "마스터의 왕관", "👑", 1, true),
+
+    OUTFIT_PENCIL(Slot.OUTFIT, "colored-pencil", "색연필화 의상", "colored-pencil", 1, false),
+    OUTFIT_DIGITAL(Slot.OUTFIT, "digital-drawing", "디지털 드로잉 의상", "digital-drawing", 1, false),
+    OUTFIT_DESSERT(Slot.OUTFIT, "dessert", "디저트 만들기 의상", "dessert", 1, false),
+
+    HEAD_NONE(Slot.HEAD, "none", "왕관 벗기", "", 1, false),
+    HEAD_CROWN(Slot.HEAD, "crown", "마스터의 왕관", "👑", 1, true),
 
     // 프로필 테두리 (value = css 클래스)
     FRAME_WOOD(Slot.FRAME, "wood", "나무 테두리", "frame-wood", 1, false),
@@ -35,7 +41,7 @@ public enum AvatarItem {
     COLOR_ORANGE(Slot.NAME_COLOR, "orange", "주황", "nc-orange", 10, false);
 
     public enum Slot {
-        AVATAR("캐릭터"), FRAME("테두리"), NAME_COLOR("닉네임 색");
+        AVATAR("캐릭터"), OUTFIT("대표 취미 의상"), HEAD("머리 장식"), FRAME("테두리"), NAME_COLOR("닉네임 색");
 
         private final String label;
 
@@ -74,6 +80,8 @@ public enum AvatarItem {
             case AVATAR -> "/images/game/avatars/" + code + ".png";
             case FRAME -> "/images/game/frames/" + code + ".svg";
             case NAME_COLOR -> null;
+            case OUTFIT -> "/images/game/outfits/chick-" + code + ".png";
+            case HEAD -> "crown".equals(code) ? "/images/game/avatars/crown.png" : null;
         };
     }
     public int getUnlockLevel() { return unlockLevel; }

@@ -689,6 +689,8 @@ CREATE TABLE user_avatars (
     avatar_code VARCHAR(30) NULL,
     frame_code VARCHAR(30) NULL,
     name_color_code VARCHAR(30) NULL,
+    outfit_code VARCHAR(30) NULL,
+    head_code VARCHAR(30) NULL,
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (user_id),
     CONSTRAINT fk_user_avatars_user FOREIGN KEY (user_id) REFERENCES users (id)

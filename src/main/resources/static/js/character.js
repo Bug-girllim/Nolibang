@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var REFRESH_IDS = ['gm-card', 'gm-badges-box', 'gm-avatar-box'];   // 장착 상태에 따라 바뀌는 영역
+  var REFRESH_IDS = ['gm-card', 'gm-badges-box', 'gm-avatar-box', 'gm-classes-box', 'gm-battle'];   // 장착 상태에 따라 바뀌는 영역
   var busy = false;
   var toastTimer = null;
 
@@ -52,6 +52,10 @@
   /** 같은 주소를 다시 읽어 장착 상태가 바뀐 영역만 교체한다 */
   function refreshSections() {
     var newCodes = collectNewCodes();
+    var oldCard = document.getElementById('gm-card');
+    var wasCrowned = !!(oldCard && oldCard.dataset.crowned === 'true');
+    var selected = document.querySelector('#gm-battle .bt-tab[aria-selected="true"]');
+    var selectedPanel = selected && selected.getAttribute('data-target');
     return fetch(window.location.pathname, { credentials: 'same-origin' })
       .then(function (res) {
         if (!res.ok) { throw new Error('refresh ' + res.status); }
@@ -65,6 +69,18 @@
           if (fresh && old) { old.replaceWith(fresh); }
         });
         restoreNew(document, newCodes);
+        var battle = document.getElementById('gm-battle');
+        if (battle && selectedPanel && document.getElementById(selectedPanel)) {
+          battle.querySelectorAll('.bt-panel').forEach(function (p) { p.hidden = p.id !== selectedPanel; });
+          battle.querySelectorAll('.bt-tab').forEach(function (t) {
+            var on = t.getAttribute('data-target') === selectedPanel;
+            t.classList.toggle('on', on); t.setAttribute('aria-selected', String(on));
+          });
+        }
+        var currentCard = document.getElementById('gm-card');
+        document.dispatchEvent(new CustomEvent('nb:character-refreshed', { detail: {
+          crownEquipped: !wasCrowned && !!(currentCard && currentCard.dataset.crowned === 'true')
+        } }));
       });
   }
 
