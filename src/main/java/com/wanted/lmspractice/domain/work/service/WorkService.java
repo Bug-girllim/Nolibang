@@ -18,7 +18,9 @@ import com.wanted.lmspractice.domain.work.entity.WorkKind;
 import com.wanted.lmspractice.domain.work.entity.WorkVersion;
 import com.wanted.lmspractice.domain.work.policy.WorkAccessPolicy;
 import com.wanted.lmspractice.domain.work.policy.WorkLevelPolicy;
+import com.wanted.lmspractice.domain.work.repository.WorkCommentRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkFileRepository;
+import com.wanted.lmspractice.domain.work.repository.WorkLikeRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkVersionRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
@@ -62,6 +64,8 @@ public class WorkService {
     private final WorkRepository workRepository;
     private final WorkVersionRepository workVersionRepository;
     private final WorkFileRepository workFileRepository;
+    private final WorkCommentRepository workCommentRepository;   // 일반 작품 삭제 시 댓글 정리(D-32)
+    private final WorkLikeRepository workLikeRepository;         // 일반 작품 삭제 시 좋아요 정리(D-32)
     private final FileStorage fileStorage;
     private final WorkAccessPolicy workAccessPolicy;
     private final WorkLevelPolicy workLevelPolicy;
@@ -194,13 +198,24 @@ public class WorkService {
      * @throws BusinessException WORK_NOT_FOUND (없음·남의 작품 — 존재를 숨김)
      */
     /**
-     * 일반 작품 삭제 (본인만, 논리 삭제) — 댓글·좋아요·파일 행은 남기되 작품이 보이지 않으니 함께 접근할 수 없다.
+     * 일반 작품 삭제 (본인만, 논리 삭제, D-32) — 수료와 무관하며 성장 기록에서 빠진다.
+     * D-32: 이 작품의 댓글·좋아요와 '참고한 공식 피드백' 연결만 지우고, 원본 공식 피드백·최종 과제는 보존한다.
+     *  - 참고 피드백: works.reference_review_id 만 비운다(Work.delete)
+     *  - 댓글·답글: 소프트 삭제(DELETED) — 알림(notifications.comment_id FK)이 행을 가리켜 물리 삭제할 수 없고,
+     *               DELETED 가 되면 활동 집계(GameStatQuery)·댓글 수정/삭제(CommentService)에서 모두 빠진다
+     *  - 좋아요: 행 삭제 (좋아요 취소와 같은 방식)
+     *  - 버전·이미지 행과 파일은 남긴다(영구 정리 시점 미정 — 임의 규칙을 두지 않음). 작품이 보이지 않으니 접근할 수 없다.
      * 호출: MyWorkController.delete (POST /my/works/{id}/delete)
      * 남의 작품·최종 과제·이미 삭제된 작품이면 존재를 숨기고 WORK_NOT_FOUND(404)
      */
     @Transactional
     public void deleteGeneralWork(Long userId, Long workId) {
-        getOwnedGeneralWork(userId, workId).delete(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        getOwnedGeneralWork(userId, workId).delete(now);
+        workCommentRepository.findByWorkIdOrderById(workId).stream()
+                .filter(comment -> !comment.isDeleted())
+                .forEach(comment -> comment.delete(now));
+        workLikeRepository.deleteByWorkId(workId);   // 앞의 변경을 먼저 flush 한 뒤 한 번에 지운다
     }
 
     @Transactional

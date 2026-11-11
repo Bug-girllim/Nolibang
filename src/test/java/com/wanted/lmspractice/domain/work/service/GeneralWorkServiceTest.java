@@ -13,7 +13,12 @@ import com.wanted.lmspractice.domain.work.entity.Visibility;
 import com.wanted.lmspractice.domain.work.entity.Work;
 import com.wanted.lmspractice.domain.work.entity.WorkKind;
 import com.wanted.lmspractice.domain.work.policy.WorkLevelPolicy;
+import com.wanted.lmspractice.domain.review.repository.ReviewRoundRepository;
+import com.wanted.lmspractice.domain.work.entity.WorkComment;
+import com.wanted.lmspractice.domain.work.entity.WorkLike;
+import com.wanted.lmspractice.domain.work.repository.WorkCommentRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkFileRepository;
+import com.wanted.lmspractice.domain.work.repository.WorkLikeRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
@@ -61,6 +66,12 @@ class GeneralWorkServiceTest {
     private WorkRepository workRepository;
     @Autowired
     private WorkFileRepository workFileRepository;
+    @Autowired
+    private WorkCommentRepository workCommentRepository;
+    @Autowired
+    private WorkLikeRepository workLikeRepository;
+    @Autowired
+    private ReviewRoundRepository reviewRoundRepository;
 
     private Long learner() {
         return userRepository.findByLoginId("learner").orElseThrow().getId();
@@ -235,6 +246,28 @@ class GeneralWorkServiceTest {
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
         assertThatThrownBy(() -> workService.deleteGeneralWork(learner(), 4L))       // learner2 작품
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("삭제(D-32): 참고 피드백 연결만 끊고 원본 피드백은 보존, 댓글·답글은 소프트 삭제, 좋아요는 행 삭제")
+    void deleteGeneralWorkCleansUpByD32() {
+        Long otherUser = userRepository.findByLoginId("learner2").orElseThrow().getId();
+        WorkComment comment = workCommentRepository.save(
+                WorkComment.create(LEARNER_GENERAL_WORK, null, otherUser, "멋진 작품이에요"));
+        workCommentRepository.save(WorkComment.create(LEARNER_GENERAL_WORK, comment.getId(), learner(), "감사합니다"));
+        workLikeRepository.save(WorkLike.create(LEARNER_GENERAL_WORK, otherUser));
+        workLikeRepository.save(WorkLike.create(LEARNER_GENERAL_WORK, learner()));
+        workCommentRepository.flush();
+
+        workService.deleteGeneralWork(learner(), LEARNER_GENERAL_WORK);   // 시드: 참고 피드백 2 연결
+        workRepository.flush();
+
+        assertThat(workRepository.findById(LEARNER_GENERAL_WORK).orElseThrow().getReferenceReviewId()).isNull();
+        assertThat(reviewRoundRepository.findById(2L)).isPresent();   // 원본 공식 피드백은 그대로
+        assertThat(workCommentRepository.findByWorkIdOrderById(LEARNER_GENERAL_WORK))
+                .hasSize(2).allMatch(WorkComment::isDeleted);
+        assertThat(workLikeRepository.countByWorkId(LEARNER_GENERAL_WORK)).isZero();
+        assertThat(workLikeRepository.countByWorkId(1L)).isEqualTo(2);   // 다른 작품의 좋아요는 그대로
     }
 
     @Test

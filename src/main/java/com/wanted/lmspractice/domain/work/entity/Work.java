@@ -180,13 +180,16 @@ public class Work {
     }
 
     /**
-     * 작성자 삭제 (논리 삭제) — deleted_at 을 기록한다. 행·버전·파일·댓글·좋아요는 지우지 않고, 목록·상세·파일 URL 에서만 사라진다.
+     * 작성자 삭제 (논리 삭제) — deleted_at 을 기록한다. 작품 행·버전·파일은 남기고 목록·상세·파일 URL 에서만 사라진다.
      * ck_works_deleted: 삭제된 작품은 display_version_id 가 NULL 이어야 하므로 함께 비운다.
+     * D-32: '참고한 공식 피드백' 연결(reference_review_id)만 끊는다 — 원본 피드백(review_rounds)은 건드리지 않는다.
+     *       댓글·좋아요 정리는 다른 표라 WorkService.deleteGeneralWork 가 함께 한다.
      * 호출: WorkService.deleteGeneralWork (일반 작품만 — 최종 과제는 수강·평가·수료 기록과 묶여 있어 삭제 대상이 아니다)
      */
     public void delete(LocalDateTime now) {
         this.deletedAt = now;
         this.displayVersionId = null;
+        this.referenceReviewId = null;
     }
 
     /** 화면에 보여 줄 버전을 바꾼다 (같은 작품의 버전만 — DB 복합 FK가 한 번 더 막는다) */
