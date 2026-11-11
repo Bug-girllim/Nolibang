@@ -242,13 +242,21 @@ public class User {
     }
 
     /**
+     * 탈퇴 후 재가입 제한 기간(30일)이 지나 이 계정의 이메일을 다른 가입에 내줄 수 있는지.
+     * 호출: releaseEmailIfExpired, UserService.isEmailAvailableForSignup(가입 화면의 이메일 중복 검사)
+     */
+    public boolean isEmailReleasable(LocalDateTime now) {
+        return isWithdrawn() && !withdrawnAt.plusDays(REJOIN_RESTRICTION_DAYS).isAfter(now);
+    }
+
+    /**
      * 탈퇴 후 재가입 제한 기간이 지난 계정의 이메일을 풀어 준다 — 같은 이메일로 다시 가입할 수 있게 된다.
      * 호출: UserService.signup
      *
      * @return 풀었으면 true (아직 기간 안이거나 탈퇴 계정이 아니면 false)
      */
     public boolean releaseEmailIfExpired(LocalDateTime now) {
-        if (!isWithdrawn() || withdrawnAt.plusDays(REJOIN_RESTRICTION_DAYS).isAfter(now)) {
+        if (!isEmailReleasable(now)) {
             return false;
         }
         this.email = ANONYMIZED_PREFIX + id + "@withdrawn.invalid";

@@ -36,11 +36,13 @@ public class AuthFailHandler extends SimpleUrlAuthenticationFailureHandler {
     /**
      * 없는 아이디·틀린 비밀번호는 모두 ?error 하나로 합쳐 계정 존재 여부를 숨긴다(BadCredentialsException).
      * 로그인이 막힌 계정(DisabledException)만 이유를 구분한다 — 이메일 미인증은 재발송 안내가 필요해서(API AU-02).
+     * 단, DisabledException 은 비밀번호 비교 전에 나므로 비밀번호가 맞을 때만 이유를 보여 준다.
      */
     private String targetUrl(HttpServletRequest request, AuthenticationException exception) {
         if (exception instanceof DisabledException) {
             // 폼 입력 이름은 SecurityConfig의 usernameParameter("loginId")와 같다
-            return userService.findStatusByLoginId(request.getParameter("loginId"))
+            // 비밀번호가 맞을 때만 상태가 나온다 — 틀리면 아래 orElse 로 불일치 문구(계정 존재·상태를 숨김)
+            return userService.findStatusByLoginId(request.getParameter("loginId"), request.getParameter("password"))
                     .map(status -> switch (status) {
                         case PENDING_EMAIL -> "/auth/login?error=unverified";
                         case WITHDRAWN -> "/auth/login?error";   // 탈퇴 여부는 드러내지 않는다(아이디·비밀번호 불일치와 같은 문구)

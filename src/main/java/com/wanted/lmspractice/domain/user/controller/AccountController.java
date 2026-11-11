@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.web.authentication.logout.CookieClearingLogoutHandler;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -70,7 +71,8 @@ public class AccountController {
 
     /**
      * 회원 탈퇴 (학습자만). 비밀번호 불일치·진행 중 수강·안내 미확인은 같은 화면에 오류로 보여 준다.
-     * 성공하면 세션을 끝내고(로그아웃) 로그인 화면으로 보낸다 — 세션이 사라져 flash를 못 쓰므로 ?withdrawn 쿼리로 알린다.
+     * 성공하면 세션을 끝내고(로그아웃) 탈퇴 완료 안내 화면(GET /auth/withdrawn, AuthController)으로 보낸다
+     * — 세션이 사라져 flash를 못 쓰므로 전용 화면 주소로 보낸다.
      * 호출: POST /my/account/withdraw (currentPassword, agree)
      */
     @PostMapping("/withdraw")
@@ -107,7 +109,10 @@ public class AccountController {
         }
 
         new SecurityContextLogoutHandler().logout(request, response, authentication);  // 세션 무효화 + 인증 정보 제거
-        return "redirect:/auth/login?withdrawn";
+        // 세션 쿠키도 지운다(SecurityConfig 로그아웃의 deleteCookies 와 같은 처리). 남겨 두면 브라우저가 끝난 세션 id를
+        // 다음 요청에 보내 invalidSessionUrl 이 "세션 만료" 화면으로 보내 버려, 아래 탈퇴 완료 안내가 보이지 않았다
+        new CookieClearingLogoutHandler("JSESSIONID").logout(request, response, authentication);
+        return "redirect:/auth/withdrawn";
     }
 
     /**

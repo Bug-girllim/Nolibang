@@ -5,6 +5,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -55,6 +56,17 @@ public class GlobalExceptionHandler {
     /** 필수 파라미터 누락·타입 불일치 → 400 */
     @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
     public Object handleBadRequest(Exception e, HttpServletRequest request) {
+        return respondWith(ErrorCode.INVALID_INPUT, request);
+    }
+
+    /**
+     * 주소·폼 값의 글자 인코딩이 깨진 요청(예: UTF-8 이 아닌 %인코딩) → 400.
+     * 서버(Tomcat)가 파라미터를 읽다가 던지는 예외라, 이 핸들러가 없으면 아래 Exception 핸들러가 500으로 바꿔 버린다.
+     * 요청이 잘못된 것이지 서버 고장이 아니므로 오류 로그(ERROR)를 남기지 않는다.
+     */
+    @ExceptionHandler(InvalidParameterException.class)
+    public Object handleInvalidParameter(InvalidParameterException e, HttpServletRequest request) {
+        log.warn("잘못된 요청 파라미터(글자 인코딩): {}", request.getRequestURI());
         return respondWith(ErrorCode.INVALID_INPUT, request);
     }
 

@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.auth.controller;
 
+import com.wanted.lmspractice.domain.user.entity.User;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.Map;
 import org.springframework.stereotype.Controller;
@@ -9,10 +10,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * [역할] 로그인 화면(C-02)을 보여 준다. 로그인·로그아웃 POST는 Spring Security가 처리한다.
+ * [역할] 로그인 화면(C-02)과 회원 탈퇴 완료 안내 화면을 보여 준다. 로그인·로그아웃 POST는 Spring Security가 처리한다.
  * [담당] 팀원 1 · #02 (#04: 실패 원인별 문구 — 원인 판단은 AuthFailHandler)   [화면] C-02   [API] AU-01
  * [연결]
- *  - 호출받음: 브라우저(GET /auth/login), SecurityConfig(로그인 필요 시 이동), AuthFailHandler(실패 시 ?error[=원인] 이동)
+ *  - 호출받음: 브라우저(GET /auth/login), SecurityConfig(로그인 필요 시 이동), AuthFailHandler(실패 시 ?error[=원인] 이동),
+ *             AccountController.withdraw(탈퇴 성공 후 GET /auth/withdrawn)
  *  - 호출함:   없음
  * [기술] 🟢 @Controller, @RequestParam
  */
@@ -40,12 +42,21 @@ public class AuthController {
             }
         } else if (params.containsKey("expired")) {
             model.addAttribute("errorMessage", "세션이 만료되었거나 다른 기기에서 로그인되었습니다. 다시 로그인해 주세요.");
-        } else if (params.containsKey("withdrawn")) {
-            // 탈퇴하면 세션이 끝나 flash 속성을 쓸 수 없어서 쿼리 값으로 알린다
-            model.addAttribute("message", "회원 탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.");
         } else if (params.containsKey("logout")) {
             model.addAttribute("message", "로그아웃되었습니다.");
         }
         return "auth/login";
+    }
+
+    /**
+     * 회원 탈퇴 완료 안내. 탈퇴하면 세션이 끝나 flash 속성을 쓸 수 없으므로 전용 화면 주소로 보낸다.
+     * 로그인 없이 열리는 공개 화면이다(SecurityConfig의 /auth/** permitAll) — 담긴 내용은 누구에게나 같은 안내 문구뿐이다.
+     * 호출: GET /auth/withdrawn ← AccountController.withdraw 성공 후 redirect
+     * 모델: rejoinDays(같은 이메일 재가입 제한 일수)
+     */
+    @GetMapping("/withdrawn")
+    public String withdrawn(Model model) {
+        model.addAttribute("rejoinDays", User.REJOIN_RESTRICTION_DAYS);
+        return "auth/withdraw-complete";
     }
 }

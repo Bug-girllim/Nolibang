@@ -60,7 +60,7 @@ public class SignupController {
         if (!bindingResult.hasFieldErrors("loginId") && !userService.isLoginIdAvailable(signupDTO.getLoginId())) {
             bindingResult.rejectValue("loginId", "duplicate", ErrorCode.DUPLICATE_LOGIN_ID.getMessage());
         }
-        if (!bindingResult.hasFieldErrors("email") && !userService.isEmailAvailable(signupDTO.getEmail())) {
+        if (!bindingResult.hasFieldErrors("email") && !userService.isEmailAvailableForSignup(signupDTO.getEmail())) {
             bindingResult.rejectValue("email", "duplicate", ErrorCode.DUPLICATE_EMAIL.getMessage());
         }
         if (!bindingResult.hasFieldErrors("nickname") && StringUtils.hasText(signupDTO.getNickname())
