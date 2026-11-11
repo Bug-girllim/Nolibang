@@ -1,6 +1,7 @@
 package com.wanted.lmspractice.global.config;
 
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.notification.dto.HeaderNotificationDTO;
 import com.wanted.lmspractice.domain.notification.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,7 +20,7 @@ import org.springframework.web.servlet.View;
  * [담당] 팀원 1 · #02 공통 모델에서 분리 (원래 GlobalModelAdvice의 @ModelAttribute 두 개)   [화면] 공통 헤더(common/layout.html gnb)   [API] §1-8
  * [연결]
  *  - 호출받음: Spring MVC (컨트롤러 실행 "후", 화면 렌더링 직전 postHandle), 등록 위치 WebConfig.addInterceptors
- *  - 호출함:   NotificationService.countUnread·getHeaderNotifications (#17)
+ *  - 호출함:   NotificationService.getHeaderSummary(두 값 모두 필요할 때 — 한 트랜잭션), countUnread·getHeaderNotifications(한쪽만 필요할 때) (#17)
  *  - 사용처:   templates/common/layout.html (gnb 알림 배지·미리보기), notification/list.html·instructor-list.html(unreadCount)
  * [왜 옮겼나]
  *  - @ControllerAdvice의 @ModelAttribute는 컨트롤러 실행 "전"에 모든 요청에서 돈다. 그래서 화면을 그리지 않는 요청
@@ -48,10 +49,19 @@ public class HeaderNotificationInterceptor implements HandlerInterceptor {
             return;  // 본문 응답(@ResponseBody·ResponseEntity)·redirect·forward — 머리글을 그리지 않으므로 조회하지 않는다
         }
         Long userId = loginUserId();
-        if (!modelAndView.getModel().containsKey(UNREAD_COUNT)) {
+        boolean needCount = !modelAndView.getModel().containsKey(UNREAD_COUNT);
+        boolean needList = !modelAndView.getModel().containsKey(HEADER_NOTIFICATIONS);
+        if (userId != null && needCount && needList) {
+            // [성능 개선] 둘 다 필요하면(대부분의 화면) 한 트랜잭션으로 같이 읽는다 — 따로 부르면 COMMIT 왕복이 1번 더 든다
+            HeaderNotificationDTO summary = notificationService.getHeaderSummary(userId);
+            modelAndView.addObject(UNREAD_COUNT, summary.getUnreadCount());
+            modelAndView.addObject(HEADER_NOTIFICATIONS, summary.getNotifications());
+            return;
+        }
+        if (needCount) {
             modelAndView.addObject(UNREAD_COUNT, userId == null ? 0L : notificationService.countUnread(userId));
         }
-        if (!modelAndView.getModel().containsKey(HEADER_NOTIFICATIONS)) {
+        if (needList) {
             modelAndView.addObject(HEADER_NOTIFICATIONS,
                     userId == null ? List.of() : notificationService.getHeaderNotifications(userId));
         }

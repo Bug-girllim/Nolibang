@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.wanted.lmspractice.domain.auth.dto.AuthDetails;
+import com.wanted.lmspractice.domain.notification.dto.HeaderNotificationDTO;
 import com.wanted.lmspractice.domain.notification.dto.NotificationDTO;
 import com.wanted.lmspractice.domain.notification.service.NotificationService;
 import com.wanted.lmspractice.domain.user.dto.LoginUserDTO;
@@ -100,6 +101,7 @@ class HeaderNotificationInterceptorTest {
         notificationService = mock(NotificationService.class);
         when(notificationService.countUnread(USER_ID)).thenReturn(3L);
         when(notificationService.getHeaderNotifications(USER_ID)).thenReturn(latest);
+        when(notificationService.getHeaderSummary(USER_ID)).thenReturn(new HeaderNotificationDTO(3L, latest));
         View noOpView = (model, request, response) -> { };
         mvc = MockMvcBuilders.standaloneSetup(new TestController())
                 .setControllerAdvice(new GlobalModelAdvice())
@@ -126,7 +128,7 @@ class HeaderNotificationInterceptorTest {
     }
 
     @Test
-    @DisplayName("로그인 + 화면 렌더링: 기존과 같은 이름·값(loginUser·unreadCount·headerNotifications)이 모델에 들어간다 — 조회 2번")
+    @DisplayName("로그인 + 화면 렌더링: 기존과 같은 이름·값(loginUser·unreadCount·headerNotifications)이 모델에 들어간다 — 한 트랜잭션(getHeaderSummary) 1번")
     void loggedIn_renderedPage_hasSameModel() throws Exception {
         loginAsLearner();
 
@@ -136,8 +138,9 @@ class HeaderNotificationInterceptorTest {
         assertThat(model.get("unreadCount")).isEqualTo(3L);
         assertThat(model.get("headerNotifications")).isSameAs(latest);
         assertThat(((LoginUserDTO) model.get("loginUser")).getUserId()).isEqualTo(USER_ID);
-        verify(notificationService, times(1)).countUnread(USER_ID);
-        verify(notificationService, times(1)).getHeaderNotifications(USER_ID);
+        verify(notificationService, times(1)).getHeaderSummary(USER_ID);
+        verify(notificationService, never()).countUnread(anyLong());              // 따로 부르면 트랜잭션·COMMIT 이 2번
+        verify(notificationService, never()).getHeaderNotifications(anyLong());
     }
 
     @Test

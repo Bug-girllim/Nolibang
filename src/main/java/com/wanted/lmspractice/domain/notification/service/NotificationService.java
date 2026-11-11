@@ -1,5 +1,6 @@
 package com.wanted.lmspractice.domain.notification.service;
 
+import com.wanted.lmspractice.domain.notification.dto.HeaderNotificationDTO;
 import com.wanted.lmspractice.domain.notification.dto.NotificationDTO;
 import com.wanted.lmspractice.domain.notification.dto.NotificationPageDTO;
 import com.wanted.lmspractice.domain.notification.dto.NotificationTab;
@@ -74,6 +75,17 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public long countUnread(Long userId) {
         return notificationRepository.countByUserIdAndReadAtIsNull(userId);
+    }
+
+    /**
+     * [성능 개선] 머리글 알림 값(안 읽은 수 + 최근 5건)을 한 트랜잭션에서 같이 읽는다.
+     * countUnread·getHeaderNotifications 를 따로 부르면 트랜잭션이 2개라 COMMIT 도 2번 오간다 —
+     * 공용 원격 DB에서는 로그인 사용자의 모든 화면에 왕복 1번(100ms 이상)이 더 들었다. 값은 두 메서드를 각각 부른 것과 같다.
+     * 호출: HeaderNotificationInterceptor.postHandle (두 값이 모두 필요할 때)
+     */
+    @Transactional(readOnly = true)
+    public HeaderNotificationDTO getHeaderSummary(Long userId) {
+        return new HeaderNotificationDTO(countUnread(userId), getHeaderNotifications(userId));
     }
 
     /** 헤더 알림창 미리보기 — 최근 5건. 호출: HeaderNotificationInterceptor.postHandle */

@@ -115,8 +115,10 @@ public class SeatService {
     }
 
     /**
-     * [성능 개선] 여러 강의의 정원 현황을 한 번에 — 강의 수와 관계없이 쿼리 2번(IN + GROUP BY).
+     * [성능 개선] 여러 강의의 정원 현황을 한 번에 — 강의 수와 관계없이 쿼리 1번(IN + GROUP BY 두 개를 UNION ALL).
      * 강의마다 getSeatSummary를 부르면 강의 수 × 2번 조회가 되어 목록 화면이 느려진다(N+1).
+     * 정원 합계(v_section_seats)와 대기 인원(waitlist_entries)을 따로 보내면 공용 원격 DB에서 왕복이 1번 더 들어
+     * 한 쿼리로 합쳤다. 첫 칸(kind)으로 어느 쪽 줄인지 구분한다: 0 = 정원 {정원 합계, 남은 자리 합계}, 1 = 대기 {대기 인원, 0}.
      * 값의 의미는 getSeatSummary와 같다: 신청 가능한 분반(assignable)만 합하고, 분반·대기가 없는 강의는 0으로 채운다.
      * 호출: CourseCatalogService.getCourses·getAdminCourses, EnrollmentService.getStatusesForUser, getSeatSummary
      *
@@ -129,23 +131,22 @@ public class SeatService {
         }
         List<Long> ids = courseIds.stream().distinct().toList();
         Map<Long, int[]> seatsByCourse = new HashMap<>();  // 강의 id → {정원 합계, 남은 자리 합계}
-        for (Object row : entityManager.createNativeQuery(
-                        "SELECT course_id, COALESCE(SUM(capacity), 0), COALESCE(SUM(remaining), 0) "
-                                + "FROM v_section_seats WHERE course_id IN (:courseIds) AND assignable = 1 GROUP BY course_id")
-                .setParameter("courseIds", ids)
-                .getResultList()) {
-            Object[] seats = (Object[]) row;
-            seatsByCourse.put(((Number) seats[0]).longValue(),
-                    new int[] {((Number) seats[1]).intValue(), ((Number) seats[2]).intValue()});
-        }
         Map<Long, Integer> waitingByCourse = new HashMap<>();
         for (Object row : entityManager.createNativeQuery(
-                        "SELECT course_id, COUNT(*) FROM waitlist_entries "
+                        "SELECT 0 AS kind, course_id, COALESCE(SUM(capacity), 0) AS a, COALESCE(SUM(remaining), 0) AS b "
+                                + "FROM v_section_seats WHERE course_id IN (:courseIds) AND assignable = 1 GROUP BY course_id "
+                                + "UNION ALL "
+                                + "SELECT 1, course_id, COUNT(*), 0 FROM waitlist_entries "
                                 + "WHERE course_id IN (:courseIds) AND status = 'WAITING' GROUP BY course_id")
                 .setParameter("courseIds", ids)
                 .getResultList()) {
-            Object[] waiting = (Object[]) row;
-            waitingByCourse.put(((Number) waiting[0]).longValue(), ((Number) waiting[1]).intValue());
+            Object[] cols = (Object[]) row;
+            Long courseId = ((Number) cols[1]).longValue();
+            if (((Number) cols[0]).intValue() == 0) {
+                seatsByCourse.put(courseId, new int[] {((Number) cols[2]).intValue(), ((Number) cols[3]).intValue()});
+            } else {
+                waitingByCourse.put(courseId, ((Number) cols[2]).intValue());
+            }
         }
         Map<Long, SeatSummaryDTO> summaries = new HashMap<>();
         for (Long courseId : ids) {
