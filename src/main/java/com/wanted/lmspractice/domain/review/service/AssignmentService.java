@@ -7,6 +7,7 @@ import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
 import com.wanted.lmspractice.domain.enrollment.service.SectionService;
 import com.wanted.lmspractice.domain.learning.dto.LessonProgressDTO;
+import com.wanted.lmspractice.domain.learning.policy.VideoAccessPolicy;
 import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.domain.notification.entity.NotificationKind;
 import com.wanted.lmspractice.domain.notification.service.NotificationService;
@@ -56,6 +57,7 @@ public class AssignmentService {
     private final ProgressService progressService;
     private final WorkService workService;
     private final NotificationService notificationService;
+    private final VideoAccessPolicy videoAccessPolicy;
 
     /**
      * 최종 과제 화면 값 — 화면 상태(3차시 미완료·미제출·평가 대기·평가 중·반려·수료·기간 종료), 차시 완료 수, 제출 이력, 23일 경과 안내.
@@ -71,10 +73,12 @@ public class AssignmentService {
         long completedLessons = progressService.getLessonStatuses(enrollmentId).stream()
                 .filter(LessonProgressDTO::isCompleted)
                 .count();
-        Long firstLessonId = courseService.getLessonsOfCourse(enrollment.getCourseId()).stream()
-                .findFirst()
-                .map(Lesson::getId)
-                .orElse(null);
+        // 학습 메뉴의 [차시 영상 학습] 링크용 — 영상을 볼 수 없는 수강(기간 만료·취소)이면 링크를 두지 않는다(누르면 403)
+        Long firstLessonId = !videoAccessPolicy.canWatch(enrollment, now) ? null
+                : courseService.getLessonsOfCourse(enrollment.getCourseId()).stream()
+                        .findFirst()
+                        .map(Lesson::getId)
+                        .orElse(null);
         AssignmentViewDTO view = AssignmentViewDTO.of(enrollment, course, courseService.getAssignmentTitle(enrollment.getCourseId()),
                 firstLessonId, rounds, completedLessons, ProgressService.REQUIRED_LESSONS,
                 submissionPolicy.isPeriodOpen(enrollment, now), progressService.isAllCompleted(enrollmentId), now);

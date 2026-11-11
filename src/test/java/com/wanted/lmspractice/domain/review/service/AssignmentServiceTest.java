@@ -19,6 +19,7 @@ import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
 import com.wanted.lmspractice.domain.enrollment.entity.EnrollmentStatus;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
 import com.wanted.lmspractice.domain.enrollment.service.SectionService;
+import com.wanted.lmspractice.domain.learning.policy.VideoAccessPolicy;
 import com.wanted.lmspractice.domain.learning.service.ProgressService;
 import com.wanted.lmspractice.domain.notification.entity.NotificationKind;
 import com.wanted.lmspractice.domain.notification.service.NotificationService;
@@ -73,7 +74,7 @@ class AssignmentServiceTest {
         workService = mock(WorkService.class);
         notificationService = mock(NotificationService.class);
         service = new AssignmentService(repository, new SubmissionPolicy(progressService), enrollmentService,
-                sectionService, courseService, progressService, workService, notificationService);
+                sectionService, courseService, progressService, workService, notificationService, new VideoAccessPolicy());
 
         when(progressService.isAllCompleted(10L)).thenReturn(true);
         when(courseService.getCourseBriefs(List.of(1L))).thenReturn(Map.of(1L,

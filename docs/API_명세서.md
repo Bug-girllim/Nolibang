@@ -107,7 +107,7 @@
 - 실패: `BusinessException` → HTTP 상태는 `ErrorCode.getStatus()`, 본문은 아래 형식.
 
 ```json
-{ "code": "VIDEO_ACCESS_DENIED", "message": "영상을 볼 수 있는 기간이 아닙니다." }
+{ "code": "VIDEO_ACCESS_DENIED", "message": "수강 기간이 끝났거나 취소한 강의라 영상을 볼 수 없어요. 수료한 강의는 기간과 관계없이 다시 볼 수 있어요." }
 ```
 
 - 구현 방법: `GlobalExceptionHandler`가 요청이 `@ResponseBody` 메서드인지(또는 `Accept: application/json`인지) 구분해 JSON으로 응답 — **팀원 1(#02)이 방식 결정** ❓
@@ -1593,22 +1593,22 @@
 | `USER_NOT_FOUND` | 404 | 회원을 찾을 수 없습니다. | 에러 화면 | AI-03, AI-04, AI-05, AI-06, SE-04 |
 | `PASSWORD_CHANGE_REQUIRED` | 403 | 비밀번호 변경이 필요합니다. | 화면 요청은 C-09로 redirect, JSON 요청은 403 💡 | `PasswordChangeInterceptor` (AU-13·AU-14) |
 | `INVALID_NEW_PASSWORD` | 400 | 사용할 수 없는 비밀번호입니다. | flash | AU-12, AU-14, US-07 |
-| `HOBBY_NOT_FOUND` | 404 | 취미를 찾을 수 없습니다. | 에러 화면 | AI-05, AI-06, HB-02, CO-01, MW-02 |
+| `HOBBY_NOT_FOUND` | 404 | 취미를 찾을 수 없어요. 지금은 공개되지 않았거나 없는 취미예요. | 에러 화면 | AI-05, AI-06, HB-02, CO-01, MW-02 |
 | `HOBBY_NOT_OPEN` | 403 | 운영 중인 취미가 아닙니다. | 에러 화면 | HB-02, EN-01 |
-| `COURSE_NOT_FOUND` | 404 | 강의를 찾을 수 없습니다. | 에러 화면 | CO-02, EN-01, SE-01, SE-02 |
+| `COURSE_NOT_FOUND` | 404 | 강의를 찾을 수 없어요. 비공개로 바뀌었거나 없는 강의예요. | 에러 화면 | CO-02, EN-01, SE-01, SE-02 |
 | `LESSON_NOT_FOUND` | 404 | 차시를 찾을 수 없습니다. | 에러 화면 | LE-01, LE-02, VD-01 |
 | `ALREADY_ENROLLED` | 409 | 이미 수강 중인 강의입니다. | flash | EN-01 |
 | `ALREADY_WAITING` | 409 | 이미 대기 중인 강의입니다. | flash | EN-01 |
 | `CANNOT_REAPPLY` | 409 | 다시 신청할 수 없는 강의입니다. | flash | CO-02, EN-01 |
 | `NO_ASSIGNABLE_SECTION` | 409 | 신청 가능한 분반이 없습니다. | flash | EN-01 |
-| `ENROLLMENT_NOT_FOUND` | 404 | 수강 정보를 찾을 수 없습니다. | 에러 화면 | EN-03, LE-01, LE-02, AS-01, IQ-02, IN-03 |
+| `ENROLLMENT_NOT_FOUND` | 404 | 수강 정보를 찾을 수 없어요. 나의 학습에서 강의를 다시 선택해 주세요. | 에러 화면 | EN-03, LE-01, LE-02, AS-01, IQ-02, IN-03 |
 | `ENROLLMENT_EXPIRED` | 403 | 수강 기간이 만료되었습니다. | 에러 화면 | LE-02, AS-02, AS-03, AS-04 |
 | `CANCEL_NOT_ALLOWED_DURING_REVIEW` | 409 | 평가 대기·진행 중에는 수강을 취소할 수 없습니다. | flash | EN-03 |
 | `SECTION_NOT_FOUND` | 404 | 분반을 찾을 수 없습니다. | 에러 화면 | SE-03, SE-04, IN-02 |
 | `CAPACITY_OUT_OF_RANGE` | 400 | 정원은 1~30명입니다. | flash | SE-02, SE-03 |
 | `CAPACITY_BELOW_ACTIVE` | 409 | 현재 수강 인원보다 정원을 줄일 수 없습니다. | flash | SE-03 |
 | `INSTRUCTOR_NOT_GRANTED` | 403 | 해당 취미 권한이 없는 강사입니다. | 에러 화면 | SE-02, SE-04 |
-| `VIDEO_ACCESS_DENIED` | 403 | 영상을 볼 수 있는 기간이 아닙니다. | 에러 화면 | LE-01, LE-02, VD-01 |
+| `VIDEO_ACCESS_DENIED` | 403 | 수강 기간이 끝났거나 취소한 강의라 영상을 볼 수 없어요. 수료한 강의는 기간과 관계없이 다시 볼 수 있어요. | 에러 화면 | LE-01, LE-02, VD-01 |
 | `LESSONS_NOT_COMPLETED` | 409 | 3차시를 모두 완료해야 제출할 수 있습니다. | flash | AS-02 |
 | `SUBMISSION_LOCKED` | 409 | 평가가 시작되어 수정할 수 없습니다. | flash | AS-03 |
 | `ALREADY_SUBMITTED` | 409 | 이미 평가 대기 중인 과제가 있습니다. | flash | AS-02, AS-04 |
@@ -1618,7 +1618,7 @@
 | `FILE_SAVE_FAILED` | 500 | 파일 저장에 실패했습니다. | 에러 화면 | AS-02, MW-02 |
 | `REVIEW_NOT_FOUND` | 404 | 평가 정보를 찾을 수 없습니다. | 에러 화면 | AS-03, AS-05, RV-02 |
 | `NOT_ASSIGNED_INSTRUCTOR` | 403 | 담당 강사만 평가할 수 있습니다. | 에러 화면 | RV-02, RV-03, RV-04, RV-05, RV-06, II-02, II-03, IN-02, IN-03 |
-| `INVALID_REVIEW_STATE` | 409 | 현재 상태에서는 처리할 수 없습니다. | flash | EN-03, AS-05, RV-03, RV-04, RV-05, RV-06 |
+| `INVALID_REVIEW_STATE` | 409 | 지금 상태에서는 할 수 없는 작업이에요. 이미 처리되었거나 아직 평가가 끝나지 않았을 수 있어요. 화면을 새로 고쳐 확인해 주세요. | flash | EN-03, AS-05, RV-03, RV-04, RV-05, RV-06 |
 | `FEEDBACK_TOO_SHORT` | 400 | 피드백·반려 사유는 50자 이상이어야 합니다. | flash | RV-06 |
 | `CANNOT_CANCEL_START` | 409 | 평가 내용을 작성한 뒤에는 시작을 취소할 수 없습니다. | flash | RV-04 |
 | `RESUBMIT_NOT_ALLOWED` | 409 | 재제출할 수 없습니다. | flash | AS-04 |

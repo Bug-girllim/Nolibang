@@ -134,6 +134,40 @@ public class LessonProgress {
         }
     }
 
+    /**
+     * 차시 영상이 다른 길이의 영상으로 바뀌었을 때, 이미 쌓인 진도를 새 길이에 맞춘다.
+     * 재생 시간·마지막 위치는 새 길이를 넘지 않게 자르고, 이미 새 길이의 60% 이상 봤으면 바로 완료로 기록한다.
+     * 이렇게 하지 않으면 짧은 영상으로 바뀐 차시가 "100%인데 미완료"로 남아, 학습자가 다시 재생해야만 완료됐다.
+     * 이미 완료한 차시는 그대로 둔다(긴 영상으로 바뀌어도 받은 완료를 빼앗지 않는다).
+     * 호출: ProgressService.applyLessonDuration ← LessonVideoService.linkVideo
+     */
+    public void adjustToDuration(BigDecimal durationSec, LocalDateTime now) {
+        this.playedSec = playedSec.min(durationSec);
+        this.lastPositionSec = lastPositionSec.min(durationSec);
+        if (completedAt == null && playedSec.compareTo(durationSec.multiply(COMPLETE_RATIO)) >= 0) {
+            this.completedAt = now;
+        }
+    }
+
+    /** 이어보기: 마지막 위치가 이보다 앞이면 처음부터 재생한다(몇 초 본 것은 이어 볼 이유가 없다) */
+    public static final BigDecimal RESUME_MIN_SEC = new BigDecimal("3");
+    /** 이어보기: 끝나기 이만큼 전보다 뒤면 처음부터 재생한다(다 본 영상을 끝에서 다시 여는 일을 막는다) */
+    public static final BigDecimal RESUME_END_MARGIN_SEC = new BigDecimal("5");
+
+    /**
+     * 차시 화면을 다시 열었을 때 이어서 재생할 위치(초). 이어볼 위치가 없으면 0(처음부터).
+     * 마지막 보고 위치(last_position_sec)를 쓴다 — 재생 중 5초마다·일시정지·탭 닫기 때 서버에 남는 위치다.
+     * 위치만 정할 뿐 진도 적립에는 영향이 없다(재생을 시작하면 첫 보고가 기준점을 새로 잡는다).
+     * 호출: ProgressService.getLessonView → lesson.html data-resume-sec → lesson-progress.js
+     */
+    public BigDecimal resumePositionSec(BigDecimal durationSec) {
+        if (lastPositionSec.compareTo(RESUME_MIN_SEC) < 0
+                || lastPositionSec.compareTo(durationSec.subtract(RESUME_END_MARGIN_SEC)) >= 0) {
+            return BigDecimal.ZERO;
+        }
+        return lastPositionSec;
+    }
+
     /** 영상 길이 대비 실제 재생 비율(0~100, 소수 버림). 화면의 진행 막대에 쓴다. */
     public int percent(BigDecimal durationSec) {
         if (durationSec.signum() <= 0) {
