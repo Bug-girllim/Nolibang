@@ -36,10 +36,13 @@ public class CommentDTO {
     private boolean mine;
     private LocalDateTime createdAt;
     private List<CommentDTO> replies = new ArrayList<>();
+    /** 댓글 작성자 꾸밈(대표 배지 이모지·닉네임 색·닉네임 테두리) */
+    private com.wanted.lmspractice.domain.game.dto.AuthorStyleDTO authorStyle = com.wanted.lmspractice.domain.game.dto.AuthorStyleDTO.none();
 
     public static CommentDTO of(WorkComment comment, String authorName, boolean workAuthor, boolean mine) {
         return new CommentDTO(comment.getId(), comment.getParentId(),
                 authorName != null ? authorName : WITHDRAWN_NAME, comment.getBody(), comment.isDeleted(),
-                workAuthor, mine, comment.getCreatedAt(), new ArrayList<>());
+                workAuthor, mine, comment.getCreatedAt(), new ArrayList<>(),
+                com.wanted.lmspractice.domain.game.dto.AuthorStyleDTO.none());
     }
 }

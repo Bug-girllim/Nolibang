@@ -1,0 +1,130 @@
+/* RPG 성장 요소(내 캐릭터·길드) 전용 스타일 — 접두사 gm-. 기존 화면 CSS는 건드리지 않고 이 파일만 game/*.html 에서 추가로 불러온다. */
+
+/* 상단 탭 */
+.gm-tabs { display: flex; gap: 8px; margin: 12px 0 16px; }
+.gm-tabs a { padding: 8px 16px; border: 1px solid #d8ccb5; border-radius: 999px; text-decoration: none; color: inherit; background: #fffdf8; }
+.gm-tabs a.on { background: #3b2f22; color: #fff; border-color: #3b2f22; }
+
+/* 캐릭터 카드 */
+.gm-hero { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.gm-avatar { width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 52px; background: #fffaf0; border: 4px solid #d8ccb5; flex: none; }
+.gm-avatar.sm { width: 56px; height: 56px; font-size: 30px; border-width: 3px; }
+.frame-wood { border-color: #a97c50; }
+.frame-bronze { border-color: #b86f35; box-shadow: 0 0 0 2px #e6b98a inset; }
+.frame-silver { border-color: #aab3bd; box-shadow: 0 0 0 2px #eef1f4 inset; }
+.frame-gold { border-color: #d4a017; box-shadow: 0 0 10px #f3d36b; }
+.frame-rainbow { border: 4px solid transparent; background: linear-gradient(#fffaf0, #fffaf0) padding-box,
+  linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #b565d9) border-box; box-shadow: 0 0 12px #d9c3ff; }
+.nc-ink { color: #2b2118; } .nc-green { color: #2f8f4e; } .nc-blue { color: #2a6fd6; }
+.nc-purple { color: #7b3fc4; } .nc-orange { color: #d9691e; }
+.gm-name { font-size: 22px; font-weight: 700; margin: 0; }
+.gm-lv { display: inline-block; margin-right: 8px; padding: 2px 10px; border-radius: 999px; background: #3b2f22; color: #fff; font-size: 13px; vertical-align: middle; }
+.gm-grow { flex: 1; min-width: 240px; }
+
+/* 막대 (경험치·퀘스트 진행·보스 체력) */
+.gm-bar { height: 12px; border-radius: 999px; background: #eadfc9; overflow: hidden; margin: 8px 0 4px; }
+.gm-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #7bc96f, #3aa655); border-radius: 999px; }
+.gm-bar.boss > i { background: linear-gradient(90deg, #ef8a7a, #d64545); }
+.gm-bar.done > i { background: linear-gradient(90deg, #f3d36b, #d4a017); }
+
+/* 카드 격자 */
+.gm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 8px; }
+.gm-item { border: 1px solid #d8ccb5; border-radius: 12px; padding: 12px 14px; background: #fffdf8; }
+.gm-item.ok { border-color: #d4a017; background: #fffbea; }
+.gm-item.off { opacity: .55; }
+.gm-item p { margin: 4px 0; }
+.gm-sub { font-size: 13px; color: #7a6a55; }
+.gm-btn { margin-top: 6px; }
+
+/* 스킬 트리 */
+.gm-steps { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.gm-step { padding: 3px 10px; border-radius: 999px; font-size: 13px; border: 1px dashed #c9bda5; color: #9a8c76; }
+.gm-step.on { border: 1px solid #3aa655; background: #e8f6ea; color: #226a37; font-weight: 700; }
+.gm-arrow { color: #c9bda5; }
+.gm-master { color: #b8860b; font-weight: 700; }
+
+/* 꾸미기 */
+.gm-opts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.gm-opt { width: 118px; border: 1px solid #d8ccb5; border-radius: 12px; padding: 10px 8px; text-align: center; background: #fffdf8; }
+.gm-opt.eq { border: 2px solid #3aa655; background: #f0faf1; }
+.gm-opt.off { opacity: .5; }
+.gm-opt .gm-prev { height: 44px; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+.gm-opt .gm-frame { width: 40px; height: 40px; border-radius: 50%; border: 4px solid #d8ccb5; background: #fffaf0; }
+.gm-opt form { margin: 4px 0 0; }
+
+/* 길드 순위 */
+.gm-rank { width: 36px; text-align: center; font-weight: 700; }
+.gm-me td { background: #fffbea; font-weight: 700; }
+
+@media (max-width: 640px) { .gm-avatar { width: 72px; height: 72px; font-size: 38px; } }
+
+/* 캐릭터/직업 이미지 — 기존 해금·장착 규칙과 이모지 값은 유지한다. */
+.gm-avatar-art {
+  position: relative; isolation: isolate; width: 152px; height: 152px;
+  border: 0; border-radius: 50%; box-shadow: none;
+  background: radial-gradient(circle, #fffdf7 0%, #f3ead7 68%, transparent 69%);
+}
+.gm-avatar-art::after {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: var(--gm-frame-art) center / contain no-repeat;
+}
+.gm-character-img { width: 76%; height: 76%; object-fit: contain; position: relative; z-index: 1; }
+.gm-avatar-art.frame-wood { --gm-frame-art: url('../images/game/frames/wood.svg'); }
+.gm-avatar-art.frame-bronze { --gm-frame-art: url('../images/game/frames/bronze.svg'); }
+.gm-avatar-art.frame-silver { --gm-frame-art: url('../images/game/frames/silver.svg'); }
+.gm-avatar-art.frame-gold { --gm-frame-art: url('../images/game/frames/gold.svg'); }
+.gm-avatar-art.frame-rainbow { --gm-frame-art: url('../images/game/frames/rainbow.svg'); }
+.gm-opt { width: 128px; }
+.gm-opt .gm-prev-art { height: 84px; margin-bottom: 8px; }
+.gm-prev-art img { width: 76px; height: 76px; object-fit: contain; }
+.gm-opt.off .gm-prev-art img { filter: grayscale(.6); }
+.gm-job-art {
+  min-height: 194px; display: flex; align-items: center; justify-content: center;
+  position: relative; margin: 0 0 12px; border-radius: 10px;
+  background: radial-gradient(ellipse at center, #f4ead5, #fffdf8 72%);
+}
+.gm-job-art img { width: 180px; height: 180px; object-fit: contain; }
+.gm-job-art.is-master { background: radial-gradient(ellipse at center, #f3dfaa, #fffdf8 74%); }
+.gm-job.off .gm-job-art img { filter: grayscale(.85); }
+.gm-job-status {
+  position: absolute; bottom: 7px; padding: 3px 9px; border-radius: 999px;
+  background: #fffdf8; border: 1px solid #d8ccb5; font-size: 11px; color: #716760;
+}
+@media (max-width: 640px) {
+  .gm-avatar-art { width: 128px; height: 128px; }
+  .gm-hero { gap: 16px; }
+  .gm-grow { min-width: 0; flex-basis: 200px; }
+  .gm-grid { grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
+  .gm-opt { width: calc((100% - 20px) / 3); min-width: 84px; }
+}
+
+/* 배지 (업적 배지·수료 배지) — 이모지 아이콘 */
+.gm-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+.gm-badge { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center;
+  padding: 14px 10px 12px; border: 1px solid #d8ccb5; border-radius: 12px; background: #fffdf8; }
+.gm-badge.on { border-color: #d4a017; background: #fffbea; }
+.gm-badge.off { background: #f6f1e6; }
+.gm-badge.off .gm-badge-ico { filter: grayscale(1); opacity: .35; }
+.gm-badge.off b, .gm-badge.off .gm-sub { color: #9a8c76; }
+.gm-badge-ico { font-size: 38px; line-height: 1.1; }
+.gm-badge .gm-bar { width: 100%; margin: 4px 0 0; }
+.gm-badge-new { position: absolute; top: 6px; right: 8px; padding: 1px 7px; border-radius: 999px;
+  background: #d64545; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .5px; }
+@media (max-width: 640px) { .gm-badges { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } }
+
+/* 대표 배지 장착 */
+.gm-equipped { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.gm-eq { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px 3px 8px; border: 1px solid #d4a017;
+  border-radius: 999px; background: #fffbea; font-size: 13px; font-weight: 700; color: #6b4e0a; }
+.gm-badge.eq { border: 2px solid #3aa655; background: #f0faf1; }
+.gm-badge-form { margin: 6px 0 0; }
+.gm-badge-form .btn { padding: 3px 14px; font-size: 12px; }
+
+/* 새로고침 없이 처리한 결과 안내 창 (static/js/character.js) */
+.gm-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 1000;
+  max-width: min(560px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 12px; font-size: 14px; line-height: 1.5;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .18); text-align: center; }
+.gm-toast[hidden] { display: none; }
+.gm-toast.ok { background: #2b3a2f; color: #fff; }
+.gm-toast.warn { background: #fff4d6; color: #5c3b00; border: 2px solid #d4a017; font-weight: 700; }

@@ -21,6 +21,7 @@
   <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
   <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
   <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/author-badge.css}">
 </head>
 <body>
 <div id="dc-root"><div class="sc-host">
@@ -43,7 +44,7 @@
   <button class="btn" type="submit">검색</button>
 </form>
 <p class="h3">공개 작품 <span class="sc-interp" th:text="${works.totalCount}">7</span></p>
-<div class="g3 gal-grid" th:unless="${#lists.isEmpty(works.items)}"><a class="box click art" th:each="w : ${works.items}" th:href="@{/works/{id}(id=${w.workId})}"><div class="art-frame"><div class="art-pic" role="img" th:attr="aria-label=${w.title}" th:style="${w.thumbnailFileId != null} ? 'background-image:url(' + @{/files/works/{fid}(fid=${w.thumbnailFileId})} + ');background-size:cover;background-position:center' : null"></div></div><div class="art-body"><p class="h4"><span class="sc-interp" th:text="${w.title}">레몬 마들렌</span></p><p class="mu"><span class="sc-interp" th:text="${w.hobbyName}">디저트 만들기</span> · <span class="sc-interp" th:text="${w.level.label}">입문</span> · <span class="sc-interp" th:text="${w.kind.name() == 'FINAL'} ? '최종 과제' : '일반 작품'">최종 과제</span></p><p class="mu"><span class="sc-interp" th:text="${w.authorNickname}">차분한수달 128</span></p><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp" th:text="${w.likeCount}">3</span></span><span>댓글 <span class="sc-interp" th:text="${w.commentCount}">2</span></span></div></div></a></div>
+<div class="g3 gal-grid" th:unless="${#lists.isEmpty(works.items)}"><a class="box click art" th:each="w : ${works.items}" th:href="@{/works/{id}(id=${w.workId})}"><div class="art-frame"><div class="art-pic" role="img" th:attr="aria-label=${w.title}" th:style="${w.thumbnailFileId != null} ? 'background-image:url(' + @{/files/works/{fid}(fid=${w.thumbnailFileId})} + ');background-size:cover;background-position:center' : null"></div></div><div class="art-body"><p class="h4"><span class="sc-interp" th:text="${w.title}">레몬 마들렌</span></p><p class="mu"><span class="sc-interp" th:text="${w.hobbyName}">디저트 만들기</span> · <span class="sc-interp" th:text="${w.level.label}">입문</span> · <span class="sc-interp" th:text="${w.kind.name() == 'FINAL'} ? '최종 과제' : '일반 작품'">최종 과제</span></p><p class="mu"><span class="an" th:classappend="${w.authorStyle.frameClass}"><span class="sc-interp" th:classappend="${w.authorStyle.nameColorClass}" th:text="${w.authorNickname}">차분한수달 128</span></span><span class="ab-list" th:if="${!#lists.isEmpty(w.authorStyle.badges)}"><span class="ab" th:each="b : ${w.authorStyle.badges}" th:title="${b.title}" th:text="${b.emoji}">🌱</span></span></p><div class="art-stat"><span>♡ 좋아요 <span class="sc-interp" th:text="${w.likeCount}">3</span></span><span>댓글 <span class="sc-interp" th:text="${w.commentCount}">2</span></span></div></div></a></div>
 <p class="mu" th:if="${#lists.isEmpty(works.items)}">조건에 맞는 공개 작품이 없어요.</p>
 <div class="row" th:if="${works.hasPrevious or works.hasNext}" style="justify-content: center; gap: 12px;">
   <a class="btn sm" th:if="${works.hasPrevious}" th:href="@{/works(page=${works.page - 1}, kind=${cond.kind}, keyword=${cond.keyword}, hobbyId=${cond.hobbyId}, level=${cond.level}, sort=${cond.sort})}">← 이전</a>

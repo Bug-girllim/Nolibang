@@ -1,0 +1,7 @@
+/* 메인 화면(main/home.html) 머리글의 알림 아이콘 — 사용자 이름 왼쪽에 놓인다.
+   공통 머리글(layout.html)의 알림 벨 CSS는 .gnb .gr 아래에만 적용돼서, 메인 화면의 .hd-r 용으로 따로 둔다. */
+.hd-r .hd-bell { position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%; color: #222B45; text-decoration: none; flex-shrink: 0; }
+.hd-r .hd-bell:hover, .hd-r .hd-bell:focus-visible { background: #E5F1FB; text-decoration: none; }
+.hd-r .hd-bell-cnt { position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; background: #D64545; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }

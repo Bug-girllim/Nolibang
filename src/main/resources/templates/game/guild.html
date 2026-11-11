@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] 길드(분반) 순위 — RPG 성장 요소
+  [연결] GameController.guild · GET /my/guild   → return "game/guild";
+  [모델] guilds(GuildPageDTO): myGuilds(내가 속한 길드 — 멤버 목록 포함), ranking(전체 길드 순위 상위)
+  [규칙] 길드 = 분반, 길드마스터 = 담당 강사. 순위는 멤버 경험치 합계. 멤버는 닉네임·레벨·경험치만 보이고 다른 길드의 멤버는 보이지 않는다.
+         사용자 입력 글(닉네임)은 th:text 로만 출력한다.
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>길드 순위 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/prep-badge.css}">
+  <link rel="stylesheet" th:href="@{/css/game.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app">
+<header th:replace="~{common/layout :: gnb(menu='')}"></header>
+<div class="lay">
+  <aside aria-label="사이드 메뉴" class="side"><p class="st">마이페이지</p>
+    <nav aria-label="마이페이지 메뉴" class="side-ctx">
+      <a th:href="@{/my/works/growth}">성장 기록</a>
+      <a th:href="@{/my/character}">내 캐릭터</a>
+      <a aria-current="page" class="active" th:href="@{/my/guild}">길드 순위<span class="side-sr"> (현재 페이지)</span></a>
+      <a th:href="@{/notifications}">알림함</a>
+      <a th:href="@{/inquiries}">1:1 문의</a>
+      <a th:href="@{/my/account}">계정 설정</a>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="ph bn sm bn-learn"><div><h2>길드 순위</h2><p>같은 분반 친구들이 한 길드예요. 이 분반에서 쌓은 경험치(차시·과제·수료)를 모아 길드 순위가 정해져요.</p></div></div>
+
+    <nav class="gm-tabs" aria-label="RPG 메뉴">
+      <a th:href="@{/my/character}">내 캐릭터</a>
+      <a class="on" th:href="@{/my/guild}">길드 순위</a>
+    </nav>
+
+    <!-- 내 길드 -->
+    <div class="box" th:each="g : ${guilds.myGuilds}">
+      <div class="rowb">
+        <div><p class="h3" th:text="${g.name}">길드 이름</p>
+          <p class="mu" th:text="'길드마스터 ' + ${g.instructorName} + ' · 멤버 ' + ${g.memberCount} + '명'">길드마스터</p></div>
+        <div><span class="chip" th:text="${g.rank} + '위'">1위</span> <b th:text="${g.totalXp} + ' XP'">0 XP</b></div>
+      </div>
+      <table class="t"><thead><tr><th>순위</th><th>닉네임</th><th>레벨</th><th>길드 기여 XP</th></tr></thead><tbody>
+        <tr th:each="m : ${g.members}" th:classappend="${m.me} ? 'gm-me'">
+          <td class="gm-rank" th:text="${m.rank}">1</td>
+          <td th:text="${m.nickname} + (${m.me} ? ' (나)' : '')">닉네임</td>
+          <td th:text="'Lv.' + ${m.level}">Lv.1</td>
+          <td th:text="${m.xp} + ' XP'">0 XP</td>
+        </tr>
+      </tbody></table>
+    </div>
+    <div class="box" th:if="${#lists.isEmpty(guilds.myGuilds)}">
+      <p class="h3">아직 가입한 길드가 없어요</p>
+      <p class="mu">강의를 수강하면 해당 분반 길드에 자동으로 들어가요.</p>
+      <a class="btn dk" th:href="@{/hobbies}">취미 탐색하기</a>
+    </div>
+
+    <!-- 전체 길드 순위 -->
+    <div class="box">
+      <div class="rowb"><p class="h3">전체 길드 순위</p><span class="mu">상위 10개 길드</span></div>
+      <p class="mu" th:if="${#lists.isEmpty(guilds.ranking)}">아직 순위를 매길 길드가 없어요.</p>
+      <table class="t" th:unless="${#lists.isEmpty(guilds.ranking)}"><thead><tr><th>순위</th><th>길드</th><th>길드마스터</th><th>멤버</th><th>길드 경험치</th></tr></thead><tbody>
+        <tr th:each="g : ${guilds.ranking}" th:classappend="${g.mine} ? 'gm-me'">
+          <td class="gm-rank" th:text="${g.rank}">1</td>
+          <td th:text="${g.name} + (${g.mine} ? ' (내 길드)' : '')">길드</td>
+          <td th:text="${g.instructorName}">강사</td>
+          <td th:text="${g.memberCount} + '명'">0명</td>
+          <td th:text="${g.totalXp} + ' XP'">0 XP</td>
+        </tr>
+      </tbody></table>
+    </div>
+  </main>
+</div>
+<div th:replace="~{common/layout :: footer}"></div>
+</div></div>
+</div></div>
+</body>
+</html>

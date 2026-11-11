@@ -668,3 +668,48 @@ ALTER TABLE users
 ALTER TABLE users
     ADD CONSTRAINT ck_users_status CHECK (status IN ('PENDING_EMAIL','ACTIVE','INACTIVE','WITHDRAWN')),
     ADD CONSTRAINT ck_users_withdrawn CHECK ((status = 'WITHDRAWN') = (withdrawn_at IS NOT NULL));
+
+-- =================================================================
+-- RPG 성장 요소(캐릭터·퀘스트·꾸미기) — migration_game.sql과 같은 내용
+-- =================================================================
+CREATE TABLE quest_claims (
+    user_id BIGINT UNSIGNED NOT NULL,
+    quest_key VARCHAR(40) NOT NULL,
+    period_key VARCHAR(20) NOT NULL,
+    reward_xp INT UNSIGNED NOT NULL,
+    claimed_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (user_id, quest_key, period_key),
+    KEY idx_quest_claims_claimed (claimed_at),
+    CONSTRAINT fk_quest_claims_user FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE user_avatars (
+    user_id BIGINT UNSIGNED NOT NULL,
+    avatar_code VARCHAR(30) NULL,
+    frame_code VARCHAR(30) NULL,
+    name_color_code VARCHAR(30) NULL,
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (user_id),
+    CONSTRAINT fk_user_avatars_user FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 업적 배지 획득 기록 — migration_game.sql과 같은 내용
+CREATE TABLE user_achievements (
+    user_id BIGINT UNSIGNED NOT NULL,
+    badge_code VARCHAR(40) NOT NULL,
+    earned_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (user_id, badge_code),
+    CONSTRAINT fk_user_achievements_user FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 대표 배지 장착(최대 3개) — migration_game.sql과 같은 내용
+CREATE TABLE user_equipped_badges (
+    user_id BIGINT UNSIGNED NOT NULL,
+    slot_no TINYINT UNSIGNED NOT NULL,
+    badge_code VARCHAR(40) NOT NULL,
+    equipped_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (user_id, slot_no),
+    UNIQUE KEY uq_equipped_badge (user_id, badge_code),
+    CONSTRAINT fk_equipped_badges_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_equipped_badges_slot CHECK (slot_no BETWEEN 1 AND 3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

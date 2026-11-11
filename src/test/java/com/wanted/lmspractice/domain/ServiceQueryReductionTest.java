@@ -328,7 +328,8 @@ class ServiceQueryReductionTest {
 
         WorkBoardFixture(CommentPolicy commentPolicy) {
             service = new WorkBoardService(workBoardQuery, workRepository, workCommentRepository, mock(WorkLikeRepository.class),
-                    workService, commentPolicy, userService, hobbyService, instructorAccountService);
+                    workService, commentPolicy, userService, hobbyService, instructorAccountService,
+                    mock(com.wanted.lmspractice.domain.game.service.AuthorStyleService.class));
         }
     }
 
