@@ -72,13 +72,15 @@ public class TimelineDTO {
         private ReviewStatus reviewStatus;
         /** 대표 이미지 id — 첫/최근 작품 썸네일에만 채운다 */
         private Long thumbnailFileId;
+        /** 관리자 숨김·복구 이력이 한 건이라도 있으면 true — 복구 뒤에도 조치 사유 화면(U-S16) 링크를 보인다 (#167) */
+        private boolean moderated;
 
         public static Item of(Work work, WorkVersion version, String hobbyName,
                               Long reviewRoundId, ReviewStatus reviewStatus) {
             return new Item(work.getId(), work.getKind(), version.getTitle(), work.getCreatedAt(),
                     work.getHobbyId(), hobbyName, work.getLevel(), work.getVisibility(),
                     Boolean.TRUE.equals(work.getAdminHidden()), work.getReflection(), work.getReferenceReviewId(),
-                    reviewRoundId, reviewStatus, null);
+                    reviewRoundId, reviewStatus, null, false);
         }
 
         public boolean isGeneral() {

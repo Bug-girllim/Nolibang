@@ -8,7 +8,9 @@ import com.wanted.lmspractice.domain.work.dto.TimelineDTO;
 import com.wanted.lmspractice.domain.work.entity.Work;
 import com.wanted.lmspractice.domain.work.entity.WorkFile;
 import com.wanted.lmspractice.domain.work.entity.WorkVersion;
+import com.wanted.lmspractice.domain.work.entity.WorkModerationLog;
 import com.wanted.lmspractice.domain.work.repository.WorkFileRepository;
+import com.wanted.lmspractice.domain.work.repository.WorkModerationLogRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkRepository;
 import com.wanted.lmspractice.domain.work.repository.WorkVersionRepository;
 import com.wanted.lmspractice.global.exception.BusinessException;
@@ -16,6 +18,7 @@ import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +30,13 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 4 · #19   [화면] U-S12 — templates/work/growth.html   [기획] FR-028, D-13·D-14·D-17   [API] MW-06·MW-07
  * [연결]
  *  - 호출받음: MyWorkController.growth (GET /my/works/growth), MyWorkController.saveReflection (POST /my/works/{workId}/reflection)
- *  - 호출함:   Work·WorkVersion·WorkFile Repository(같은 도메인), HobbyService.getHobbiesIgnoringVisibility(취미 이름),
+ *  - 호출함:   Work·WorkVersion·WorkFile Repository(같은 도메인), WorkModerationLogRepository(조치 이력 유무 — 사유 링크, #167), HobbyService.getHobbiesIgnoringVisibility(취미 이름),
  *             ReviewQueryService.getLatestStatus (계약 C11 — 최종 과제의 평가 상태·공식 피드백 링크)
  * [규칙]
  *  - 순서: works.created_at 최신순 — DB가 처음 넣을 때만 기록하므로 작품을 수정해도 순서가 바뀌지 않는다
  *  - 준비 중·비공개로 바뀐 취미의 작품도 내 기록이므로 계속 보인다(D-20과 같은 취지)
  *  - 회고는 선택 입력이며 수료와 무관하다
+ *  - 조치 사유 링크: 숨김 중이면 "숨김 사유", 복구된 뒤에도 이력이 있으면 "조치 이력"으로 U-S16 에 갈 수 있다(#167)
  * [기술] 🟢 @Transactional(readOnly), 🟢 쿼리 메서드, 🟢 JPA 변경 감지(회고 저장)
  */
 @Service
@@ -42,6 +46,7 @@ public class GrowthService {
     private final WorkRepository workRepository;
     private final WorkVersionRepository workVersionRepository;
     private final WorkFileRepository workFileRepository;
+    private final WorkModerationLogRepository moderationLogRepository;
     private final HobbyService hobbyService;
     private final ReviewQueryService reviewQueryService;
 
@@ -81,6 +86,12 @@ public class GrowthService {
         for (int i = 0; i < items.size(); i++) {
             items.get(i).setThumbnailFileId(firstFileByVersion.get(shown.get(i).getDisplayVersionId()));   // shown 과 items 는 같은 순서
         }
+
+        // 관리자 조치 이력이 있는 작품 — 복구된 뒤에도 조치 사유 화면 링크를 보인다(#167). 한 번의 조회로 고른다
+        Set<Long> moderatedWorkIds = moderationLogRepository.findByWorkIdIn(shown.stream().map(Work::getId).toList()).stream()
+                .map(WorkModerationLog::getWorkId)
+                .collect(Collectors.toSet());
+        items.forEach(item -> item.setModerated(moderatedWorkIds.contains(item.getWorkId())));
 
         TimelineDTO timeline = new TimelineDTO(hobbyIdOrNull, null, hobbyOptions, items, null, null);
         if (hobbyIdOrNull != null && !items.isEmpty()) {
