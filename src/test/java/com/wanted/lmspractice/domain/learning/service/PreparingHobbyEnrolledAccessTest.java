@@ -53,6 +53,18 @@ class PreparingHobbyEnrolledAccessTest {
     }
 
     @Test
+    @DisplayName("강의가 비공개(CLOSED)가 돼도 수강 중인 학습자의 차시 화면은 그대로 열리지만, 신규 탐색은 막힌다 (D-20)")
+    void enrolledLearnerKeepsLessonAccessWhenCourseClosed() {
+        entityManager.createNativeQuery("UPDATE courses SET status = 'CLOSED' WHERE id = " + COURSE).executeUpdate();
+        entityManager.clear();
+
+        assertThat(progressService.getLessonView(LEARNER, ENROLLMENT, FIRST_LESSON)).isNotNull();
+        assertThat(courseService.getCourseDetailForEnrolled(COURSE)).isNotNull();
+        assertThatThrownBy(() -> courseService.getCourseDetail(COURSE, Role.USER))
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode()).isEqualTo(ErrorCode.COURSE_NOT_FOUND));
+    }
+
+    @Test
     @DisplayName("같은 취미가 준비 중이면 학습자·비회원의 신규 탐색은 막힌다 — 강의 상세·강의 목록·취미 상세 모두 찾을 수 없음")
     void browsingIsHiddenForLearnersButNotStaff() {
         makeHobbyPreparing();

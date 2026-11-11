@@ -118,6 +118,21 @@ class AssignmentServiceTest {
     }
 
     @Test
+    @DisplayName("담당 강사가 없는 분반도 제출은 저장되고 알림만 건너뛴다 (Q-05)")
+    void submitWithoutInstructorSkipsNotification() {
+        lockReturns(List.of());
+        when(sectionService.getCurrentInstructorId(10L)).thenReturn(null);
+        when(workService.saveFinalWorkVersion(eq(2L), eq(10L), eq(7L), eq(CourseLevel.BASIC), anyString(), anyString(), anyList()))
+                .thenReturn(501L);
+
+        Long roundId = service.submit(2L, 10L, form, images(2));
+
+        assertThat(roundId).isEqualTo(99L);
+        verify(repository).saveAndFlush(any(ReviewRound.class));
+        verify(notificationService, never()).notify(any(), any(), any(), anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("최초 제출: 작품 버전을 저장하고 1회차 평가 대기(마감 = 제출 + 7일)를 만든 뒤 담당 강사에게 알린다")
     void submitCreatesWaitingRound() {
         lockReturns(List.of());

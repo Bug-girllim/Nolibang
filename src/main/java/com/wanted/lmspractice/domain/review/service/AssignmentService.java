@@ -153,9 +153,12 @@ public class AssignmentService {
         ReviewRound round = reviewRoundRepository.saveAndFlush(
                 ReviewRound.create(enrollment.getId(), workVersionId, roundNo, now));
 
+        // 담당 강사가 없는 분반(D-52)도 제출은 계속 가능하다(Q-05) — 알림 받을 사람이 없으면 알림만 건너뛴다
         Long instructorId = sectionService.getCurrentInstructorId(enrollment.getId());
-        notificationService.notify(instructorId, NotificationKind.REVIEW_SUBMITTED, round.getId(), notifyTitle,
-                course.getTitle() + " 최종 과제가 제출되었습니다. 7일 안에 평가해 주세요.");
+        if (instructorId != null) {
+            notificationService.notify(instructorId, NotificationKind.REVIEW_SUBMITTED, round.getId(), notifyTitle,
+                    course.getTitle() + " 최종 과제가 제출되었습니다. 7일 안에 평가해 주세요.");
+        }
         return round.getId();
     }
 

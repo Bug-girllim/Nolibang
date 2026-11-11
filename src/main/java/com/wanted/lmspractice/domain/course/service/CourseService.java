@@ -95,15 +95,15 @@ public class CourseService {
     /**
      * 수강 중인 학습자가 학습 화면에서 쓰는 강의 정보 — 취미의 노출 상태(준비 중·비공개)로 걸러내지 않는다.
      * 취미가 준비 중으로 바뀌어도 기존 수강자의 학습·과제 접근은 유지해야 하므로(D-20), 신규 탐색용 getCourseDetail 의
-     * 노출 규칙(준비 중은 강사·관리자에게만)을 거치지 않는다. 닫힌(CLOSED) 강의는 기존처럼 찾지 못한다.
+     * 노출 규칙(준비 중은 강사·관리자에게만)을 거치지 않는다. 닫힌(CLOSED) 강의도 이미 수강 중이면
+     * 그대로 연다(updateCourse: 수강 중인 학습자의 학습은 그대로, 수료자의 무제한 재시청 D-42).
      * 호출: ProgressService.getLessonView (GET /lessons/{lessonId}) — 수강 건 소유 확인은 호출한 쪽이 이미 끝냈다.
      *
-     * @throws BusinessException COURSE_NOT_FOUND — 없는 강의 또는 닫힌 강의
+     * @throws BusinessException COURSE_NOT_FOUND — 없는 강의
      */
     @Transactional(readOnly = true)
     public CourseDetailDTO getCourseDetailForEnrolled(Long courseId) {
         Course course = courseRepository.findById(courseId)
-                .filter(found -> isVisible(found, Role.USER))
                 .orElseThrow(() -> new BusinessException(ErrorCode.COURSE_NOT_FOUND));
         HobbyDTO hobby = hobbyService.getHobbiesIgnoringVisibility(List.of(course.getHobbyId())).get(course.getHobbyId());
         if (hobby == null) {

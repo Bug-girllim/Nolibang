@@ -32,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -190,7 +191,7 @@ class WorkServiceTest {
     }
 
     @Test
-    @DisplayName("수정: 이미지를 보내면 전체 교체되고 이전 파일은 디스크에서 지워진다")
+    @DisplayName("수정: 이미지를 보내면 전체 교체되고, 이전 파일은 커밋 전까지 디스크에 남는다(커밋 뒤에 지워짐 — 테스트는 롤백이라 확인 불가)")
     void updateReplacesImages() {
         Long versionId = save("제목", List.of(image("a.png", PNG)));
         Long oldFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
@@ -203,8 +204,22 @@ class WorkServiceTest {
         var files = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId);
         assertThat(files).hasSize(2);
         assertThat(files).extracting(f -> f.getMimeType()).containsExactly("image/jpeg", "image/png");
-        assertThat(stored(oldKey)).isFalse();
+        assertThat(stored(oldKey)).isTrue();   // 커밋이 실패하면 DB는 옛 행 그대로이므로 이전 파일을 먼저 지우지 않는다
         assertThat(stored(workService.openFile(files.get(0).getId(), userId("learner"), Role.USER).getKey())).isTrue();
+    }
+
+    @Test
+    @DisplayName("트랜잭션이 롤백되면 방금 저장한 이미지 파일도 지워진다 (호출한 쪽의 뒤 단계 실패 포함)")
+    void rollbackDeletesStoredFiles() {
+        Long versionId = save("롤백될 제출", List.of(image("a.png", PNG)));
+        Long fileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
+        String key = workService.openFile(fileId, userId("learner"), Role.USER).getKey();
+        assertThat(stored(key)).isTrue();
+
+        TestTransaction.flagForRollback();
+        TestTransaction.end();
+
+        assertThat(stored(key)).isFalse();
     }
 
     @Test

@@ -31,6 +31,8 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -84,6 +86,7 @@ public class WorkService {
         enrollmentService.getOwnedEnrollment(userId, enrollmentId);   // 남의 수강이면 존재를 숨기고 404
 
         List<StoredFile> stored = fileStorage.storeAll(images);       // 파일이 먼저 — 실패하면 storeAll 이 정리하고 던진다
+        deleteOnRollback(stored);                                     // 호출한 쪽(AssignmentService)의 뒤 단계가 실패해도 파일을 남기지 않는다
         try {
             Work work = workRepository.findByEnrollmentId(enrollmentId)
                     .orElseGet(() -> workRepository.save(Work.createFinal(userId, enrollmentId, hobbyId, level)));
@@ -140,6 +143,7 @@ public class WorkService {
         checkGeneralWorkRules(userId, dto, null);
 
         List<StoredFile> stored = fileStorage.storeAll(files);       // 파일이 먼저 — 실패하면 storeAll 이 정리하고 던진다
+        deleteOnRollback(stored);
         try {
             Work work = workRepository.save(Work.createGeneral(userId, dto.getHobbyId(), dto.getLevel(),
                     dto.getVisibility(), dto.getReflection(), dto.getReferenceReviewId(), LocalDateTime.now()));
@@ -298,6 +302,7 @@ public class WorkService {
             validateImageCount(images);
         }
         List<StoredFile> stored = replaceImages ? fileStorage.storeAll(images) : List.of();
+        deleteOnRollback(stored);
         List<String> oldKeys = new ArrayList<>();
         try {
             version.edit(title.strip(), description);
@@ -312,7 +317,37 @@ public class WorkService {
             fileStorage.deleteAllQuietly(stored);                     // 교체 실패 — 새로 저장한 파일을 정리하고 이전 파일은 건드리지 않는다
             throw e;
         }
-        oldKeys.forEach(fileStorage::deleteQuietly);                  // 마지막에 이전 파일 삭제
+        // 이전 파일은 커밋이 끝난 뒤에 지운다 — 커밋이 실패하면 DB는 옛 행 그대로이므로 파일이 남아 있어야 한다
+        runAfterCommit(() -> oldKeys.forEach(fileStorage::deleteQuietly));
+    }
+
+    /** 방금 저장한 파일을 트랜잭션이 롤백으로 끝나면 지운다. 트랜잭션이 없으면 등록하지 않는다(호출한 쪽 catch 가 처리) */
+    private void deleteOnRollback(List<StoredFile> stored) {
+        if (stored.isEmpty() || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    fileStorage.deleteAllQuietly(stored);
+                }
+            }
+        });
+    }
+
+    /** 커밋 뒤에 실행. 트랜잭션이 없으면 바로 실행한다 */
+    private void runAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     /**
