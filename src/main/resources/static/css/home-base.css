@@ -20,7 +20,7 @@ a{color:#2C3552}a:hover{color:#222B45}
 .gnav a:hover,.login:hover{color:#2C3552;border-bottom-color:var(--btn-main,#CC5500)}
 .sep{width:1px;height:20px;background:#B59A60}
 .hd-r{display:flex;justify-content:flex-end;align-items:center;gap:40px}
-.join{display:inline-flex;align-items:center;justify-content:center;min-width:144px;min-height:44px;padding:0 30px;border-radius:8px;background:var(--btn-main-l,#FBEBDD);color:var(--btn-main-d,#A84500);border:1.5px solid var(--btn-main,#CC5500);box-shadow:none;font-family:'Noto Serif KR',serif;font-weight:500;font-size:18px;text-decoration:none}
+.join{display:inline-flex;align-items:center;justify-content:center;min-width:144px;min-height:44px;padding:0 30px;border-radius:8px;background:var(--btn-main-l,#FBEBDD);color:var(--btn-main-d,#A84500);border:1.5px solid var(--btn-main,#CC5500);box-shadow:none;font-family:'Noto Serif KR',serif;font-weight:700;font-size:18px;text-decoration:none}
 .join:hover{background:#F7DDC8;border-color:var(--btn-main-d,#A84500);color:var(--btn-main-d,#A84500)}
 .hero{position:relative;min-height:clamp(540px,40.4vw,780px);background:#F8F6F0 url(../images/88dafed5d9d258ed63fc373fa715ab0f.jpg) center top / cover no-repeat;display:flex;justify-content:center;align-items:flex-start;isolation:isolate}
 .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 27% 44% at 50% 42%,rgba(248,246,240,.6),rgba(248,246,240,0) 74%);z-index:-1;pointer-events:none}
