@@ -241,7 +241,7 @@ class WorkModerationServiceTest {
         assertThat(timelineItem(author, HIDDEN_WORK).isAdminHidden()).isTrue();          // 숨김 중 → [숨김 사유]
         assertThat(timelineItem(author, HIDDEN_WORK).isModerated()).isTrue();
 
-        moderationService.restore(userId("admin"), HIDDEN_WORK, "확인 결과 문제가 없어 복구합니다.");
+        moderationService.restore(userId("admin"), Role.ADMIN, HIDDEN_WORK, "확인 결과 문제가 없어 복구합니다.");
 
         TimelineDTO.Item restored = timelineItem(author, HIDDEN_WORK);
         assertThat(restored.isAdminHidden()).isFalse();
