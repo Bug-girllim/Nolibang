@@ -2,6 +2,7 @@ package com.wanted.lmspractice.global.config;
 
 import com.wanted.lmspractice.domain.auth.handler.AuthFailHandler;
 import com.wanted.lmspractice.domain.auth.handler.AuthSuccessHandler;
+import com.wanted.lmspractice.domain.auth.handler.SessionExpiredHandler;
 import java.util.Set;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +27,8 @@ import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
  *  - 호출받음: Spring Security 필터 체인(모든 요청)
  *  - 호출함:   AuthService(UserDetailsService Bean을 자동 사용), 오류 화면 /error/403·/error/401·/error/401-expired·/error/401-duplicate(MainController)
  *  - 연결됨:   #04 AuthSuccessHandler·AuthFailHandler (formLogin)
- *  - 연결됨:   #06 maximumSessions(1) → 다른 기기 로그인으로 끝난 세션은 /error/401-duplicate (E-DUP)
+ *  - 연결됨:   #06 maximumSessions(1) → 다른 기기 로그인으로 끝난 세션은 /error/401-duplicate (E-DUP),
+ *             관리자가 비활성화해 끝난 강사 세션은 /auth/login?error=disabled (SessionExpiredHandler가 구분)
  *  - 연결됨:   로그인 필요 → /error/401 (E-401), 세션 시간 만료 → /error/401-expired (E-SESSION)
  *  - 연결됨:   requestCache — E-401로 보내기 전 원래 화면을 저장하고, 로그인 성공 후 AuthSuccessHandler가 그 화면으로 보낸다
  *  - 규칙:     다른 팀원은 이 파일을 직접 고치지 않고 팀원 1에게 요청한다
@@ -50,7 +52,8 @@ public class SecurityConfig {
                                            AuthSuccessHandler authSuccessHandler,
                                            AuthFailHandler authFailHandler,
                                            SessionRegistry sessionRegistry,
-                                           RequestCache requestCache) throws Exception {
+                                           RequestCache requestCache,
+                                           SessionExpiredHandler sessionExpiredHandler) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         // 강사 첫 로그인 비밀번호 변경은 /auth/** 공개 규칙보다 먼저 막아야 한다
@@ -101,7 +104,8 @@ public class SecurityConfig {
                         .maximumSessions(1)                       // 회원당 세션 1개 (AuthDetails.equals가 users.id로 비교)
                         .sessionRegistry(sessionRegistry)         // 강사 비활성화 때 이미 로그인한 세션을 끊으려고 같은 Registry를 공유
                         .maxSessionsPreventsLogin(false)          // 새 로그인을 막지 않고 이전 세션을 만료
-                        .expiredUrl("/error/401-duplicate"));
+                        // 끝난 세션의 다음 요청: 다른 기기 로그인 → E-DUP, 관리자가 비활성화한 강사 → 로그인 화면 "비활성화된 계정입니다"
+                        .expiredSessionStrategy(sessionExpiredHandler));
         return http.build();
     }
 

@@ -628,10 +628,15 @@
 |---|---|---|---|---|
 | Path | `instructorId` | Long | Y | |
 | Form | `active` | boolean | Y | `true` 활성 / `false` 비활성 |
+| Form | `emergency` | boolean | N | `true` 긴급 비활성화(갑작스러운 이탈·정지) — 기본 `false` |
+| Form | `from` | String | N | `stats` 면 성공 후 `/admin/stats`로 |
 
-- **처리:** 상태 변경. 비활성 강사는 로그인 불가
-- ❓ 비활성화한 강사가 담당 중인 분반 처리 — 기획 D-52: 담당 공백 분반은 신규 배정 제외. 관리자가 SE-04로 담당 변경
-- **실패:** `USER_NOT_FOUND`
+- **처리:** 활성화는 `InstructorAccountService.changeStatus`. 비활성화는 `SectionService.deactivateInstructor(instructorId, emergency)`
+  - 비활성 강사는 로그인 불가, 로그인 중인 세션도 끊는다 → 그 브라우저는 다음 요청에서 `/auth/login?error=disabled`("비활성화된 계정입니다", `SessionExpiredHandler`)
+  - 담당 분반이 있으면 평소에는 거부(`INSTRUCTOR_HAS_SECTIONS`) → A-S04에 이유 + [분반 관리로 가기]·[긴급 비활성화] 표시. 관리자가 SE-04로 담당을 먼저 바꾼다(D-59)
+  - `emergency=true`면 바로 비활성화하고 그 강사의 분반을 모두 **담당 공백**(`instructor_id = NULL`)으로 바꾼다 → 신규 배정 제외(D-52), A-S01 담당 공백 분반에 표시, 새 담당 지정 시 평가 대기 과제 승계
+- **성공:** `redirect:/admin/instructors` (또는 `/admin/stats`) + flash `message`(담당 공백이 된 분반 수 포함)
+- **실패:** `USER_NOT_FOUND`(에러 화면), `INSTRUCTOR_HAS_SECTIONS`(A-S04로 redirect + flash `errorMessage`·`blockedInstructorId`)
 
 ### AI-05. 취미 권한 부여
 `POST /admin/instructors/{instructorId}/hobbies` · 🛠 · 팀원 1 / #05
@@ -647,9 +652,8 @@
 ### AI-06. 취미 권한 회수
 `POST /admin/instructors/{instructorId}/hobbies/{hobbyId}/revoke` · 🛠 · 팀원 1 / #05
 
-- **처리:** `InstructorAccountService.revokeHobby(instructorId, hobbyId)`
-- ❓ 해당 취미 분반을 담당 중일 때 회수 허용 여부 (담당 중이면 거부 💡)
-- **실패:** `USER_NOT_FOUND`, `HOBBY_NOT_FOUND`
+- **처리:** `SectionService.revokeHobbyGrant(instructorId, hobbyId)` — 그 취미의 분반을 담당 중이면 거부, 아니면 `InstructorAccountService.revokeHobby`
+- **실패:** `USER_NOT_FOUND`, `HOBBY_NOT_FOUND`, `GRANT_IN_USE`(A-S04 취미 권한 탭으로 redirect + flash `errorMessage`)
 
 ---
 
@@ -1608,6 +1612,8 @@
 | `CAPACITY_OUT_OF_RANGE` | 400 | 정원은 1~30명입니다. | flash | SE-02, SE-03 |
 | `CAPACITY_BELOW_ACTIVE` | 409 | 현재 수강 인원보다 정원을 줄일 수 없습니다. | flash | SE-03 |
 | `INSTRUCTOR_NOT_GRANTED` | 403 | 해당 취미 권한이 없는 강사입니다. | 에러 화면 | SE-02, SE-04 |
+| `INSTRUCTOR_HAS_SECTIONS` | 409 | 담당 분반이 있는 강사는 비활성화할 수 없어요. 분반 관리에서 담당 강사를 먼저 바꿔 주세요. … | A-S04 flash | AI-04 |
+| `GRANT_IN_USE` | 409 | 이 취미의 분반을 담당 중이라 권한을 회수할 수 없어요. 분반 관리에서 담당 강사를 먼저 바꿔 주세요. | A-S04 flash | AI-06 |
 | `VIDEO_ACCESS_DENIED` | 403 | 수강 기간이 끝났거나 취소한 강의라 영상을 볼 수 없어요. 수료한 강의는 기간과 관계없이 다시 볼 수 있어요. | 에러 화면 | LE-01, LE-02, VD-01 |
 | `LESSONS_NOT_COMPLETED` | 409 | 3차시를 모두 완료해야 제출할 수 있습니다. | flash | AS-02 |
 | `SUBMISSION_LOCKED` | 409 | 평가가 시작되어 수정할 수 없습니다. | flash | AS-03 |

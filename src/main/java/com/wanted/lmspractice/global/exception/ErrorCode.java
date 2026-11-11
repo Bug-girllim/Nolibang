@@ -50,6 +50,8 @@ public enum ErrorCode {
     CAPACITY_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "정원은 1~30명입니다."),
     CAPACITY_BELOW_ACTIVE(HttpStatus.CONFLICT, "현재 수강 인원보다 정원을 줄일 수 없습니다."),
     INSTRUCTOR_NOT_GRANTED(HttpStatus.FORBIDDEN, "해당 취미 권한이 없는 강사입니다."),
+    INSTRUCTOR_HAS_SECTIONS(HttpStatus.CONFLICT, "담당 분반이 있는 강사는 비활성화할 수 없어요. 분반 관리에서 담당 강사를 먼저 바꿔 주세요. 갑작스러운 이탈·정지라면 [긴급 비활성화]를 쓰면 담당 분반이 담당 공백으로 바뀌어요."),
+    GRANT_IN_USE(HttpStatus.CONFLICT, "이 취미의 분반을 담당 중이라 권한을 회수할 수 없어요. 분반 관리에서 담당 강사를 먼저 바꿔 주세요."),
 
     /* 학습 */
     VIDEO_ACCESS_DENIED(HttpStatus.FORBIDDEN, "수강 기간이 끝났거나 취소한 강의라 영상을 볼 수 없어요. 수료한 강의는 기간과 관계없이 다시 볼 수 있어요."),

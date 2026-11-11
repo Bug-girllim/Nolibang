@@ -42,6 +42,17 @@ public interface CourseSectionRepository extends JpaRepository<CourseSection, Lo
             nativeQuery = true)
     int findNextSectionNo(@Param("courseId") Long courseId);
 
+    /**
+     * 강사가 담당 중인 분반들의 강의 id (중복 없음, 작은 번호부터) — 잠금은 강의 단위로 잡으므로 강의 id부터 얻는다.
+     * 호출: SectionService.deactivateInstructor(긴급 비활성화 → 담당 공백)
+     */
+    @Query(value = "SELECT DISTINCT CAST(course_id AS SIGNED) FROM course_sections WHERE instructor_id = :instructorId "
+            + "ORDER BY 1", nativeQuery = true)
+    List<Long> findCourseIdsByInstructorId(@Param("instructorId") Long instructorId);
+
+    /** 강사가 담당 중인 분반이 있는지 (강사 비활성화·취미 권한 회수 차단, AI-04·AI-06) */
+    boolean existsByInstructorId(Long instructorId);
+
     /** 강의 안 분반 이름 중복 여부 (DB UNIQUE uq_sections_name, #10 SE-02) */
     boolean existsByCourseIdAndName(Long courseId, String name);
 }

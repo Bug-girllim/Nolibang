@@ -5,6 +5,7 @@ import com.wanted.lmspractice.domain.user.dto.InstructorCreateDTO;
 import com.wanted.lmspractice.domain.user.dto.InstructorDTO;
 import com.wanted.lmspractice.domain.user.service.InstructorAccountService;
 import com.wanted.lmspractice.domain.user.service.UserService;
+import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -28,7 +29,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  * [연결]
  *  - 호출받음: 브라우저(GET·POST /admin/instructors/**) — ADMIN만(SecurityConfig, USER·강사는 403)
  *  - 호출함:   InstructorAccountService(목록·생성·재발급·상태·권한), UserService(아이디·이메일 중복 확인 — 가입과 같은 메서드),
- *             SectionService.getSectionsByInstructor(계약 C6, 담당 분반 수 — #10 전까지는 빈 목록)
+ *             SectionService.getSectionsByInstructor(계약 C6, 담당 분반 수),
+ *             SectionService.deactivateInstructor·revokeHobbyGrant(담당 분반이 있으면 비활성화·권한 회수 차단, 긴급 비활성화 → 담당 공백)
  *  - 화면:     templates/admin/instructors.html
  * [기술] 🟢 @Controller, @Valid·BindingResult, RedirectAttributes(flash 1회 표시), @PathVariable·@RequestParam
  */
@@ -107,14 +109,39 @@ public class AdminInstructorController {
         return "redirect:/admin/instructors";
     }
 
-    /** 활성/비활성 변경. 호출: POST /admin/instructors/{instructorId}/status, Form active (AI-04). from=stats 면 강사 통계(/admin/stats)로 돌아간다 */
+    /**
+     * 활성/비활성 변경. 호출: POST /admin/instructors/{instructorId}/status, Form active·emergency (AI-04).
+     * 비활성화는 SectionService가 담당 분반과 함께 처리한다:
+     *  - 담당 분반이 있으면 거부 → 강사 계정 화면에 이유와 [긴급 비활성화] 버튼(flash blockedInstructorId)을 보여 준다
+     *  - emergency=true(갑작스러운 이탈·정지) → 비활성화 + 담당 분반을 담당 공백으로 바꾼다
+     * from=stats 면 성공 후 강사 통계(/admin/stats)로 돌아간다.
+     */
     @PostMapping("/{instructorId}/status")
     public String changeStatus(@PathVariable Long instructorId,
                                @RequestParam boolean active,
+                               @RequestParam(defaultValue = "false") boolean emergency,
                                @RequestParam(required = false) String from,
                                RedirectAttributes redirectAttributes) {
-        instructorAccountService.changeStatus(instructorId, active);
-        redirectAttributes.addFlashAttribute("message", active ? "강사 계정을 활성화했어요." : "강사 계정을 비활성화했어요.");
+        if (active) {
+            instructorAccountService.changeStatus(instructorId, true);
+            redirectAttributes.addFlashAttribute("message", "강사 계정을 활성화했어요.");
+        } else {
+            try {
+                int released = sectionService.deactivateInstructor(instructorId, emergency);
+                redirectAttributes.addFlashAttribute("message", released == 0
+                        ? "강사 계정을 비활성화했어요."
+                        : "강사 계정을 비활성화했어요. 담당하던 분반 " + released
+                                + "개가 담당 공백이 되어 신규 배정에서 빠졌어요. 대시보드나 분반 관리에서 새 담당 강사를 지정해 주세요.");
+            } catch (BusinessException e) {
+                if (e.getErrorCode() != ErrorCode.INSTRUCTOR_HAS_SECTIONS) {
+                    throw e;  // USER_NOT_FOUND 등은 공통 오류 화면
+                }
+                // 어느 화면에서 눌렀든 강사 계정 화면에서 이유와 긴급 비활성화 버튼을 보여 준다
+                redirectAttributes.addFlashAttribute("errorMessage", e.getErrorCode().getMessage());
+                redirectAttributes.addFlashAttribute("blockedInstructorId", instructorId);
+                return "redirect:/admin/instructors";
+            }
+        }
         if ("stats".equals(from)) {
             return "redirect:/admin/stats";  // 강사 통계(A-S13)의 계정 칸에서 바로 바꾼 경우
         }
@@ -136,8 +163,15 @@ public class AdminInstructorController {
     public String revokeHobby(@PathVariable Long instructorId,
                               @PathVariable Long hobbyId,
                               RedirectAttributes redirectAttributes) {
-        instructorAccountService.revokeHobby(instructorId, hobbyId);
-        redirectAttributes.addFlashAttribute("message", "취미 활동 권한을 회수했어요.");
+        try {
+            sectionService.revokeHobbyGrant(instructorId, hobbyId);  // 그 취미 분반을 담당 중이면 GRANT_IN_USE
+            redirectAttributes.addFlashAttribute("message", "취미 활동 권한을 회수했어요.");
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != ErrorCode.GRANT_IN_USE) {
+                throw e;
+            }
+            redirectAttributes.addFlashAttribute("errorMessage", e.getErrorCode().getMessage());
+        }
         return "redirect:/admin/instructors?tab=" + TAB_HOBBY;
     }
 
