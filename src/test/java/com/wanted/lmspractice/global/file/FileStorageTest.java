@@ -199,4 +199,40 @@ class FileStorageTest {
         storage.deleteQuietly("seed/sample.png");
         assertThat(storage.getPendingDeleteKeys()).isEmpty();
     }
+
+    @Test
+    @DisplayName("삭제 재처리 대기 목록은 파일에 남아 서버를 재시작해도 이어서 지우고, 시도 횟수도 이어진다. 목록이 비면 파일도 지운다")
+    void pendingDeletesSurviveRestart() throws IOException {
+        Path blocker = dir.resolve("works/locked.png");
+        Files.createDirectories(blocker);
+        Files.writeString(blocker.resolve("inner"), "x");
+        Path pendingFile = dir.resolve(FileStorage.PENDING_DELETES_FILE);
+
+        storage.deleteQuietly("works/locked.png");                    // 1회째 실패
+        storage.retryPendingDeletes();                                // 2회째 실패
+        assertThat(pendingFile).exists();
+
+        FileStorage restarted = new FileStorage(dir.toString());      // 서버 재시작
+        assertThat(restarted.getPendingDeleteKeys()).containsExactly("works/locked.png");
+        for (int i = 2; i < FileStorage.MAX_DELETE_ATTEMPTS - 1; i++) {
+            restarted.retryPendingDeletes();                          // 3 ~ (최대-1)회째 — 횟수가 처음부터 다시 세지지 않는다
+        }
+        assertThat(restarted.getPendingDeleteKeys()).containsExactly("works/locked.png");
+
+        Files.delete(blocker.resolve("inner"));                       // 실패 원인이 풀림
+        assertThat(restarted.retryPendingDeletes()).isZero();
+        assertThat(blocker).doesNotExist();
+        assertThat(pendingFile).doesNotExist();
+        assertThat(new FileStorage(dir.toString()).getPendingDeleteKeys()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("대기 목록 파일의 깨진 줄은 건너뛰고 나머지만 되살린다")
+    void brokenPendingLinesAreSkipped() throws IOException {
+        Files.writeString(dir.resolve(FileStorage.PENDING_DELETES_FILE),
+                "2\tworks/a.png\nabc\tworks/b.png\nno-tab\n3\t\n\n1\tworks/c.png\n");
+
+        assertThat(new FileStorage(dir.toString()).getPendingDeleteKeys())
+                .containsExactlyInAnyOrder("works/a.png", "works/c.png");
+    }
 }

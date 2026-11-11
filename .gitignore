@@ -43,6 +43,10 @@ out/
 ### Uploaded work images (local runs, not tracked — seed images live in uploads/seed) ###
 /uploads/works/
 
+### 파일 삭제 재처리 대기 목록 (FileStorage, 로컬 실행 때 생김) ###
+/uploads/.pending-deletes
+/uploads/.pending-deletes.tmp
+
 ### Local tool settings / secrets (never commit) ###
 .env
 .env.*

@@ -4,9 +4,11 @@ import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
  *   확장자만 바꾼 위장 파일은 ②에서 걸린다. JDK ImageIO 는 WebP 를 읽지 못해 매직 바이트로 판별한다(새 의존성 없음).
  * [실패 처리] storeAll 은 중간에 하나라도 실패하면 이미 저장한 파일을 모두 지운 뒤 예외를 던진다(F-05).
  *   deleteQuietly 가 실패하면 key 를 재처리 대기 목록에 넣고 FileDeleteRetryScheduler 가 다시 지운다(#161).
+ *   대기 목록은 업로드 폴더의 .pending-deletes 파일에도 적어 두어 서버를 재시작해도 이어서 지운다.
  * [기술] 🟢 MultipartFile·UUID·transferTo (chap06)
  */
 @Slf4j
@@ -50,10 +53,16 @@ public class FileStorage {
     /** ❓ 임시값: 삭제 재처리 횟수(처음 실패 포함). 스케줄러 간격 10분이면 약 1시간 동안 다시 시도한다 */
     static final int MAX_DELETE_ATTEMPTS = 6;
 
+    /** 재처리 대기 목록을 적어 두는 파일 — 업로드 폴더 바로 아래. 한 줄에 "시도 횟수<TAB>key" (#161 보완: 재시작해도 유지) */
+    static final String PENDING_DELETES_FILE = ".pending-deletes";
+
     /** 삭제에 실패해 다시 지울 key → 지금까지 시도한 횟수 (여러 요청 스레드가 함께 쓰므로 동시성 Map) */
     private final Map<String, Integer> pendingDeletes = new ConcurrentHashMap<>();
 
     private final Path root;
+
+    /** 대기 목록 파일 경로. S3 모드에서도 업로드 폴더(UPLOAD_DIR)는 서버의 고정 경로라(영상 저장) 같은 곳에 둔다 */
+    private final Path pendingFile;
 
     /** null 이면 로컬 디스크(file.upload-dir), 있으면 S3 호환 저장소(file.storage=s3) */
     private final RemoteObjectStore remote;
@@ -67,6 +76,8 @@ public class FileStorage {
     public FileStorage(@Value("${file.upload-dir}") String uploadDir, @Autowired(required = false) RemoteObjectStore remote) {
         this.root = Paths.get(uploadDir).toAbsolutePath().normalize();
         this.remote = remote;
+        this.pendingFile = root.resolve(PENDING_DELETES_FILE);
+        loadPendingDeletes();
     }
 
     /**
@@ -176,17 +187,21 @@ public class FileStorage {
         }
         if (!tryDelete(key)) {
             pendingDeletes.putIfAbsent(key, 1);
+            savePendingDeletes();
             log.warn("파일 삭제 실패 — 재처리 대기 목록에 넣음: key={}", key);
         }
     }
 
     /**
      * 재처리 대기 중인 파일을 다시 지운다. 성공하면 목록에서 빼고, MAX_DELETE_ATTEMPTS 번 실패하면 ERROR 로그를 남기고 포기한다
-     * (로그의 key 로 직접 지워야 한다). 대기 목록은 메모리에만 있어 서버를 재시작하면 사라진다 — 그때도 WARN 로그에 key 가 남아 있다.
+     * (로그의 key 로 직접 지워야 한다). 대기 목록은 .pending-deletes 파일에도 적혀 있어 서버를 재시작해도 이어서 시도한다.
      * 호출: FileDeleteRetryScheduler (주기 실행)
      * @return 아직 대기 중인 개수
      */
     public int retryPendingDeletes() {
+        if (pendingDeletes.isEmpty()) {
+            return 0;
+        }
         for (String key : List.copyOf(pendingDeletes.keySet())) {
             if (tryDelete(key)) {
                 pendingDeletes.remove(key);
@@ -199,7 +214,58 @@ public class FileStorage {
                 log.error("파일 삭제 재처리 {}회 실패 — 고아 파일, 직접 삭제 필요: key={}", attempts, key);
             }
         }
+        savePendingDeletes();
         return pendingDeletes.size();
+    }
+
+    /**
+     * 서버 시작 때 .pending-deletes 를 읽어 대기 목록을 되살린다. 형식이 깨진 줄은 건너뛴다.
+     * 파일을 못 읽어도 서버는 뜬다(WARN) — 그 key 들은 이전 실행의 WARN 로그로 확인할 수 있다.
+     */
+    private void loadPendingDeletes() {
+        if (!Files.isRegularFile(pendingFile)) {
+            return;
+        }
+        try {
+            for (String line : Files.readAllLines(pendingFile, StandardCharsets.UTF_8)) {
+                int tab = line.indexOf('\t');
+                if (tab <= 0 || tab == line.length() - 1) {
+                    continue;
+                }
+                try {
+                    pendingDeletes.put(line.substring(tab + 1), Integer.parseInt(line.substring(0, tab)));
+                } catch (NumberFormatException ignored) {
+                    // 깨진 줄은 버린다
+                }
+            }
+            if (!pendingDeletes.isEmpty()) {
+                log.info("파일 삭제 재처리 대기 {}건을 이어서 처리합니다", pendingDeletes.size());
+            }
+        } catch (IOException e) {
+            log.warn("파일 삭제 재처리 대기 목록을 읽지 못했습니다: {}", pendingFile, e);
+        }
+    }
+
+    /**
+     * 대기 목록을 파일에 다시 쓴다(임시 파일에 쓴 뒤 바꿔치기 — 쓰는 도중 꺼져도 이전 내용이 남는다). 비면 파일을 지운다.
+     * synchronized: 요청 스레드와 스케줄러가 동시에 쓰더라도, 잠금 안에서 그 순간의 목록을 읽으므로 마지막에 쓴 내용이 최신이다.
+     * 쓰기에 실패해도 메모리 목록으로 재처리는 계속된다(WARN).
+     */
+    private synchronized void savePendingDeletes() {
+        try {
+            if (pendingDeletes.isEmpty()) {
+                Files.deleteIfExists(pendingFile);
+                return;
+            }
+            List<String> lines = new ArrayList<>();
+            pendingDeletes.forEach((key, attempts) -> lines.add(attempts + "\t" + key));
+            Files.createDirectories(root);
+            Path temp = root.resolve(PENDING_DELETES_FILE + ".tmp");
+            Files.write(temp, lines, StandardCharsets.UTF_8);
+            Files.move(temp, pendingFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException e) {
+            log.warn("파일 삭제 재처리 대기 목록을 저장하지 못했습니다: {}", pendingFile, e);
+        }
     }
 
     /** 재처리 대기 중인 key (확인·테스트용, 읽기 전용) */
