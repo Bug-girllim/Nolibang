@@ -68,4 +68,16 @@ class UserWithdrawTest {
         assertThat(user.releaseEmailIfExpired(withdrawnAt.plusDays(30))).isTrue();
         assertThat(user.getEmail()).endsWith("@withdrawn.invalid");
     }
+
+    @Test
+    @DisplayName("이메일을 내줄 수 있는지(가입 화면 중복 검사 기준)는 탈퇴 계정이고 30일이 지났을 때만 true")
+    void isEmailReleasable_onlyWithdrawnAfter30Days() {
+        LocalDateTime withdrawnAt = LocalDateTime.of(2026, 10, 1, 0, 0);
+        assertThat(activeLearner().isEmailReleasable(withdrawnAt.plusDays(100))).isFalse();  // 탈퇴 안 한 계정
+
+        User user = activeLearner();
+        user.withdraw(withdrawnAt, "x");
+        assertThat(user.isEmailReleasable(withdrawnAt.plusDays(29))).isFalse();
+        assertThat(user.isEmailReleasable(withdrawnAt.plusDays(30))).isTrue();
+    }
 }
