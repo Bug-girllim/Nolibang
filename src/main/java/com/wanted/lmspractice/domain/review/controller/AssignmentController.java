@@ -68,7 +68,11 @@ public class AssignmentController {
                        @AuthenticationPrincipal AuthDetails details,
                        Model model) {
         AssignmentViewDTO view = assignmentService.getAssignmentView(details.getUserId(), enrollmentId);
-        addViewModel(model, view, AssignmentSubmitDTO.withDefaultTitle(view.getDefaultTitle()));
+        // 이미 낸 작품이 있으면 수정·재제출 폼에 그 제목·설명을 미리 채운다(없으면 강의의 과제 제목)
+        AssignmentSubmitDTO form = view.hasSubmission()
+                ? new AssignmentSubmitDTO(view.getSubmittedTitle(), view.getSubmittedDescription())
+                : AssignmentSubmitDTO.withDefaultTitle(view.getDefaultTitle());
+        addViewModel(model, view, form);
         return VIEW;
     }
 

@@ -53,7 +53,27 @@ public class AssignmentViewDTO {
     /** 제출 이력 (최근 회차부터) */
     private List<ReviewStatusDTO> rounds;
 
+    /** 마지막으로 제출한 작품 — 제목·설명·이미지 파일 id(올린 순서). 제출한 적이 없거나 제출물이 지워졌으면 비어 있다 */
+    private String submittedTitle;
+    private String submittedDescription;
+    private List<Long> submittedFileIds = List.of();
+
     private static final long SECONDS_PER_DAY = 24L * 60 * 60;
+
+    /**
+     * 마지막 회차의 제출물(작품 버전)을 붙인다 — 화면의 「제출한 작품」과 수정·재제출 폼 기본값에 쓴다.
+     * 호출: AssignmentService.getAssignmentView (ReviewQuery.findSubmission — 강사 평가 상세와 같은 조회)
+     */
+    public void attachSubmission(String title, String description, List<Long> fileIds) {
+        this.submittedTitle = title;
+        this.submittedDescription = description;
+        this.submittedFileIds = fileIds == null ? List.of() : fileIds;
+    }
+
+    /** 보여 줄 제출물이 있는지 */
+    public boolean hasSubmission() {
+        return submittedTitle != null;
+    }
 
     /**
      * 화면 값 조립. 호출: AssignmentService.getAssignmentView
