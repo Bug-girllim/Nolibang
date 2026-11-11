@@ -27,7 +27,6 @@ import com.wanted.lmspractice.domain.review.dto.AssignmentSubmitDTO;
 import com.wanted.lmspractice.domain.review.entity.ReviewRound;
 import com.wanted.lmspractice.domain.review.entity.ReviewStatus;
 import com.wanted.lmspractice.domain.review.policy.SubmissionPolicy;
-import com.wanted.lmspractice.domain.review.repository.ReviewQuery;
 import com.wanted.lmspractice.domain.review.repository.ReviewRoundRepository;
 import com.wanted.lmspractice.domain.work.service.WorkService;
 import com.wanted.lmspractice.global.exception.BusinessException;
@@ -75,8 +74,7 @@ class AssignmentServiceTest {
         workService = mock(WorkService.class);
         notificationService = mock(NotificationService.class);
         service = new AssignmentService(repository, new SubmissionPolicy(progressService), enrollmentService,
-                sectionService, courseService, progressService, workService, notificationService, mock(ReviewQuery.class),
-                new VideoAccessPolicy());
+                sectionService, courseService, progressService, workService, notificationService, new VideoAccessPolicy());
 
         when(progressService.isAllCompleted(10L)).thenReturn(true);
         when(courseService.getCourseBriefs(List.of(1L))).thenReturn(Map.of(1L,

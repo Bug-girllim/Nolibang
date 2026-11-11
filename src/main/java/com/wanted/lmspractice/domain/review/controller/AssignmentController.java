@@ -69,8 +69,8 @@ public class AssignmentController {
                        Model model) {
         AssignmentViewDTO view = assignmentService.getAssignmentView(details.getUserId(), enrollmentId);
         // 이미 낸 작품이 있으면 수정·재제출 폼에 그 제목·설명을 미리 채운다(없으면 강의의 과제 제목)
-        AssignmentSubmitDTO form = view.hasSubmission()
-                ? new AssignmentSubmitDTO(view.getSubmittedTitle(), view.getSubmittedDescription())
+        AssignmentSubmitDTO form = view.getSubmittedWork() != null
+                ? new AssignmentSubmitDTO(view.getSubmittedWork().getTitle(), view.getSubmittedWork().getDescription())
                 : AssignmentSubmitDTO.withDefaultTitle(view.getDefaultTitle());
         addViewModel(model, view, form);
         return VIEW;

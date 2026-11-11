@@ -20,6 +20,9 @@ public interface WorkFileRepository extends JpaRepository<WorkFile, Long> {
     /** 대표 이미지(첫 번째 장) — 성장 타임라인의 첫/최근 작품 썸네일(#19, D-13) */
     Optional<WorkFile> findFirstByWorkVersionIdOrderBySortOrder(Long workVersionId);
 
+    /** 여러 버전의 이미지를 한 번에 — 타임라인 항목마다 대표 이미지를 찾을 때 쿼리를 하나로 줄인다(버전별 첫 장은 호출한 쪽이 고른다) */
+    List<WorkFile> findByWorkVersionIdInOrderByWorkVersionIdAscSortOrderAsc(java.util.Collection<Long> workVersionIds);
+
     /** 이미지 교체 때 이전 행 삭제 — 호출 뒤 flush 해야 같은 sort_order 새 행을 넣을 수 있다 */
     void deleteByWorkVersionId(Long workVersionId);
 }

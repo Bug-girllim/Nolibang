@@ -166,6 +166,20 @@ class GeneralWorkServiceTest {
     }
 
     @Test
+    @DisplayName("타임라인: 사진이 있는 작품은 모두 항목마다 대표 이미지(첫 장) id를 가진다")
+    void timelineItemsHaveThumbnails() {
+        TimelineDTO timeline = growthService.getTimeline(learner(), null);
+
+        assertThat(timeline.getItems()).isNotEmpty();
+        for (TimelineDTO.Item item : timeline.getItems()) {
+            Work work = workRepository.findById(item.getWorkId()).orElseThrow();
+            Long firstFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(work.getDisplayVersionId())
+                    .stream().findFirst().map(f -> f.getId()).orElse(null);
+            assertThat(item.getThumbnailFileId()).as("작품 %d", item.getWorkId()).isEqualTo(firstFileId);
+        }
+    }
+
+    @Test
     @DisplayName("수정: 이미 연결한 참고 피드백은 유지 가능, 사진을 고르지 않으면 기존 사진 유지, 타임라인 순서 불변")
     void editKeepsOrder() {
         List<Long> before = growthService.getTimeline(learner(), null).getItems().stream()

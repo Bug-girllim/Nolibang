@@ -109,6 +109,20 @@ class WorkServiceTest {
     }
 
     @Test
+    @DisplayName("제출한 과제 조회: 제출 전에는 비어 있고, 제출하면 제목·설명·이미지가 나오며, 남의 수강 건으로는 나오지 않는다")
+    void findFinalWork() {
+        assertThat(workService.findFinalWork(userId("learner"), ENROLLMENT)).isEmpty();
+
+        save("나의 정물화", List.of(image("a.png", PNG), image("b.jpg", JPG)));
+
+        WorkDTO dto = workService.findFinalWork(userId("learner"), ENROLLMENT).orElseThrow();
+        assertThat(dto.getTitle()).isEqualTo("나의 정물화");
+        assertThat(dto.getDescription()).isEqualTo("설명입니다");
+        assertThat(dto.getImageIds()).hasSize(2);
+        assertThat(workService.findFinalWork(userId("learner2"), ENROLLMENT)).isEmpty();
+    }
+
+    @Test
     @DisplayName("최초 제출: 작품(FINAL)·버전 1·이미지가 저장되고 표시본이 새 버전이며 작성자가 조회할 수 있다")
     void firstSubmission() {
         Long versionId = save("나의 정물화", List.of(image("a.png", PNG), image("b.jpg", JPG)));

@@ -15,7 +15,6 @@ import com.wanted.lmspractice.domain.review.dto.AssignmentSubmitDTO;
 import com.wanted.lmspractice.domain.review.dto.AssignmentViewDTO;
 import com.wanted.lmspractice.domain.review.entity.ReviewRound;
 import com.wanted.lmspractice.domain.review.policy.SubmissionPolicy;
-import com.wanted.lmspractice.domain.review.repository.ReviewQuery;
 import com.wanted.lmspractice.domain.review.repository.ReviewRoundRepository;
 import com.wanted.lmspractice.domain.work.service.WorkService;
 import com.wanted.lmspractice.global.exception.BusinessException;
@@ -37,7 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
  *             ProgressService(C10 차시 완료), SubmissionPolicy(제출 규칙),
  *             WorkService(C8 saveFinalWorkVersion·updateFinalWorkVersion — 작품·버전·이미지·파일 저장은 전부 팀원 4 몫),
  *             SectionService(C6 getCurrentInstructorId — 담당 강사), NotificationService(C7 notify REVIEW_SUBMITTED),
- *             ReviewRoundRepository, ReviewQuery(findSubmission — 화면 「제출한 작품」, 강사 평가 상세와 같은 조회)
+ *             ReviewRoundRepository
  *  - 이어서 쓰는 곳: #14 ReviewService가 이 서비스가 만든 ReviewRound(WAITING)를 평가한다
  * [트랜잭션] 제출·재제출·수정은 한 트랜잭션 — 이미지 한 장이라도 실패하면 작품·버전·평가 회차·알림이 모두 롤백된다.
  *           잠금 순서: 강의(분반) → 수강 건 → 평가 회차. #14에서 회차를 잠근 뒤 수강 건을 바꿀 때도 이 순서를 지켜야 교착이 없다.
@@ -58,7 +57,6 @@ public class AssignmentService {
     private final ProgressService progressService;
     private final WorkService workService;
     private final NotificationService notificationService;
-    private final ReviewQuery reviewQuery;
     private final VideoAccessPolicy videoAccessPolicy;
 
     /**
@@ -84,12 +82,7 @@ public class AssignmentService {
         AssignmentViewDTO view = AssignmentViewDTO.of(enrollment, course, courseService.getAssignmentTitle(enrollment.getCourseId()),
                 firstLessonId, rounds, completedLessons, ProgressService.REQUIRED_LESSONS,
                 submissionPolicy.isPeriodOpen(enrollment, now), progressService.isAllCompleted(enrollmentId), now);
-        // 「제출한 작품」: 마지막 회차의 제출물(제목·설명·이미지) — 학습자가 낸 내용을 확인하고 수정·재제출 폼 기본값으로 쓴다.
-        // 이미지는 /files/works/{fileId} 로 보여 주며 WorkAccessPolicy 가 작성자 본인 열람을 허용한다.
-        if (!rounds.isEmpty()) {
-            reviewQuery.findSubmission(rounds.get(0).getWorkVersionId())
-                    .ifPresent(s -> view.attachSubmission(s.getTitle(), s.getDescription(), s.getFileIds()));
-        }
+        workService.findFinalWork(userId, enrollmentId).ifPresent(view::setSubmittedWork);   // 제출한 뒤에 무엇을 냈는지 화면에서 확인
         return view;
     }
 

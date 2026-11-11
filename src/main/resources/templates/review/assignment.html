@@ -8,11 +8,9 @@
          lateWarning(boolean, D-41), form(AssignmentSubmitDTO: title·description), flash message / errorMessage
   [동작] 다시 만든 것: 진행 단계 표시(state.step), 상태별 영역(작성·수정·재제출 폼 / 3차시 미완료·평가 중 잠금·수료·기간 종료 안내),
          제출·수정·재제출(POST multipart → redirect), 선택한 이미지 수·글자 수 표시와 이미지 0장일 때 제출 버튼 잠금(static/js/review-assignment.js 🟡)
-         선택한 이미지 미리보기(썸네일, review-assignment.js), 「제출한 작품」(마지막 제출물의 제목·설명·이미지, 수정·재제출 폼 기본값)
+         선택한 이미지 미리보기(static/js/image-preview.js 공통), 「제출한 과제」(현재 제출본의 제목·설명·이미지), 수정·재제출 폼 기본값(제출한 제목·설명)
   [정리한 것] 상태 표의 "담당 강사"(A분반 · 강사 A) 줄 제거 — 이 화면 모델에 분반·강사 이름이 없다(수강 도메인 조회 계약 추가 시 복원)
-  [완료] 현재 제출물(이미지·제목·설명) 표시와 수정 폼 기본값: assignment.submittedTitle·submittedDescription·submittedFileIds
-         (AssignmentService 가 ReviewQuery.findSubmission 으로 마지막 회차 제출물을 붙인다 — 강사 평가 상세와 같은 조회)
-       그 전까지 수정 폼 제목 칸에는 강의의 과제 제목이 들어간다.
+  [완료] 현재 제출물 표시: assignment.submittedWork(WorkDTO — AssignmentService 가 WorkService.findFinalWork 로 붙인다). 수정·재제출 폼 기본값은 AssignmentController 가 같은 값으로 채운다
 -->
 <head>
   <meta charset="UTF-8">
@@ -55,9 +53,8 @@
 <div class="box" th:if="${state.name() == 'IN_REVIEW'}"><div class="rowb"><p class="h3">강사가 과제를 확인하고 있습니다.</p></div><p class="mu">평가가 시작되어 지금은 제출물을 수정할 수 없습니다.</p></div>
 <div class="box" th:if="${state.name() == 'WAITING' and !assignment.editable}"><div class="rowb"><p class="h3">평가를 기다리고 있습니다.</p></div><p class="mu">수강 기간이 끝나 제출물은 수정할 수 없습니다. 평가는 그대로 진행됩니다.</p></div>
 <div class="box" th:if="${state.name() == 'APPROVED'}"><div class="rowb"><p class="h3">수료 승인되었습니다.</p></div><p class="mu">담당 강사의 공식 피드백을 확인해 보세요.</p><div class="row" th:if="${assignment.resultRoundId != null}"><a class="btn dk" th:href="@{/assignments/{id}/result(id=${assignment.resultRoundId})}">공식 피드백 보기</a></div></div>
-<div class="box" th:if="${state.name() == 'EXPIRED'}"><div class="rowb"><p class="h3">제출 기간이 끝났습니다.</p></div><p class="mu">수강 기간(확정 후 30일)이 지나 최종 과제를 제출하거나 재제출할 수 없습니다.</p></div>
+<div class="box" th:if="${state.name() == 'EXPIRED'}"><div class="rowb"><p class="h3">제출 기간이 끝났습니다.</p></div><p class="mu">수강 기간(확정 후 30일)이 지나 최종 과제를 제출하거나 재제출할 수 없습니다.</p></div><div class="box" id="submitted-work" th:if="${assignment.submittedWork != null}"><div class="rowb"><p class="h3">제출한 과제</p><span class="mu" th:text="|${assignment.submittedWork.versionNo}번째 제출본|">1번째 제출본</span></div><p class="h4" th:text="${assignment.submittedWork.title}">작품 제목</p><p class="mu" style="white-space: pre-line;" th:if="${assignment.submittedWork.description != null and !assignment.submittedWork.description.isBlank()}" th:text="${assignment.submittedWork.description}">과제 설명</p><div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"><a th:each="imageId, st : ${assignment.submittedWork.imageIds}" th:href="@{/files/works/{id}(id=${imageId})}" target="_blank" rel="noopener"><img th:src="@{/files/works/{id}(id=${imageId})}" th:alt="|${assignment.submittedWork.title} 이미지 ${st.count}|" style="width: 120px; height: 120px; object-fit: cover; border: 1px solid #d8ccb5; border-radius: 6px; display: block;"/></a></div><div class="row" style="margin-top: 8px;"><a class="lk" th:href="@{/works/{id}(id=${assignment.submittedWork.workId})}">작품 상세에서 보기</a></div></div>
 </div>
-<div class="box" id="submitted-work" th:if="${assignment.hasSubmission()}"><p class="h3">제출한 작품</p><p class="mu" style="margin: 0;">가장 최근에 낸 제출물이에요. 이미지를 누르면 원본으로 볼 수 있어요.</p><p style="margin: 6px 0 0; font-weight: 700;" th:text="${assignment.submittedTitle}">작품 제목</p><p class="mu" style="margin: 4px 0 0; white-space: pre-line;" th:if="${assignment.submittedDescription != null and !#strings.isEmpty(assignment.submittedDescription)}" th:text="${assignment.submittedDescription}">작품 설명</p><div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 8px;"><a th:each="fileId, st : ${assignment.submittedFileIds}" th:href="@{/files/works/{id}(id=${fileId})}" target="_blank" rel="noopener"><img th:src="@{/files/works/{id}(id=${fileId})}" th:alt="|제출 이미지 ${st.count}|" alt="제출 이미지" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid rgb(232, 225, 208); background: rgb(251, 248, 240);"/></a></div></div><div class="box"><p class="h3">제출·평가 상태</p><p class="mu">제출 직후 수료가 아닌 평가 대기</p><table class="t"><tbody>
 <tr><td style="width: 92px;"><span class="sc-interp">차시</span></td><td><b><span class="sc-interp" th:text="${assignment.completedLessonCount + ' / ' + assignment.requiredLessonCount + ' 완료'}">3 / 3 완료</span></b></td></tr>
 <tr><td style="width: 92px;"><span class="sc-interp">평가 상태</span></td><td><b><span class="sc-interp" th:text="${state.label}">미제출 · 작성 중</span></b></td></tr>
 <tr><td style="width: 92px;"><span class="sc-interp">평가 마감</span></td><td><b><span class="sc-interp" th:text="${assignment.latestDueAt != null} ? ${#temporals.format(assignment.latestDueAt, 'MM.dd HH:mm')} : '제출 시각 + 7일'">제출 시각 + 7일</span></b></td></tr>
@@ -65,6 +62,6 @@
 <tr><td style="width: 92px;"><span class="sc-interp">수강 종료</span></td><td><b><span class="sc-interp" th:text="${#temporals.format(assignment.expiresAt, 'MM.dd HH:mm') + ' (' + assignment.remainingLabel + ')'}">11.14 14:00 (D-12)</span></b></td></tr>
 </tbody></table><div class="note">※ 평가 시작 전까지 수정 가능(기한 불변). 평가가 시작되면 수정이 잠깁니다. 반려 시 수강기간 안에서만 정식 재제출할 수 있습니다.</div><p class="h4">이력</p><div class="tl"><div class="mu" th:if="${#lists.isEmpty(rounds)}">아직 이력이 없습니다.</div><div th:each="r : ${rounds}"><span class="dot"></span><p class="h4" th:text="${#temporals.format(r.submittedAt, 'MM.dd HH:mm') + ' ' + r.roundLabel + ' · ' + r.statusLabel}">10.25 14:00 최초 제출 · 평가 대기</p><p class="mu" th:text="${'평가 마감 ' + #temporals.format(r.dueAt, 'MM.dd HH:mm')}">평가 마감 11.01 14:00</p><p class="mu" th:if="${r.rejectReason != null}" th:text="${'반려 사유: ' + r.rejectReason}">반려 사유</p></div></div></div></div></main></div><div th:replace="~{common/layout :: footer}"></div></div></div>
 </div></div>
-<script th:src="@{/js/review-assignment.js}"></script>
+<script th:src="@{/js/image-preview.js}"></script><script th:src="@{/js/review-assignment.js}"></script>
 </body>
 </html>
