@@ -1,0 +1,14 @@
+# ==================================================
+# 공용 DB 프로필 — 팀 공용 원격 MySQL(Aiven)로 실행할 때만 켠다
+# ==================================================
+# 켜는 방법: IntelliJ 실행 설정 → Active profiles 에 shared
+#           또는 환경변수 SPRING_PROFILES_ACTIVE=shared (배포와 함께면 prod,shared 처럼 쉼표로)
+# 켜지 않으면(기본) application.yaml 의 로컬 MySQL 을 쓴다 — 공용 DB 는 왕복이 길어 화면이 느리다.
+# 접속 정보는 환경변수로만 넣는다(비밀번호를 GitHub에 올리지 않는다). 값이 없으면 앱이 뜨지 않는다 — 실수로 다른 DB에 붙지 않게.
+# 나머지 설정(커넥션 풀·JPA 등)은 application.yaml 그대로 쓴다.
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}

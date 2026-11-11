@@ -3,10 +3,17 @@
 # ==================================================
 # 켜는 방법: 환경변수 SPRING_PROFILES_ACTIVE=prod  (또는 실행 인자 --spring.profiles.active=prod)
 # 켜지 않으면(로컬 개발 기본값) 이 파일은 적용되지 않는다 — application.yaml 설정 그대로.
-# DB 연결·메일·파일 저장 설정은 application.yaml(환경변수)을 그대로 쓴다. 이 파일은 속도 관련 설정만 덮어쓴다.
+# 메일·파일 저장 설정은 application.yaml(환경변수)을 그대로 쓴다. 이 파일은 DB 연결(아래 0)과 속도 관련 설정만 덮어쓴다.
 # 정적 파일 캐시·내용 해시 버전(#82)은 application.yaml 4-1에서 모든 프로필에 이미 켜져 있어 여기서 다시 정하지 않는다.
 
 spring:
+  # 0. DB 연결 — 배포 서버는 환경변수 DB_URL·DB_USERNAME·DB_PASSWORD 로 붙는다(예전 application.yaml 동작 그대로).
+  #    로컬 개발 기본값(application.yaml)은 이 환경변수를 읽지 않고 항상 로컬 MySQL 을 쓰므로 배포 쪽에서 따로 정한다.
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/nolibang?characterEncoding=UTF-8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USERNAME:wanted}
+    password: ${DB_PASSWORD:wanted}
+
   # 1. SQL 콘솔 출력 끄기 — 요청마다 모든 SQL을 줄바꿈 정리해 표준 출력에 쓰는 비용을 없앤다(개발 중 확인용 설정)
   jpa:
     show-sql: false
