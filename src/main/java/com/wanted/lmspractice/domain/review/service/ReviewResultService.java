@@ -6,6 +6,7 @@ import com.wanted.lmspractice.domain.course.service.CourseService;
 import com.wanted.lmspractice.domain.enrollment.dto.MyEnrollmentDTO;
 import com.wanted.lmspractice.domain.enrollment.entity.Enrollment;
 import com.wanted.lmspractice.domain.enrollment.service.EnrollmentService;
+import com.wanted.lmspractice.domain.learning.policy.VideoAccessPolicy;
 import com.wanted.lmspractice.domain.review.dto.BadgeDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewDetailDTO;
 import com.wanted.lmspractice.domain.review.dto.ReviewDetailDTO.HistoryDTO;
@@ -41,6 +42,7 @@ public class ReviewResultService {
     private final CourseService courseService;
     private final BadgeService badgeService;
     private final InstructorAccountService instructorAccountService;
+    private final VideoAccessPolicy videoAccessPolicy;
 
     /**
      * 평가 결과 화면 값 — 승인이면 피드백 전문·배지, 반려면 사유 원문·재제출 가능 여부.
@@ -70,7 +72,8 @@ public class ReviewResultService {
                 round.getId(),
                 enrollment.getId(),
                 courseId,
-                firstLessonId(courseId),
+                // 영상을 볼 수 없는 수강(만료 후 반려 등)이면 학습 메뉴에 [차시 영상 학습] 링크를 두지 않는다(누르면 403)
+                videoAccessPolicy.canWatch(enrollment, now) ? firstLessonId(courseId) : null,
                 course.getTitle(),
                 course.getLevelLabel(),
                 sectionNameOf(userId, enrollment.getId()),
