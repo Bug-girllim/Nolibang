@@ -64,15 +64,15 @@ class EnrollmentBatchQueryTest {
     // ───────────────────────── SeatService.getSeatSummaries ─────────────────────────
 
     @Test
-    @DisplayName("정원 현황 일괄 조회: 강의 수와 관계없이 쿼리 2번, 분반·대기가 없는 강의는 0으로 채운다")
-    void seatSummaries_twoQueries_andZeroDefaults() {
+    @DisplayName("정원 현황 일괄 조회: 강의 수와 관계없이 쿼리 1번(UNION ALL), 분반·대기가 없는 강의는 0으로 채운다")
+    void seatSummaries_oneQuery_andZeroDefaults() {
         EntityManager em = mock(EntityManager.class);
+        // 첫 칸 kind: 0 = 정원 줄(v_section_seats), 1 = 대기 줄(waitlist_entries). UNION 결과라 숫자 칸은 DECIMAL, id는 BIGINT UNSIGNED
         Query seatQuery = query(
-                new Object[] {BigInteger.valueOf(1), new BigDecimal("20"), new BigDecimal("3")},   // MySQL SUM은 DECIMAL, id는 BIGINT UNSIGNED
-                new Object[] {BigInteger.valueOf(2), new BigDecimal("10"), new BigDecimal("0")});
-        Query waitQuery = query(new Object[] {BigInteger.valueOf(2), 4L});
-        when(em.createNativeQuery(contains("v_section_seats"))).thenReturn(seatQuery);
-        when(em.createNativeQuery(contains("waitlist_entries"))).thenReturn(waitQuery);
+                new Object[] {0L, BigInteger.valueOf(1), new BigDecimal("20"), new BigDecimal("3")},
+                new Object[] {0L, BigInteger.valueOf(2), new BigDecimal("10"), new BigDecimal("0")},
+                new Object[] {1L, BigInteger.valueOf(2), new BigDecimal("4"), new BigDecimal("0")});
+        when(em.createNativeQuery(contains("UNION ALL"))).thenReturn(seatQuery);
         SeatService seatService = seatService(em);
 
         Map<Long, SeatSummaryDTO> result = seatService.getSeatSummaries(List.of(1L, 2L, 3L));
@@ -80,7 +80,7 @@ class EnrollmentBatchQueryTest {
         assertSeats(result.get(1L), 20, 3, 0);
         assertSeats(result.get(2L), 10, 0, 4);
         assertSeats(result.get(3L), 0, 0, 0);       // 분반(담당 강사)·대기가 없는 강의 — 기존 COALESCE 결과와 같음
-        verify(em, times(2)).createNativeQuery(anyString());
+        verify(em, times(1)).createNativeQuery(anyString());
     }
 
     @Test
@@ -95,10 +95,8 @@ class EnrollmentBatchQueryTest {
     @DisplayName("기존 getSeatSummary(계약 C16)는 같은 값을 돌려준다")
     void seatSummary_single_sameContract() {
         EntityManager em = mock(EntityManager.class);
-        Query seatQuery = query(new Object[] {BigInteger.valueOf(7), new BigDecimal("5"), new BigDecimal("1")});
-        Query waitQuery = query();
-        when(em.createNativeQuery(contains("v_section_seats"))).thenReturn(seatQuery);
-        when(em.createNativeQuery(contains("waitlist_entries"))).thenReturn(waitQuery);
+        Query seatQuery = query(new Object[] {0L, BigInteger.valueOf(7), new BigDecimal("5"), new BigDecimal("1")});
+        when(em.createNativeQuery(contains("UNION ALL"))).thenReturn(seatQuery);
 
         assertSeats(seatService(em).getSeatSummary(7L), 5, 1, 0);
     }

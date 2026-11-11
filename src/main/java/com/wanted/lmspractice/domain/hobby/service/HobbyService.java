@@ -16,6 +16,7 @@ import com.wanted.lmspractice.global.exception.ErrorCode;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -28,8 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
  * [담당] 팀원 2 · #08   [화면] U-S01·U-S02, A-S15   [기획] 05 §3, D-59(수정·삭제 없음 — 추가만 관리자 화면에서)   [API] HB-01·02·03
  * [연결]
  *  - 호출받음: HobbyController(목록·상세), AdminHobbyController(관리자 전체), CourseCatalogService·CourseService(강의가 속한 취미의 노출 확인)
- *  - 호출함:   CategoryRepository, HobbyRepository
- *  - 규칙:     비공개 취미는 관리자(ADMIN)만, 준비 중 취미는 강사(INSTRUCTOR)·관리자만 본다. 그 밖의 사용자(비회원·학습자)에게는 "없는 취미"와 똑같이 HOBBY_NOT_FOUND로 보여
+ *  - 호출함:   CategoryRepository, HobbyRepository,
+ *             HobbyCatalogCache(성능 개선 — 조회는 캐시에서 읽고, 추가·편집·삭제 뒤에는 캐시를 비운다)
+ *  - 규칙:    비공개 취미는 관리자(ADMIN)만, 준비 중 취미는 강사(INSTRUCTOR)·관리자만 본다. 그 밖의 사용자(비회원·학습자)에게는 "없는 취미"와 똑같이 HOBBY_NOT_FOUND로 보여
  *             존재 자체를 숨긴다(API HB-02). 이 서비스는 다른 도메인(강의·수강)을 알지 못한다 — 의존 방향: course → hobby.
  * [기술] 🟢 @Service·@Transactional(readOnly)·Repository 쿼리 메서드
  */
@@ -39,6 +41,7 @@ public class HobbyService {
 
     private final CategoryRepository categoryRepository;
     private final HobbyRepository hobbyRepository;
+    private final HobbyCatalogCache catalogCache;
 
     /**
      * 노출 규칙을 적용한 대분류·세부 취미 목록 (HB-01, 사이드 메뉴).
@@ -49,13 +52,13 @@ public class HobbyService {
      */
     @Transactional(readOnly = true)
     public List<CategoryDTO> getCategories(Role viewerRole) {
-        Map<Long, List<Hobby>> hobbiesByCategory = hobbyRepository.findAllByOrderBySortOrderAscIdAsc().stream()
-                .collect(Collectors.groupingBy(Hobby::getCategoryId));
-
-        return categoryRepository.findAllByOrderBySortOrderAscIdAsc().stream()
+        // [성능 개선] 두 표를 매번 읽지 않고 캐시(1분)에서 꺼낸다. DTO 는 호출마다 새로 만든다 —
+        // CourseCatalogService.getAdminCategories 처럼 받은 DTO 에 값을 채우는 곳이 있어 캐시에 DTO 를 두지 않는다.
+        HobbyCatalogCache.HobbyCatalog catalog = catalogCache.get();
+        return catalog.categories().stream()
                 .filter(category -> isVisible(category.getState(), viewerRole))
                 .map(category -> CategoryDTO.from(category, toVisibleHobbies(
-                        category, hobbiesByCategory.getOrDefault(category.getId(), List.of()), viewerRole)))
+                        category, catalog.hobbiesByCategory().getOrDefault(category.getId(), List.of()), viewerRole)))
                 .toList();
     }
 
@@ -93,9 +96,9 @@ public class HobbyService {
      */
     @Transactional(readOnly = true)
     public HobbyDetailDTO getHobby(Long hobbyId, Role viewerRole) {
-        Hobby hobby = getVisibleHobby(hobbyId, viewerRole);
-        Category category = categoryRepository.findById(hobby.getCategoryId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        HobbyCatalogCache.HobbyCatalog catalog = catalogCache.get();
+        Hobby hobby = getVisibleHobby(catalog, hobbyId, viewerRole);
+        Category category = catalog.categoryById().get(hobby.getCategoryId());  // getVisibleHobby 가 있음을 확인했다
         return HobbyDetailDTO.from(hobby, effectiveState(category, hobby, viewerRole), category.getName());
     }
 
@@ -107,9 +110,9 @@ public class HobbyService {
      */
     @Transactional(readOnly = true)
     public HobbyDTO getHobbySummary(Long hobbyId, Role viewerRole) {
-        Hobby hobby = getVisibleHobby(hobbyId, viewerRole);
-        Category category = categoryRepository.findById(hobby.getCategoryId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+        HobbyCatalogCache.HobbyCatalog catalog = catalogCache.get();
+        Hobby hobby = getVisibleHobby(catalog, hobbyId, viewerRole);
+        Category category = catalog.categoryById().get(hobby.getCategoryId());  // getVisibleHobby 가 있음을 확인했다
         return HobbyDTO.from(hobby, effectiveState(category, hobby, viewerRole));
     }
 
@@ -123,21 +126,25 @@ public class HobbyService {
      */
     @Transactional(readOnly = true)
     public Map<Long, HobbyDTO> getHobbiesIgnoringVisibility(Collection<Long> hobbyIds) {
-        Map<Long, Category> categories = categoryRepository.findAll().stream()
-                .collect(Collectors.toMap(Category::getId, category -> category));
-        return hobbyRepository.findAllById(hobbyIds).stream()
+        HobbyCatalogCache.HobbyCatalog catalog = catalogCache.get();
+        return hobbyIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(catalog.hobbyById()::get)
+                .filter(Objects::nonNull)  // 없는 id는 빠진다 (이전 findAllById 와 같음)
                 .collect(Collectors.toMap(Hobby::getId, hobby -> HobbyDTO.from(
-                        hobby, effectiveState(categories.get(hobby.getCategoryId()), hobby, Role.USER))));
+                        hobby, effectiveState(catalog.categoryById().get(hobby.getCategoryId()), hobby, Role.USER))));
     }
 
     // ───────────────────────── 노출 규칙 ─────────────────────────
 
     /** 보는 사람에게 보이는 세부 취미만 찾는다. 없거나 보이지 않으면 HOBBY_NOT_FOUND */
-    private Hobby getVisibleHobby(Long hobbyId, Role viewerRole) {
-        Hobby hobby = hobbyRepository.findById(hobbyId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
-        Category category = categoryRepository.findById(hobby.getCategoryId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
+    private Hobby getVisibleHobby(HobbyCatalogCache.HobbyCatalog catalog, Long hobbyId, Role viewerRole) {
+        Hobby hobby = hobbyId == null ? null : catalog.hobbyById().get(hobbyId);
+        Category category = hobby == null ? null : catalog.categoryById().get(hobby.getCategoryId());
+        if (hobby == null || category == null) {
+            throw new BusinessException(ErrorCode.HOBBY_NOT_FOUND);
+        }
         if (!isVisible(effectiveState(category, hobby, viewerRole), viewerRole)) {
             throw new BusinessException(ErrorCode.HOBBY_NOT_FOUND);  // 존재를 숨기려고 "없음"으로 응답 (API HB-02)
         }
@@ -216,6 +223,7 @@ public class HobbyService {
                 .map(category -> category.getSortOrder() + 1)
                 .orElse(1);
         String code = newCode("cat-", categoryRepository::existsByCode);
+        catalogCache.invalidate();
         return categoryRepository.save(Category.create(code, form.getTrimmedName(), form.getState(), sortOrder)).getId();
     }
 
@@ -235,6 +243,7 @@ public class HobbyService {
                 .map(hobby -> hobby.getSortOrder() + 1)
                 .orElse(1);
         String code = newCode("hobby-", hobbyRepository::existsByCode);
+        catalogCache.invalidate();
         return hobbyRepository.save(Hobby.create(form.getCategoryId(), code, form.getTrimmedName(),
                 form.getTrimmedDescription(), form.getState(), sortOrder)).getId();
     }
@@ -259,6 +268,7 @@ public class HobbyService {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
         category.changeState(state);
+        catalogCache.invalidate();
         return category.getName();
     }
 
@@ -273,6 +283,7 @@ public class HobbyService {
         Hobby hobby = hobbyRepository.findById(hobbyId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
         hobby.changeState(state);
+        catalogCache.invalidate();
         return hobby.getName();
     }
 
@@ -302,6 +313,7 @@ public class HobbyService {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.HOBBY_NOT_FOUND));
         category.update(form.getTrimmedName(), form.getState());
+        catalogCache.invalidate();
     }
 
     /**
@@ -319,6 +331,7 @@ public class HobbyService {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
         categoryRepository.delete(category);
+        catalogCache.invalidate();
         return category.getName();
     }
 
@@ -350,5 +363,6 @@ public class HobbyService {
             throw new BusinessException(ErrorCode.HOBBY_NOT_FOUND);
         }
         hobby.update(form.getCategoryId(), form.getTrimmedName(), form.getTrimmedDescription(), form.getState());
+        catalogCache.invalidate();
     }
 }
