@@ -46,4 +46,15 @@ public class MyLearningController {
         model.addAttribute("filters", LearningFilter.values());
         return "learning/my-learning";
     }
+
+    /**
+     * 수강 신청·대기 — 대기 중인 강의와 대기열에서 자동 확정된 강의를 모아 보여 주고, 새 강의 신청은 취미 탐색으로 안내한다.
+     * 사이드 메뉴 "수강 신청·대기"(강의가 정해지지 않은 화면에서)의 목적지. 신청 자체는 강의 상세에서 한다.
+     * 호출: GET /my/learning/apply   모델: learning(MyLearningDTO — WAITING 탭 기준 카드)
+     */
+    @GetMapping("/apply")
+    public String apply(@AuthenticationPrincipal AuthDetails details, Model model) {
+        model.addAttribute("learning", myLearningService.getMyLearning(details.getUserId(), LearningFilter.WAITING));
+        return "learning/apply-waiting";
+    }
 }

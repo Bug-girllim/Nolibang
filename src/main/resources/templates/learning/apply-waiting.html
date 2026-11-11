@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [화면] 수강 신청·대기 — 나의 학습 사이드 메뉴 "수강 신청·대기"의 목적지 (강의가 정해지지 않은 화면에서)
+  [연결] MyLearningController.apply · GET /my/learning/apply   → return "learning/apply-waiting";
+  [모델] learning(MyLearningDTO — WAITING 탭 기준: 대기 중 + 대기열에서 자동 확정된 카드)
+  [규칙] 신청은 강의 상세(/courses/{id})에서 한다. 이 화면은 내 신청·대기 현황을 모아 보여 주고 새 강의 찾기(/hobbies)로 안내한다.
+         대기 취소는 기존 POST /enrollments/waitlist/{id}/cancel 을 쓰고, returnUrl 로 이 화면에 돌아온다.
+-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>수강 신청·대기 · 놀이방</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&amp;family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Serif+KR:wght@500;600;700&amp;display=swap">
+  <link rel="stylesheet" th:href="@{/css/sc-base.css}">
+  <link rel="stylesheet" th:href="@{/css/tw.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-theme.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-v2.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-nbell.css}">
+  <link rel="stylesheet" th:href="@{/css/atelier-side.css}">
+  <link rel="stylesheet" th:href="@{/css/gnb-icons.css}">
+  <link rel="stylesheet" th:href="@{/css/t-bell.css}">
+  <link rel="stylesheet" th:href="@{/css/prep-badge.css}">
+</head>
+<body>
+<div id="dc-root"><div class="sc-host">
+<div id="root"><div class="app"><header th:replace="~{common/layout :: gnb(menu='learning')}"></header><div class="lay"><aside th:replace="~{learning/side :: learningSide(active='apply', courseId=null, enrollmentId=null, lessonId=null, resultRoundId=null)}"></aside><main class="main"><div class="ph bn sm bn-learn"><div><h2>수강 신청·대기</h2><p>신청해서 대기 중인 강의와 대기열에서 자동 확정된 강의를 모아 봐요.</p></div></div><p class="warn" th:if="${message}" th:text="${message}">대기를 취소했습니다.</p><p class="note" role="alert" th:if="${errorMessage}" th:text="${errorMessage}">오류 안내</p>
+<div class="box"><div class="rowb"><div><p class="h3">새 강의 신청하기</p><p class="mu">수강 신청은 강의 상세 화면에서 해요. 취미를 둘러보고 마음에 드는 강의를 골라 보세요.</p></div><a class="btn pri" th:href="@{/hobbies}">취미 탐색하기</a></div></div>
+<th:block th:each="card : ${learning.courses}"><div class="box k" th:switch="${card.state.name()}"><div class="rowb"><div class="row"><p class="h3" th:text="${card.courseTitle}">색연필화 기초</p><span class="mu" th:text="${card.levelLabel}">입문</span></div><span class="chip dk" th:text="${card.state.name() == 'WAITING'} ? |대기 ${card.waitingNumber}번| : ${card.state.label}">대기 1번</span></div>
+<th:block th:case="'WAITING'"><p class="mu" th:text="|대기 ${card.waitingNumber}번 (${#temporals.format(card.waitlistAppliedAt, 'MM.dd HH:mm')} 신청) · 자리가 나면 순서대로 수강이 자동 확정돼요|">대기 1번</p><div class="row"><a class="btn" th:href="@{/courses/{id}(id=${card.courseId})}">강의 상세</a><form method="post" th:action="@{/enrollments/waitlist/{id}/cancel(id=${card.waitlistId})}" style="display: inline; margin: 0px;"><input type="hidden" name="returnUrl" value="/my/learning/apply"/><button class="btn" type="submit">대기 취소</button></form></div></th:block>
+<th:block th:case="*"><p class="mu" th:text="|대기열에서 순서가 되어 수강이 자동 확정됐어요 (${#temporals.format(card.waitlistAppliedAt, 'MM.dd HH:mm')} 대기 신청) · ${card.sectionName} · 수강 종료 ${#temporals.format(card.expiresAt, 'MM.dd HH:mm')}|">자동 확정</p><div class="row"><a class="btn pri" th:href="@{/courses/{id}(id=${card.courseId})}">확정 내용 보기</a><a class="btn" th:if="${card.continueLessonId != null}" th:href="@{/lessons/{lessonId}(lessonId=${card.continueLessonId}, enrollmentId=${card.enrollmentId})}">학습 시작</a></div></th:block></div></th:block>
+<div class="box" th:if="${#lists.isEmpty(learning.courses)}"><p class="mu">대기 중이거나 자동 확정된 강의가 아직 없어요. 정원이 찬 강의는 강의 상세에서 대기 신청을 할 수 있어요.</p></div>
+</main></div></div></div></div>
+</body>
+</html>
