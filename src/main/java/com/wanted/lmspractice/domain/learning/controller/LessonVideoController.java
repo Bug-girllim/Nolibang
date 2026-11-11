@@ -6,6 +6,7 @@ import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import com.wanted.lmspractice.global.file.FileStorage;
 import com.wanted.lmspractice.global.file.VideoRangeCheck;
+import com.wanted.lmspractice.global.file.VideoStorage;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -35,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * [연결]
  *  - 호출받음: lesson.html의 <video src="/videos/{lessonId}?enrollmentId=…"> (SecurityConfig: USER만)
  *  - 호출함:   ProgressService.authorizeVideo (본인 확인 + VideoAccessPolicy), 파일은 file.upload-dir 아래에서 읽는다
+ *             VideoStorage.isUploadedKey (업로드 영상은 S3 모드에서도 서버 폴더에 있다 — #176)
  * 구간 요청(Range) 지원: ResponseEntity<Resource>로 돌려주면 스프링이 Range 헤더를 보고 206 Partial Content로 필요한 부분만 보낸다
  *   (Accept-Ranges: bytes 자동, 범위가 잘못되면 416). 그래서 시크바 이동·이어보기가 된다.
  * 영상 파일 위치: lessons.video_key 를 file.upload-dir(./uploads) 아래 상대 경로로 본다.
@@ -50,6 +52,7 @@ public class LessonVideoController {
 
     private final ProgressService progressService;
     private final FileStorage fileStorage;
+    private final VideoStorage videoStorage;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -62,8 +65,10 @@ public class LessonVideoController {
             throws IOException {
         String videoKey = progressService.authorizeVideo(details.getUserId(), enrollmentId, lessonId);   // 권한 확인이 먼저
 
-        // 클라우드 저장소면 짧게 유효한 주소로 보낸다(권한 확인은 위에서 끝남). 로컬이면 아래에서 서버가 직접 내려보낸다
-        String signedUrl = fileStorage.presignedUrlOrNull(videoKey, Duration.ofHours(2));
+        // 클라우드 저장소면 짧게 유효한 주소로 보낸다(권한 확인은 위에서 끝남). 로컬이면 아래에서 서버가 직접 내려보낸다.
+        // 강사·관리자 업로드 영상(videos/uploaded/…)은 S3 모드여도 서버 폴더에 저장되므로(VideoStorage) 항상 서버가 내려보낸다(#176)
+        String signedUrl = videoStorage.isUploadedKey(videoKey)
+                ? null : fileStorage.presignedUrlOrNull(videoKey, Duration.ofHours(2));
         if (signedUrl != null) {
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(URI.create(signedUrl))

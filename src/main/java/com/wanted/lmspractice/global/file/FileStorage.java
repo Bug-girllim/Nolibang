@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -35,6 +37,7 @@ import org.springframework.web.multipart.MultipartFile;
  * [실패 처리] storeAll 은 중간에 하나라도 실패하면 이미 저장한 파일을 모두 지운 뒤 예외를 던진다(F-05).
  *   deleteQuietly 가 실패하면 key 를 재처리 대기 목록에 넣고 FileDeleteRetryScheduler 가 다시 지운다(#161).
  *   대기 목록은 업로드 폴더의 .pending-deletes 파일에도 적어 두어 서버를 재시작해도 이어서 지운다.
+ *   트랜잭션 기준 삭제(#176): deleteAfterCommit(교체 전 파일 — 커밋 뒤), deleteOnRollback(새 파일 — 롤백 시).
  * [기술] 🟢 MultipartFile·UUID·transferTo (chap06)
  */
 @Slf4j
@@ -294,6 +297,46 @@ public class FileStorage {
 
     public void deleteAllQuietly(List<StoredFile> files) {
         files.forEach(f -> deleteQuietly(f.getKey()));
+    }
+
+    /**
+     * 지금 트랜잭션이 커밋된 뒤에 지운다 — 교체 전 파일용. 커밋이 실패하면 DB는 옛 key 그대로이므로 파일도 남아 있어야 한다.
+     * 트랜잭션이 없으면 바로 지운다. 삭제 실패는 deleteQuietly 처럼 재처리 대기 목록으로 간다.
+     * 호출: HobbyService (대표 사진 교체·제거) — WorkService.editVersion 의 runAfterCommit 과 같은 순서
+     */
+    public void deleteAfterCommit(String key) {
+        if (key == null) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            deleteQuietly(key);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteQuietly(key);
+            }
+        });
+    }
+
+    /**
+     * 지금 트랜잭션이 롤백으로 끝나면 지운다 — 방금 저장한 새 파일용(DB가 가리키지 않게 된 파일을 남기지 않는다).
+     * 트랜잭션이 없으면 아무것도 하지 않는다(호출한 쪽이 실패를 직접 처리).
+     * 호출: HobbyService (대표 사진 저장 직후) — WorkService.deleteOnRollback 과 같은 방식
+     */
+    public void deleteOnRollback(String key) {
+        if (key == null || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    deleteQuietly(key);
+                }
+            }
+        });
     }
 
     // 디스크를 읽지 않고 판단할 수 있는 검사. 통과하면 소문자 확장자를 돌려준다

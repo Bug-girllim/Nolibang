@@ -456,6 +456,7 @@ public class HobbyService {
         String oldKey = category.getImageKey();
         if (image != null && !image.isEmpty()) {
             StoredFile stored = fileStorage.store(image, IMAGE_FOLDER);
+            fileStorage.deleteOnRollback(stored.getKey());   // 커밋이 실패하면 DB가 가리키지 않는 새 파일을 남기지 않는다(#176)
             category.changeImage(stored.getKey());
         } else if (remove) {
             category.changeImage(null);
@@ -474,6 +475,7 @@ public class HobbyService {
         String oldKey = hobby.getThumbnailKey();
         if (image != null && !image.isEmpty()) {
             StoredFile stored = fileStorage.store(image, IMAGE_FOLDER);
+            fileStorage.deleteOnRollback(stored.getKey());   // 커밋이 실패하면 DB가 가리키지 않는 새 파일을 남기지 않는다(#176)
             hobby.changeThumbnail(stored.getKey());
         } else if (remove) {
             hobby.changeThumbnail(null);
@@ -484,10 +486,13 @@ public class HobbyService {
         deleteOldImage(oldKey, hobby.getThumbnailKey());
     }
 
-    /** 바뀐 뒤에 남은 옛 사진 파일을 지운다 (같은 키면 지우지 않는다). 파일 삭제 실패는 로그만 남는다 */
+    /**
+     * 바뀐 뒤에 남은 옛 사진 파일을 커밋이 끝난 뒤에 지운다 (같은 키면 지우지 않는다).
+     * 커밋이 실패하면 DB는 옛 키 그대로라 파일도 남아 있어야 한다(#176). 삭제 실패는 FileStorage 재처리 대기 목록으로 간다.
+     */
     private void deleteOldImage(String oldKey, String newKey) {
         if (oldKey != null && !oldKey.equals(newKey)) {
-            fileStorage.deleteQuietly(oldKey);
+            fileStorage.deleteAfterCommit(oldKey);
         }
     }
 }

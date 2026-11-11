@@ -15,7 +15,8 @@
 #   MYSQL_BIN     mysqldump 가 PATH 에 없을 때 그 폴더 (예: "/c/Program Files/MySQL/MySQL Server 8.0/bin")
 #   DB_SSL_MODE   원격 DB 가 TLS 를 요구하면 REQUIRED (Aiven 등)
 #
-# 백업 대상 파일: UPLOAD_DIR/works/ (작품·과제 이미지), UPLOAD_DIR/videos/uploaded/ (강사·관리자 업로드 영상).
+# 백업 대상 파일: UPLOAD_DIR/works/ (작품·과제 이미지), UPLOAD_DIR/hobby/ (관리자가 올린 대분류·취미 대표 사진),
+#   UPLOAD_DIR/videos/uploaded/ (강사·관리자 업로드 영상).
 #   시드 파일(uploads/seed, uploads/videos 의 시연 영상)은 Git 저장소에 있으므로 넣지 않는다.
 #
 # 예) 매일 새벽 3시 (리눅스 crontab):  0 3 * * * cd /srv/nolibang && ./scripts/backup.sh >> backups/backup.log 2>&1
@@ -62,9 +63,10 @@ echo "[$(date '+%F %T')] ① DB 덤프: $host:$port/$db"
   --default-character-set=utf8mb4 --databases "$db" \
   | gzip > "$target/db.sql.gz"
 
-echo "[$(date '+%F %T')] ② 업로드 파일: $UPLOAD_DIR (works/, videos/uploaded/)"
+echo "[$(date '+%F %T')] ② 업로드 파일: $UPLOAD_DIR (works/, hobby/, videos/uploaded/)"
 parts=()
 [[ -d "$UPLOAD_DIR/works" ]] && parts+=(works)
+[[ -d "$UPLOAD_DIR/hobby" ]] && parts+=(hobby)
 [[ -d "$UPLOAD_DIR/videos/uploaded" ]] && parts+=(videos/uploaded)
 if (( ${#parts[@]} > 0 )); then
   tar -czf - -C "$UPLOAD_DIR" "${parts[@]}" > "$target/uploads.tar.gz"   # 표준 출력으로 써서 윈도우 경로(C:)를 원격 호스트로 읽는 문제를 피한다
