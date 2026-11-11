@@ -35,8 +35,9 @@ import org.springframework.util.StringUtils;
  * [역할] 관리자 강사 계정 생성·임시 비밀번호 재발급·활성/비활성·취미 권한 부여/회수, 강사 첫 로그인 비밀번호 변경
  * [담당] 팀원 1 · #05   [화면] A-S04, C-09   [기획] FR-012, D-51   [API] AI-01~06, AU-14
  * [연결]
- *  - 호출받음: AdminInstructorController(AI-01~06), InstructorSetupController(AU-13·14),
- *             SectionService(#10, hasHobbyGrant — 분반 담당 지정), 팀원 4 #18(hasHobbyGrant — 공개 댓글 자격)
+ *  - 호출받음: AdminInstructorController(AI-01~05), InstructorSetupController(AU-13·14),
+ *             SectionService(#10, hasHobbyGrant — 분반 담당 지정, changeStatus·revokeHobby — 담당 분반 확인 후 AI-04 비활성화·AI-06),
+ *             팀원 4 #18(hasHobbyGrant — 공개 댓글 자격)
  *  - 호출함:   UserRepository, InstructorHobbyGrantRepository, PasswordEncoder(BCrypt),
  *             HobbyService.getCategories(Role.ADMIN)(#08 — 취미 이름·존재 확인. 다른 도메인이라 Repository 대신 Service 사용)
  *  - 계약:     C3 hasHobbyGrant(Long, Long) — 시그니처 변경 금지
@@ -177,8 +178,8 @@ public class InstructorAccountService {
 
     /**
      * 강사 활성/비활성 변경 (AI-04). 비활성 강사는 로그인할 수 없다(AuthDetails.isEnabled → AuthFailHandler "disabled").
-     * ❓ 비활성화한 강사가 담당 중인 분반 처리는 #10(D-52: 담당 공백 분반은 신규 배정 제외)에서 다룬다.
-     * 호출: AdminInstructorController.changeStatus (POST /admin/instructors/{instructorId}/status)
+     * 담당 분반 처리(평소 차단 / 긴급 비활성화 → 담당 공백)는 SectionService.deactivateInstructor가 이 메서드를 감싸서 한다.
+     * 호출: AdminInstructorController.changeStatus(활성화), SectionService.deactivateInstructor(비활성화)
      * @throws BusinessException USER_NOT_FOUND
      */
     @Transactional
@@ -210,8 +211,8 @@ public class InstructorAccountService {
 
     /**
      * 취미 활동 권한 회수 (AI-06). 행은 지우지 않고 is_active = false로 남긴다. 권한이 없으면 그대로 둔다.
-     * ❓ 해당 취미 분반을 담당 중일 때 회수 거부(💡 API AI-06)는 #10 SectionService 계약이 생긴 뒤 추가한다.
-     * 호출: AdminInstructorController.revokeHobby (POST /admin/instructors/{instructorId}/hobbies/{hobbyId}/revoke)
+     * 해당 취미 분반을 담당 중일 때 회수 거부(💡 API AI-06)는 SectionService.revokeHobbyGrant가 먼저 확인한다.
+     * 호출: SectionService.revokeHobbyGrant (POST /admin/instructors/{instructorId}/hobbies/{hobbyId}/revoke)
      * @throws BusinessException USER_NOT_FOUND, HOBBY_NOT_FOUND(없는 취미)
      */
     @Transactional

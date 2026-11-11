@@ -111,6 +111,16 @@ public class CourseSection {
         return wasVacant;
     }
 
+    /**
+     * 담당 강사를 비워 담당 공백 분반으로 만든다 — 강사 비활성화(갑작스러운 이탈·정지) 때 쓴다.
+     * 담당 공백이 되면 신규 배정에서 빠지고(isAssignable, D-52) 관리자 대시보드 "담당 공백 분반"에 나타나며,
+     * 관리자가 새 담당 강사를 지정하면(assignInstructor) 평가 대기 과제가 그대로 승계된다(D-59).
+     * 호출: SectionService.deactivateInstructor
+     */
+    public void releaseInstructor() {
+        this.instructorId = null;
+    }
+
     private static void checkCapacityRange(int capacity) {
         if (capacity < MIN_CAPACITY || capacity > MAX_CAPACITY) {
             throw new BusinessException(ErrorCode.CAPACITY_OUT_OF_RANGE);  // D-52: 분반 정원 1~30
