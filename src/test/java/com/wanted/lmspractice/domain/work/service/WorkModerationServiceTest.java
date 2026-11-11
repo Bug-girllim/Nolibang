@@ -9,6 +9,7 @@ import com.wanted.lmspractice.domain.user.repository.UserRepository;
 import com.wanted.lmspractice.domain.work.dto.ModerationLogDTO;
 import com.wanted.lmspractice.domain.work.dto.ModerationSummaryDTO;
 import com.wanted.lmspractice.domain.work.dto.ModerationViewDTO;
+import com.wanted.lmspractice.domain.work.dto.TimelineDTO;
 import com.wanted.lmspractice.domain.work.dto.WorkDTO;
 import com.wanted.lmspractice.domain.work.dto.WorkSearchDTO;
 import com.wanted.lmspractice.domain.work.entity.ModerationAction;
@@ -49,6 +50,8 @@ class WorkModerationServiceTest {
     private WorkService workService;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private GrowthService growthService;
 
     private Long userId(String loginId) {
         return userRepository.findByLoginId(loginId).orElseThrow().getId();
@@ -206,5 +209,25 @@ class WorkModerationServiceTest {
                 .isNotEmpty()
                 .extracting(ModerationLogDTO::getWorkTitle)
                 .containsOnly(WorkModerationService.DELETED_WORK_TITLE);
+    }
+
+    @Test
+    @DisplayName("#167 성장 기록: 숨김 중이면 숨김 사유 링크, 복구된 뒤에도 이력이 있으면 조치 이력 링크(moderated), 이력 없는 작품은 링크 없음")
+    void growthLinkAfterRestore() {
+        Long author = userId("learner");
+        assertThat(timelineItem(author, HIDDEN_WORK).isAdminHidden()).isTrue();          // 숨김 중 → [숨김 사유]
+        assertThat(timelineItem(author, HIDDEN_WORK).isModerated()).isTrue();
+
+        moderationService.restore(userId("admin"), HIDDEN_WORK, "확인 결과 문제가 없어 복구합니다.");
+
+        TimelineDTO.Item restored = timelineItem(author, HIDDEN_WORK);
+        assertThat(restored.isAdminHidden()).isFalse();
+        assertThat(restored.isModerated()).isTrue();                                      // 복구 후에도 [조치 이력]으로 U-S16 이동 가능
+        assertThat(timelineItem(author, VISIBLE_WORK).isModerated()).isFalse();           // 조치 이력 없는 작품은 링크 없음
+    }
+
+    private TimelineDTO.Item timelineItem(Long userId, Long workId) {
+        return growthService.getTimeline(userId, null).getItems().stream()
+                .filter(item -> item.getWorkId().equals(workId)).findFirst().orElseThrow();
     }
 }
