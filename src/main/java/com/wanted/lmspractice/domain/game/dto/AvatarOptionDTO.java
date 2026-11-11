@@ -26,6 +26,10 @@ public class AvatarOptionDTO {
             return AvatarItem.find(AvatarItem.Slot.FRAME, code)
                     .map(AvatarItem::getImagePath).orElse(null);
         }
+        if ("HEAD".equals(slot)) {
+            return AvatarItem.find(AvatarItem.Slot.HEAD, code)
+                    .map(AvatarItem::getImagePath).orElse(null);
+        }
         return null;
     }
 }

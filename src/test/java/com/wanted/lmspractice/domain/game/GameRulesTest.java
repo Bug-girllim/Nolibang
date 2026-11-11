@@ -73,8 +73,8 @@ class GameRulesTest {
     void avatarUnlock() {
         assertThat(AvatarItem.FRAME_GOLD.isUnlocked(7, true)).isFalse();     // 레벨 부족
         assertThat(AvatarItem.FRAME_GOLD.isUnlocked(8, false)).isTrue();
-        assertThat(AvatarItem.AVATAR_CROWN.isUnlocked(50, false)).isFalse(); // 마스터 배지 없음
-        assertThat(AvatarItem.AVATAR_CROWN.isUnlocked(1, true)).isTrue();
+        assertThat(AvatarItem.HEAD_CROWN.isUnlocked(50, false)).isFalse(); // 마스터 배지 없음
+        assertThat(AvatarItem.HEAD_CROWN.isUnlocked(1, true)).isTrue();
 
         for (AvatarItem.Slot slot : AvatarItem.Slot.values()) {
             assertThat(AvatarItem.defaultOf(slot).isUnlocked(1, false)).as(slot + " 기본 아이템은 처음부터 열려 있다").isTrue();

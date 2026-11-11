@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"><body>
+<!-- 취미별 투명 PNG 보스. 새 취미의 기본 그림자는 SVG로 표시한다. -->
+<th:block th:fragment="art(code, level)">
+  <div class="bt-svg bt-monster-art">
+    <img class="bt-monster-img" th:if="${code == 'colored-pencil' or code == 'digital-drawing' or code == 'dessert'}"
+         th:src="@{/images/game/bosses/{code}.png(code=${code})}" alt="취미 보스" width="220" height="220">
+    <svg class="bt-monster-img" th:unless="${code == 'colored-pencil' or code == 'digital-drawing' or code == 'dessert'}" viewBox="0 0 160 160" role="img" aria-label="정체불명의 그림자" xmlns="http://www.w3.org/2000/svg">
+      <path d="M32 132 Q26 66 80 56 Q134 66 128 132 Q112 146 96 134 Q80 148 64 134 Q48 146 32 132Z" fill="#3D3556"/>
+      <circle cx="62" cy="96" r="9" fill="#fff"/><circle cx="98" cy="96" r="9" fill="#fff"/>
+      <circle cx="64" cy="98" r="4" fill="#D64545"/><circle cx="96" cy="98" r="4" fill="#D64545"/>
+    </svg>
+    <span class="bt-monster-rank" th:if="${level >= 2}" th:text="${level >= 3} ? 'ELITE III' : 'ELITE II'">ELITE II</span>
+    <img class="bt-monster-crown" th:if="${level >= 3}" th:src="@{/images/game/avatars/crown.png}" alt="고급 보스" width="50" height="50">
+  </div>
+</th:block>
+</body></html>

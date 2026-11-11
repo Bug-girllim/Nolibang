@@ -1,6 +1,8 @@
 package com.wanted.lmspractice.domain.game.dto;
 
 import java.util.List;
+import com.wanted.lmspractice.domain.game.policy.BossType;
+import com.wanted.lmspractice.domain.game.policy.GameAppearance;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -32,14 +34,12 @@ public class HobbyClassDTO {
     }
 
     public String getImagePath() {
-        if (hobbyName == null) return null;
-        String code = switch (hobbyName) {
-            case "색연필화" -> "colored-pencil";
-            case "디지털 드로잉" -> "digital-drawing";
-            case "디저트 만들기" -> "dessert";
-            default -> null;
-        };
-        return code == null ? null : "/images/game/jobs/" + code + "-" + getImageStage() + ".png";
+        return imageFor("chick");
+    }
+
+    public String getHobbyCode() { return BossType.of(hobbyName).getCode(); }
+    public String imageFor(String avatarCode) {
+        return GameAppearance.professionPath(avatarCode, getHobbyCode());
     }
 
     @Getter

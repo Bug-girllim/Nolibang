@@ -25,6 +25,7 @@
   <link rel="stylesheet" th:href="@{/css/t-bell.css}">
   <link rel="stylesheet" th:href="@{/css/prep-badge.css}">
   <link rel="stylesheet" th:href="@{/css/game.css}">
+  <link rel="stylesheet" th:href="@{/css/boss-battle.css}">
 </head>
 <body>
 <div id="dc-root"><div class="sc-host">
@@ -52,11 +53,12 @@
     </nav>
 
     <!-- 1. 캐릭터 카드 -->
-    <div class="box" id="gm-card">
+    <div class="box" id="gm-card" th:attr="data-crowned=${page.character.crowned},data-avatar-label=${page.character.avatarLabel},data-outfit-label=${page.character.outfitLabel},data-card-image=@{${page.character.cardImagePath}}">
       <div class="gm-hero">
         <div class="gm-avatar gm-avatar-art" th:classappend="${page.character.frameClass}">
-          <img class="gm-character-img" th:src="@{${page.character.avatarImagePath}}"
+          <img class="gm-character-img" th:src="@{${page.character.cardImagePath}}"
                th:alt="${page.character.avatarLabel}" width="112" height="112">
+          <img class="gm-card-crown" th:if="${page.character.crowned}" th:src="@{/images/game/avatars/crown.png}" alt="마스터의 왕관 착용" width="42" height="42">
         </div>
         <div class="gm-grow">
           <p class="gm-name" th:classappend="${page.character.nameColorClass}">
@@ -64,6 +66,8 @@
           </p>
           <p class="mu"><span th:text="${page.character.title}">새싹 놀이꾼</span>
             <span class="gm-master" th:if="${page.character.masterCount > 0}" th:text="' · 마스터 배지 ' + ${page.character.masterCount} + '개'"></span></p>
+          <p class="gm-sub"><span th:text="${page.character.avatarLabel}">내 캐릭터</span> · <span th:text="${page.character.outfitLabel}">대표 취미 의상</span><span th:if="${page.character.crowned}"> · 마스터의 왕관</span></p>
+          <button class="btn gm-promotion-replay" type="button" data-promotion-replay th:if="${page.character.crowned}">왕관 수여식 다시 보기</button>
           <p class="gm-equipped" th:if="${!#lists.isEmpty(page.equippedBadges)}">
             <span class="gm-eq" th:each="e : ${page.equippedBadges}" th:title="${e.title}"><span aria-hidden="true" th:text="${e.emoji}">🌱</span><span th:text="${e.title}">첫걸음</span></span>
           </p>
@@ -149,13 +153,122 @@
       </div>
     </div>
 
+    <!-- 3-0. 보스 대치 화면 — 수강 중인 강의마다 보스가 있고, 아래 탭에서 강의를 누르면 그 보스와의 대치(상황·할 일·연출)를 보여 준다.
+         처음에는 가장 급한 한 건(featuredBoss)을 열어 둔다. 연출은 static/js/boss-battle.js -->
+    <div class="box gm-battle" id="gm-battle" th:if="${!#lists.isEmpty(page.bosses)}" th:attr="data-owner=${page.featuredBoss.recordOwner}">
+      <div class="rowb"><p class="h3">보스 대치</p><span class="mu">수강 중인 강의를 누르면 그 보스와의 상황이 보여요.</span></div>
+      <div class="bt-tabs" role="tablist" aria-label="수강 중인 강의별 보스">
+        <button type="button" role="tab" class="bt-tab" th:each="b : ${page.bosses}"
+                th:classappend="${b.enrollmentId == page.featuredBoss.enrollmentId} ? 'on'"
+                th:attr="id='bt-tab-' + ${b.enrollmentId},aria-controls='bt-panel-' + ${b.enrollmentId},data-target='bt-panel-' + ${b.enrollmentId},aria-selected=${b.enrollmentId == page.featuredBoss.enrollmentId}">
+          <span class="bt-tab-name" th:text="${b.courseTitle}">색연필화 기초</span>
+          <span class="bt-tab-sub"><span th:text="${b.levelLabel}">입문</span> · <span th:text="${b.phaseLabel}">수련 중</span></span>
+        </button>
+      </div>
+
+      <div class="bt-panel" th:each="b : ${page.bosses}" th:id="'bt-panel-' + ${b.enrollmentId}" role="tabpanel"
+           th:hidden="${b.enrollmentId != page.featuredBoss.enrollmentId}" th:classappend="'bt-' + ${b.phase}"
+           th:attr="aria-labelledby='bt-tab-' + ${b.enrollmentId},data-enrollment=${b.enrollmentId},data-phase=${b.phase},data-done=${b.completedLessons},data-total=${b.totalLessons},data-hp=${b.hpPercent},data-tool=${b.toolEmoji},data-ultimate=${b.ultimateEmoji},data-attack=${b.attackName},data-ultimate-name=${b.ultimateName}">
+        <div class="bt-head">
+          <div>
+            <p class="bt-boss-name"><span aria-hidden="true">👾</span> <b th:text="${b.bossName}">색을 훔친 먹구름</b> <span class="chip" th:text="${b.levelLabel}">입문</span></p>
+            <p class="mu bt-course" th:text="${b.courseTitle}">색연필화 기초</p>
+          </div>
+          <div class="bt-hp" role="img" th:attr="aria-label='보스 체력 ' + ${b.hpPercent} + '퍼센트'">
+            <div class="gm-bar boss"><i class="bt-hp-bar" th:style="'width:' + ${b.hpPercent} + '%'"></i></div>
+            <p class="gm-sub">보스 체력 <b class="bt-hp-text" th:text="${b.hpPercent} + '%'">100%</b></p>
+          </div>
+        </div>
+
+        <div class="bt-stage">
+          <div class="bt-hero gm-outfit" th:classappend="'rank-' + ${b.heroStage}">
+            <img class="gm-outfit-body" th:src="@{${b.heroImagePath}}" th:alt="${b.heroAvatarLabel} + ' · ' + ${b.courseTitle} + ' 의상'" width="190" height="190">
+            <span class="gm-rank-medal" aria-hidden="true"></span>
+            <img class="gm-rank-crown" th:if="${b.heroCrowned}" th:src="@{/images/game/avatars/crown.png}" alt="마스터의 왕관 착용" width="48" height="48">
+            <span class="bt-hit" aria-hidden="true"><img th:src="@{/images/game/actions/retry.png}" alt="" width="72" height="72"></span>
+            <span class="bt-hero-label" th:text="${b.heroAvatarLabel}">내 캐릭터</span>
+          </div>
+          <div class="bt-fx" aria-hidden="true">
+            <span class="bt-tool"><img th:src="@{${b.attackImagePath}}" alt="" width="130" height="130"></span>
+            <span class="bt-ult"><img th:src="@{${b.ultimateImagePath}}" alt="" width="240" height="240"></span>
+          </div>
+          <div class="bt-boss" th:classappend="'lv-' + ${b.levelNo}">
+            <th:block th:replace="~{game/boss-art :: art(${b.bossCode}, ${b.levelNo})}"></th:block>
+            <span class="bt-shield" aria-hidden="true" th:if="${b.phase == 'WAITING'}"><img th:src="@{/images/game/actions/review.png}" alt="" width="160" height="160"></span>
+            <span class="bt-sparkle" aria-hidden="true"></span>
+          </div>
+          <p class="bt-banner" role="status" aria-live="polite" hidden></p>
+        </div>
+
+        <div class="bt-skills" aria-label="취미별 전투 기술">
+          <button class="bt-skill" type="button" data-bt-preview="attack">
+            <img th:src="@{${b.attackImagePath}}" alt="" width="60" height="60" loading="lazy">
+            <span><small>차시 완료 · 일반공격</small><b th:text="${b.attackName}">일반공격</b><small>연출 미리보기</small></span>
+          </button>
+          <button class="bt-skill" type="button" data-bt-preview="ultimate">
+            <img th:src="@{${b.ultimateImagePath}}" alt="" width="60" height="60" loading="lazy">
+            <span><small>최종 과제 제출 · 필살기</small><b th:text="${b.ultimateName}">필살기</b><small>연출 미리보기</small></span>
+          </button>
+        </div>
+        <p class="gm-sub">미리보기는 연출만 재생해요. 체력·경험치·학습 기록은 바뀌지 않아요.</p>
+        <div class="bt-learning-actions" aria-label="학습 행동과 전투의 연결">
+          <div class="bt-learning-action" th:classappend="${b.phase == 'LEARNING' or b.phase == 'ROOM_OPEN'} ? 'is-current'">
+            <img th:src="@{/images/game/actions/lesson.png}" alt="" width="52" height="52" loading="lazy"><b>차시 완료</b><span>일반공격</span>
+          </div>
+          <div class="bt-learning-action" th:classappend="${b.phase == 'ROOM_OPEN'} ? 'is-current'">
+            <img th:src="@{/images/game/actions/submit.png}" alt="" width="52" height="52" loading="lazy"><b>과제 제출</b><span>필살기 발동</span>
+          </div>
+          <div class="bt-learning-action" th:classappend="${b.phase == 'WAITING'} ? 'is-current'">
+            <img th:src="@{/images/game/actions/review.png}" alt="" width="52" height="52" loading="lazy"><b>강사 판정</b><span>방어막 · 대기</span>
+          </div>
+          <div class="bt-learning-action" th:classappend="${b.phase == 'REJECTED'} ? 'is-current'">
+            <img th:src="@{/images/game/actions/retry.png}" alt="" width="52" height="52" loading="lazy"><b>반려 시</b><span>피드백 · 재도전</span>
+          </div>
+          <div class="bt-learning-action" th:classappend="${b.phase == 'DEFEATED'} ? 'is-current'">
+            <img th:src="@{/images/game/actions/clear.png}" alt="" width="52" height="52" loading="lazy"><b>수료 승인</b><span>보스 격파 · 보상</span>
+          </div>
+        </div>
+
+        <div class="bt-todo">
+          <p class="bt-msg" th:text="${b.message}">차시 2 / 3 완료 · 최종 과제 도전 준비 중</p>
+          <div class="bt-actions">
+            <a class="btn dk bt-main" th:if="${b.actionUrl != null and !b.actionDisabled}" th:href="@{${b.actionUrl}}" th:text="${b.actionLabel}">이어서 수련하기</a>
+            <button class="btn bt-main" type="button" disabled th:if="${b.actionDisabled}" th:text="${b.actionLabel}">강사 판정 대기</button>
+            <a class="btn" th:if="${b.subUrl != null}" th:href="@{${b.subUrl}}" th:text="${b.subLabel}">보조</a>
+            <button class="btn bt-replay" type="button" hidden>▶ 연출 다시 보기</button>
+          </div>
+          <p class="mu bt-note">보스 체력과 연출은 학습 진행도에 따른 효과예요. 실제 평가 점수와는 관계없어요.</p>
+        </div>
+
+        <!-- 격파 후: 보상 상자 → 열면 보상이 펼쳐지고, 이후에는 "격파 완료" 카드로 남는다 (JS가 꺼져 있으면 보상이 바로 보인다) -->
+        <div class="bt-victory" th:if="${b.defeated}">
+          <button type="button" class="bt-chest" hidden aria-label="보상 상자 열기"><img th:src="@{/images/game/actions/clear.png}" alt="" width="140" height="140"><span>눌러서 열기</span></button>
+          <p class="bt-done"><span aria-hidden="true">🏆</span> 격파 완료!</p>
+          <button type="button" class="btn bt-reward-toggle" hidden aria-expanded="true">보상 보기</button>
+          <div class="bt-reward">
+            <p class="bt-reward-title">전리품</p>
+            <ul>
+              <li><span aria-hidden="true">✨</span> 획득 경험치 <b th:text="'+' + ${b.rewardXp} + ' XP'">+200 XP</b></li>
+              <li th:if="${b.rewardBadge != null}"><span aria-hidden="true">🎖️</span> 수료 배지 <b th:text="${b.rewardBadge}">🥉 색연필화 입문 수료 배지</b></li>
+              <li th:if="${b.rewardClassName != null}"><span aria-hidden="true">🧙</span> 새로 열린 직업 단계 <b th:text="${b.rewardClassName} + ' · ' + ${b.rewardClassStage}">색연필 견습생 · 견습</b></li>
+            </ul>
+            <div class="bt-reward-outfit gm-outfit" th:if="${b.rewardClassImage != null}" th:classappend="'rank-' + ${b.heroStage}">
+              <img class="bt-reward-img gm-outfit-body" th:src="@{${b.rewardClassImage}}" th:alt="${b.heroAvatarLabel} + ' · ' + ${b.rewardClassName}" width="140" height="140">
+              <span class="gm-rank-medal" aria-hidden="true"></span>
+              <img class="gm-rank-crown" th:if="${b.heroCrowned}" th:src="@{/images/game/avatars/crown.png}" alt="마스터의 왕관 착용" width="48" height="48">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 3. 보스전 -->
-    <div class="box">
+    <div class="box" id="gm-boss-list">
       <div class="rowb"><p class="h3">보스전</p><span class="mu">수강 한 건이 보스 한 마리예요. 최종 과제가 공격이에요.</span></div>
       <p class="mu" th:if="${#lists.isEmpty(page.bosses)}">아직 만난 보스가 없어요. 강의를 수강하면 보스가 나타나요.</p>
       <div class="gm-grid">
         <div class="gm-item" th:each="b : ${page.bosses}" th:classappend="${b.stateName == 'COMPLETED'} ? 'ok'">
-          <p><b th:text="${b.courseTitle}">강의</b> <span class="mu" th:text="${b.levelLabel}">입문</span>
+          <p><b th:text="${b.courseTitle}">강의</b> <span class="mu" th:text="${b.levelLabel}">입문</span> <span class="mu" th:text="'· ' + ${b.bossName}">· 보스</span>
             <span class="chip" th:text="${b.stateLabel}">학습 중</span></p>
           <div class="gm-bar boss"><i th:style="'width:' + ${b.hpPercent} + '%'"></i></div>
           <p class="gm-sub" th:text="'보스 체력 ' + ${b.hpPercent} + '%'">보스 체력 100%</p>
@@ -173,12 +286,14 @@
     </div>
 
     <!-- 4. 취미별 직업·스킬 트리 -->
-    <div class="box">
+    <div class="box" id="gm-classes-box">
       <div class="rowb"><p class="h3">취미별 직업</p><span class="mu">입문 → 중급 → 고급을 수료하면 직업이 성장해요</span></div>
       <div class="gm-grid">
         <div class="gm-item gm-job" th:each="c : ${page.classes}" th:classappend="${c.clearedCount == 0} ? 'off'">
-          <div class="gm-job-art" th:if="${c.imagePath != null}" th:classappend="${c.master} ? 'is-master'">
-            <img th:src="@{${c.imagePath}}" th:alt="${c.className}" width="180" height="180" loading="lazy">
+          <div class="gm-job-art gm-outfit" th:classappend="'rank-' + ${c.imageStage} + (${c.master} ? ' is-master' : '')">
+            <img class="gm-outfit-body" th:src="@{${c.imageFor(page.character.avatarCode)}}" th:alt="${page.character.avatarLabel} + ' · ' + ${c.className}" width="180" height="180" loading="lazy">
+            <span class="gm-rank-medal" aria-hidden="true"></span>
+            <img class="gm-rank-crown" th:if="${page.character.crowned}" th:src="@{/images/game/avatars/crown.png}" alt="마스터의 왕관 착용" width="48" height="48">
             <span class="gm-job-status" th:if="${c.clearedCount == 0}">수료하면 해금</span>
           </div>
           <p><b th:text="${c.className}">그림 견습생</b> <span class="gm-master" th:if="${c.master}">★ 마스터</span></p>
@@ -195,6 +310,7 @@
     <!-- 5. 꾸미기 -->
     <div class="box" id="gm-avatar-box">
       <div class="rowb"><p class="h3">꾸미기</p><span class="mu">레벨을 올리거나 마스터 배지를 얻으면 새 아이템이 열려요</span></div>
+      <p class="gm-sub">캐릭터 → 대표 취미 의상 → 머리 장식을 각각 선택하세요. 왕관을 씌워도 선택한 동물과 옷은 유지돼요. 직업 카드와 보스전에서는 해당 취미의 옷을 입어요.</p>
       <div th:each="g : ${page.avatarGroups}">
         <p class="h3" style="margin-top:14px" th:text="${g.slotLabel}">캐릭터</p>
         <div class="gm-opts">
@@ -204,6 +320,13 @@
             </div>
             <div class="gm-prev gm-prev-art" th:if="${g.slot == 'FRAME'}">
               <img th:src="@{${o.imagePath}}" th:alt="${o.label}" width="76" height="76" loading="lazy">
+            </div>
+            <div class="gm-prev gm-prev-art" th:if="${g.slot == 'OUTFIT'}">
+              <img th:src="@{${page.character.professionImage(o.code)}}" th:alt="${page.character.avatarLabel} + ' · ' + ${o.label}" width="76" height="76" loading="lazy">
+            </div>
+            <div class="gm-prev gm-prev-art" th:if="${g.slot == 'HEAD'}">
+              <img th:if="${o.imagePath != null}" th:src="@{${o.imagePath}}" th:alt="${o.label}" width="76" height="76" loading="lazy">
+              <span class="gm-sub" th:unless="${o.imagePath != null}">기본</span>
             </div>
             <div class="gm-prev" th:if="${g.slot == 'NAME_COLOR'}"><b th:classappend="${o.value}">가나다</b></div>
             <p th:text="${o.label}">이름</p>
@@ -227,6 +350,25 @@
       </tbody></table>
     </div>
   </main>
+  <!-- 기존 헤르메스 아이와 현재 장착 캐릭터/의상으로 조합하는 왕관 수여식. 고정 동물 이미지가 아니다. -->
+  <dialog id="gm-promotion" class="gm-promotion" aria-labelledby="gm-promotion-title">
+    <div class="gm-promotion-inner">
+      <button type="button" class="gm-promotion-close btn" data-promotion-close aria-label="왕관 수여식 닫기">닫기</button>
+      <p class="gm-promotion-eyebrow">MASTER CEREMONY</p>
+      <h2 id="gm-promotion-title">마스터의 왕관을 수여합니다</h2>
+      <p class="gm-sub" data-promotion-caption></p>
+      <div class="gm-ceremony">
+        <img class="gm-ceremony-hermes" th:src="@{/images/f80b91d1445f87d015f021aacde57d8f.png}" alt="놀이방 헤르메스 아이" width="180" height="230">
+        <div class="gm-ceremony-avatar">
+          <img class="gm-ceremony-body" data-promotion-avatar alt="선택한 캐릭터" width="240" height="260">
+          <img class="gm-ceremony-crown" th:src="@{/images/game/avatars/crown.png}" alt="마스터의 왕관" width="70" height="70">
+        </div>
+      </div>
+      <p class="gm-promotion-message">지금까지 쌓아 온 배움에, 헤르메스가 왕관을 전해요.</p>
+      <button type="button" class="btn dk" data-promotion-close>왕관을 쓰고 계속하기</button>
+    </div>
+  </dialog>
+
   <!-- 새로고침 없이 처리한 결과(성공·주의)를 띄우는 안내 창 — static/js/character.js 가 채운다 -->
   <div id="gm-toast" class="gm-toast" role="status" aria-live="polite" hidden></div>
 </div>
@@ -234,5 +376,7 @@
 </div></div>
 </div></div>
 <script th:src="@{/js/character.js}" defer></script>
+<script th:src="@{/js/boss-battle.js}" defer></script>
+<script th:src="@{/js/master-promotion.js}" defer></script>
 </body>
 </html>
