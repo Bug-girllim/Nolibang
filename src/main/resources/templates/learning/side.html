@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!--
+  [역할] "나의 학습" 화면(나의 학습 현황·차시 영상 학습·최종 과제·공식 피드백·수강 신청)이 함께 쓰는 왼쪽 사이드 메뉴 조각
+  [사용법] <aside th:replace="~{learning/side :: learningSide(active='lesson', courseId=..., enrollmentId=..., lessonId=..., resultRoundId=...)}"></aside>
+    active        : status(나의 학습 현황) · apply(수강 신청·대기) · lesson(차시 영상 학습) · assignment(최종 과제·평가 결과) · result(공식 피드백·복습)
+    courseId      : 지금 보는 강의 id — 없으면 "수강 신청·대기"가 취미 탐색(/hobbies)으로 간다
+    enrollmentId  : 지금 보는 수강 건 id — 없으면 차시·최종 과제 항목은 눌 수 없다
+    lessonId      : 차시 영상 학습으로 갈 차시 id (없으면 눌 수 없음)
+    resultRoundId : 공식 피드백으로 갈 평가 회차 id (평가 결과가 아직 없으면 null → 눌 수 없음)
+  [규칙] 화면이 달라도 항목은 항상 5개로 같다. 갈 곳이 없는 항목은 숨기지 않고 비활성(a.disabled)으로 보여 준다 — 목차 길이가 화면마다 달라지지 않게.
+-->
+<body>
+<aside aria-label="사이드 메뉴" class="side" th:fragment="learningSide(active, courseId, enrollmentId, lessonId, resultRoundId)">
+  <p class="st">나의 학습</p>
+  <nav aria-label="나의 학습 메뉴" class="side-ctx">
+    <a th:classappend="${active == 'status'} ? 'active'" th:aria-current="${active == 'status'} ? 'page' : null" th:href="@{/my/learning}">나의 학습 현황<span class="side-sr" th:if="${active == 'status'}"> (현재 페이지)</span></a>
+    <a th:classappend="${active == 'apply'} ? 'active'" th:aria-current="${active == 'apply'} ? 'page' : null" th:href="${courseId != null} ? @{/courses/{id}(id=${courseId})} : @{/hobbies}">수강 신청·대기<span class="side-sr" th:if="${active == 'apply'}"> (현재 페이지)</span></a>
+    <a th:if="${lessonId != null and enrollmentId != null}" th:classappend="${active == 'lesson'} ? 'active'" th:aria-current="${active == 'lesson'} ? 'page' : null" th:href="@{/lessons/{id}(id=${lessonId},enrollmentId=${enrollmentId})}">차시 영상 학습<span class="side-sr" th:if="${active == 'lesson'}"> (현재 페이지)</span></a>
+    <a th:unless="${lessonId != null and enrollmentId != null}" class="disabled" aria-disabled="true">차시 영상 학습</a>
+    <a th:if="${enrollmentId != null}" th:classappend="${active == 'assignment'} ? 'active'" th:aria-current="${active == 'assignment'} ? 'page' : null" th:href="@{/assignments(enrollmentId=${enrollmentId})}">최종 과제·평가 결과<span class="side-sr" th:if="${active == 'assignment'}"> (현재 페이지)</span></a>
+    <a th:unless="${enrollmentId != null}" class="disabled" aria-disabled="true">최종 과제·평가 결과</a>
+    <a th:if="${resultRoundId != null}" th:classappend="${active == 'result'} ? 'active'" th:aria-current="${active == 'result'} ? 'page' : null" th:href="@{/assignments/{id}/result(id=${resultRoundId})}">공식 피드백·복습<span class="side-sr" th:if="${active == 'result'}"> (현재 페이지)</span></a>
+    <a th:unless="${resultRoundId != null}" class="disabled" aria-disabled="true">공식 피드백·복습</a>
+  </nav>
+</aside>
+</body>
+</html>

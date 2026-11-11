@@ -3,6 +3,7 @@
 /* ===== 학습자 사이드바: 현재 화면 메뉴 + 학습자 공통 메뉴 ===== */
 .side-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .side nav{display:block}
+.side .side-ctx a.disabled{color:#A4ABBD;cursor:default;pointer-events:none}
 .side .side-ctx a.sub{padding-left:24px;font-size:13px}
 .side .side-ctx a.sub::before{content:"└";margin-right:6px;color:#B59A60}
 .side .st.side-common-t{margin-top:14px;font-size:13px;color:#68728D;justify-content:flex-start}
