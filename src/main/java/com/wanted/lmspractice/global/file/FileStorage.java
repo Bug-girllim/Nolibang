@@ -8,10 +8,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
  * [검증 순서] ① 장수·빈 파일·크기·확장자 (읽지 않고 판단) → ② 저장하면서 파일 앞부분(매직 바이트)이 실제 JPG/PNG/WebP 인지 확인.
  *   확장자만 바꾼 위장 파일은 ②에서 걸린다. JDK ImageIO 는 WebP 를 읽지 못해 매직 바이트로 판별한다(새 의존성 없음).
  * [실패 처리] storeAll 은 중간에 하나라도 실패하면 이미 저장한 파일을 모두 지운 뒤 예외를 던진다(F-05).
+ *   deleteQuietly 가 실패하면 key 를 재처리 대기 목록에 넣고 FileDeleteRetryScheduler 가 다시 지운다(#161).
  * [기술] 🟢 MultipartFile·UUID·transferTo (chap06)
  */
 @Slf4j
@@ -42,6 +46,12 @@ public class FileStorage {
             "jpg", "image/jpeg", "jpeg", "image/jpeg", "png", "image/png", "webp", "image/webp");
 
     private static final int HEADER_BYTES = 12;
+
+    /** ❓ 임시값: 삭제 재처리 횟수(처음 실패 포함). 스케줄러 간격 10분이면 약 1시간 동안 다시 시도한다 */
+    static final int MAX_DELETE_ATTEMPTS = 6;
+
+    /** 삭제에 실패해 다시 지울 key → 지금까지 시도한 횟수 (여러 요청 스레드가 함께 쓰므로 동시성 Map) */
+    private final Map<String, Integer> pendingDeletes = new ConcurrentHashMap<>();
 
     private final Path root;
 
@@ -156,26 +166,63 @@ public class FileStorage {
     }
 
     /**
-     * 삭제 — 없는 파일은 무시한다. 실패해도 예외를 던지지 않고 로그만 남긴다(이미 끝난 DB 처리를 되돌리지 않기 위해).
+     * 삭제 — 없는 파일은 무시한다. 실패해도 예외를 던지지 않는다(이미 끝난 DB 처리를 되돌리지 않기 위해).
+     * 실패한 key 는 재처리 대기 목록에 넣고, FileDeleteRetryScheduler 가 주기적으로 다시 지운다(고아 파일 방지).
      * 시드 이미지(seed/…)는 작품 이미지를 교체해도 지우지 않는다 — 저장소 파일이라 DB를 다시 적재해도 돌아오지 않는다(로컬·클라우드 공통).
      */
     public void deleteQuietly(String key) {
-        if (key != null && key.startsWith(SEED_KEY_PREFIX)) {
+        if (key == null || key.startsWith(SEED_KEY_PREFIX)) {
             return;
         }
+        if (!tryDelete(key)) {
+            pendingDeletes.putIfAbsent(key, 1);
+            log.warn("파일 삭제 실패 — 재처리 대기 목록에 넣음: key={}", key);
+        }
+    }
+
+    /**
+     * 재처리 대기 중인 파일을 다시 지운다. 성공하면 목록에서 빼고, MAX_DELETE_ATTEMPTS 번 실패하면 ERROR 로그를 남기고 포기한다
+     * (로그의 key 로 직접 지워야 한다). 대기 목록은 메모리에만 있어 서버를 재시작하면 사라진다 — 그때도 WARN 로그에 key 가 남아 있다.
+     * 호출: FileDeleteRetryScheduler (주기 실행)
+     * @return 아직 대기 중인 개수
+     */
+    public int retryPendingDeletes() {
+        for (String key : List.copyOf(pendingDeletes.keySet())) {
+            if (tryDelete(key)) {
+                pendingDeletes.remove(key);
+                log.info("파일 삭제 재처리 성공: key={}", key);
+                continue;
+            }
+            int attempts = pendingDeletes.merge(key, 1, Integer::sum);
+            if (attempts >= MAX_DELETE_ATTEMPTS) {
+                pendingDeletes.remove(key);
+                log.error("파일 삭제 재처리 {}회 실패 — 고아 파일, 직접 삭제 필요: key={}", attempts, key);
+            }
+        }
+        return pendingDeletes.size();
+    }
+
+    /** 재처리 대기 중인 key (확인·테스트용, 읽기 전용) */
+    public Set<String> getPendingDeleteKeys() {
+        return Collections.unmodifiableSet(pendingDeletes.keySet());
+    }
+
+    // 실제 삭제 1회. 없는 파일·업로드 폴더 밖 key 는 지울 것이 없으므로 성공으로 본다
+    private boolean tryDelete(String key) {
         try {
             if (remote != null) {
                 if (!key.contains("..")) {
                     remote.delete(key);
                 }
-                return;
+                return true;
             }
             Path file = root.resolve(key).normalize();
             if (file.startsWith(root)) {
                 Files.deleteIfExists(file);
             }
+            return true;
         } catch (IOException | RuntimeException e) {
-            log.warn("파일 삭제 실패: key={}", key);
+            return false;
         }
     }
 
