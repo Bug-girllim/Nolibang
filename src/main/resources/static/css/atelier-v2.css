@@ -16,8 +16,8 @@ body,.app,.main,.box,input,select,textarea,button,.btn,.mu,.lb,.chip,.note,.warn
 /* 버튼: 기본 = 아이보리 / 주요 = 네이비 → 호버 파스텔 하늘 */
 .btn{border:1px solid var(--ln);background:var(--card);color:var(--navy);box-shadow:none;transition:background-color .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
 .btn:hover:not(:disabled){background:var(--sky);border-color:var(--sky-d);color:var(--navy);transform:none}
-.btn.dk,.btn.pri,.gnb .gr a[href$="/signup"]{background:var(--navy);border:1px solid var(--navy);color:#FFFDF8;box-shadow:none}
-.btn.dk:hover:not(:disabled),.btn.pri:hover:not(:disabled),.btn.pri:active:not(:disabled),.gnb .gr a[href$="/signup"]:hover{background:var(--sky);border-color:var(--sky-d);color:var(--navy);box-shadow:none}
+.btn.dk,.btn.pri,.gnb .gr a[href$="/signup"]{background:var(--btn-main,#CC5500);border:1px solid var(--btn-main,#CC5500);color:#FFFDF8;box-shadow:none}
+.btn.dk:hover:not(:disabled),.btn.pri:hover:not(:disabled),.btn.pri:active:not(:disabled),.gnb .gr a[href$="/signup"]:hover{background:var(--btn-main-d,#A84500);border-color:var(--btn-main-d,#A84500);color:#FFFDF8;box-shadow:none}
 .btn:disabled,.btn.dk:disabled,.btn.pri:disabled{background:#F1EDE2;border:1px dashed #CFC6B1;color:#8B8E96}
 a:focus-visible,button:focus-visible,.btn:focus-visible,.lk:focus-visible,.side a:focus-visible,.tabs button:focus-visible,.gnb a:focus-visible{outline:3px solid #6E9CC0;outline-offset:2px;border-radius:6px}
 input:focus,textarea:focus,select:focus{border-color:var(--navy);outline:3px solid rgba(220,236,246,.95);outline-offset:0}
@@ -196,3 +196,24 @@ html,body{background:var(--bg-page)}
 .tp-age{margin:14px 0 0;padding:10px 14px;border-left:3px solid var(--gold2);background:#FBF8F0;color:var(--navy);font-size:13.5px;line-height:1.6;border-radius:0 8px 8px 0}
 .tp-row>label{min-height:34px;display:flex;align-items:center;gap:10px;flex:1 1 auto}
 @media not all{.tp-row>label{align-items:flex-start}.tp-row .tp-cb{margin-top:2px}}
+
+/* ===== 상호작용 색(버튼·링크·활성 탭/메뉴·포커스) — 번트 오렌지. 색 시험은 아래 변수 4개만 바꾼다 ===== */
+:root{--btn-main:#CC5500;--btn-main-d:#A84500;--btn-main-l:#FBEBDD;--btn-main-ring:rgba(204,85,0,.28)}
+.btn:hover:not(:disabled){background:var(--btn-main-l);border-color:var(--btn-main);color:var(--btn-main-d)}
+.lk{color:var(--btn-main-d);text-decoration-color:var(--btn-main)}
+.lk:hover{background:var(--btn-main-l)}
+.side a:hover{background:var(--btn-main-l);color:var(--btn-main-d)}
+.side a.active,.side a.active:hover{background:var(--btn-main);color:#FFFDF8}
+.tabs button:hover{background:var(--btn-main-l);color:var(--btn-main-d)}
+.tabs button.on{color:var(--btn-main-d);border-bottom-color:var(--btn-main)}
+input:focus,textarea:focus,select:focus{border-color:var(--btn-main);outline-color:var(--btn-main-ring)}
+a:focus-visible,button:focus-visible,.btn:focus-visible,.lk:focus-visible,.side a:focus-visible,.tabs button:focus-visible{outline-color:var(--btn-main)}
+/* 왼쪽 목차 제목, 상태 칩(학습 중 등), 진행 막대, 눌러서 들어가는 카드 */
+.side a.active::after{color:#FFFDF8}
+.chip{background:var(--btn-main-l);color:var(--btn-main-d);border-color:var(--btn-main-ring)}
+.chip.dk{background:var(--btn-main);border-color:var(--btn-main);color:#FFFDF8}
+.bar i{background:var(--btn-main)}
+.box.click:hover{border-color:var(--btn-main);box-shadow:0 0 0 1px var(--btn-main-ring),0 10px 22px rgba(168,69,0,.14)}
+/* GNB 회원가입 버튼은 원래 남색 유지 */
+.gnb .gr a[href$="/signup"]{background:var(--navy);border-color:var(--navy);color:#FFFDF8}
+.gnb .gr a[href$="/signup"]:hover{background:var(--sky);border-color:var(--sky-d);color:var(--navy)}
