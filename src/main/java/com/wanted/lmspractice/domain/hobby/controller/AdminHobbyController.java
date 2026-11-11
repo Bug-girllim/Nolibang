@@ -13,6 +13,7 @@ import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.global.exception.BusinessException;
 import com.wanted.lmspractice.global.exception.ErrorCode;
 import jakarta.validation.Valid;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,9 +102,17 @@ public class AdminHobbyController {
         if (newState == null) {
             redirectAttributes.addFlashAttribute("errorMessage", "대분류 상태를 운영 중·준비 중·비공개 중에서 골라 주세요.");
         } else {
-            String name = hobbyService.changeCategoryState(categoryId, newState);
-            redirectAttributes.addFlashAttribute("message",
-                    "'" + name + "' 대분류를 " + newState.getLabel() + " 상태로 바꿨어요.");
+            try {
+                String name = hobbyService.changeCategoryState(categoryId, newState);
+                redirectAttributes.addFlashAttribute("message",
+                        "'" + name + "' 대분류를 " + newState.getLabel() + " 상태로 바꿨어요.");
+            } catch (BusinessException e) {
+                if (e.getErrorCode() != ErrorCode.CATEGORY_NEEDS_OPERATING_HOBBY) {
+                    throw e;
+                }
+                // 05 §3: 운영 중 세부 취미가 없으면 운영 중으로 바꾸지 않고 이유를 알린다
+                redirectAttributes.addFlashAttribute("errorMessage", e.getErrorCode().getMessage());
+            }
         }
         return backToList(returnState, returnKeyword, redirectAttributes);
     }
@@ -130,7 +139,8 @@ public class AdminHobbyController {
                     ? " 대분류가 " + parent.getLabel() + " 상태라 학습자에게는 아직 보이지 않아요."
                     : "";
             redirectAttributes.addFlashAttribute("message",
-                    "'" + name + "' 세부 취미를 " + newState.getLabel() + " 상태로 바꿨어요." + note);
+                    "'" + name + "' 세부 취미를 " + newState.getLabel() + " 상태로 바꿨어요." + note
+                            + stateResetNote(hobbyService.getHobbyForm(hobbyId).getCategoryId()));
         }
         return backToList(returnState, returnKeyword, redirectAttributes);
     }
@@ -145,6 +155,22 @@ public class AdminHobbyController {
             redirectAttributes.addAttribute("keyword", returnKeyword.trim());
         }
         return "redirect:/admin/hobbies";
+    }
+
+    /**
+     * D-31: 세부 취미를 바꾼 뒤, 운영 중인데 운영 중 세부 취미가 하나도 남지 않은 대분류가 있으면 안내 문구를 덧붙인다.
+     * 대분류 상태는 자동으로 바꾸지 않는다(관리자가 정한다). 같은 대분류는 한 번만 알린다.
+     */
+    private String stateResetNote(Long... categoryIds) {
+        StringBuilder note = new StringBuilder();
+        Arrays.stream(categoryIds).filter(Objects::nonNull).distinct().forEach(categoryId -> {
+            String name = hobbyService.categoryNeedingStateReset(categoryId);
+            if (name != null) {
+                note.append(" '").append(name)
+                        .append("' 대분류에 운영 중인 세부 취미가 없어요. 대분류 상태를 다시 정해 주세요(대분류 상태 재설정 필요).");
+            }
+        });
+        return note.toString();
     }
 
     /** 상태 이름 → ExposureState. 빈 값·모르는 값은 null(= 전체) */
@@ -209,6 +235,11 @@ public class AdminHobbyController {
                 && !hobbyService.isCategoryNameAvailable(categoryFormDTO.getTrimmedName())) {
             bindingResult.rejectValue("name", "duplicate", "같은 이름의 대분류가 이미 있어요.");
         }
+        // 05 §3: 새 대분류에는 세부 취미가 없으므로 운영 중으로 추가할 수 없다
+        if (!bindingResult.hasFieldErrors("state") && categoryFormDTO.getState() == ExposureState.OPERATING) {
+            bindingResult.rejectValue("state", "needsHobby",
+                    "새 대분류는 운영 중으로 추가할 수 없어요. 준비 중·비공개로 추가하고 세부 취미를 운영 중으로 만든 뒤 바꿔 주세요.");
+        }
         if (bindingResult.hasErrors()) {
             addCategoriesModel(model, true, null);
             return MANAGE_VIEW;
@@ -233,6 +264,13 @@ public class AdminHobbyController {
         if (!bindingResult.hasFieldErrors("name")
                 && !hobbyService.isCategoryNameAvailable(categoryFormDTO.getTrimmedName(), categoryId)) {
             bindingResult.rejectValue("name", "duplicate", "같은 이름의 대분류가 이미 있어요.");
+        }
+        // 05 §3: 운영 중이 아니던 대분류를 운영 중으로 바꾸려면 운영 중 세부 취미가 1개 이상 있어야 한다
+        // (이미 운영 중이면 이름만 고치는 편집은 막지 않는다 — 조건이 깨진 경우는 D-31 재설정 표시로 알린다)
+        if (!bindingResult.hasFieldErrors("state") && categoryFormDTO.getState() == ExposureState.OPERATING
+                && hobbyService.getCategoryForm(categoryId).getState() != ExposureState.OPERATING
+                && !hobbyService.canOperateCategory(categoryId)) {
+            bindingResult.rejectValue("state", "needsHobby", ErrorCode.CATEGORY_NEEDS_OPERATING_HOBBY.getMessage());
         }
         if (bindingResult.hasErrors()) {
             addCategoriesModel(model, false, categoryId);
@@ -323,8 +361,10 @@ public class AdminHobbyController {
             return MANAGE_VIEW;
         }
 
+        Long oldCategoryId = hobbyService.getHobbyForm(hobbyId).getCategoryId();  // 다른 대분류로 옮기면 원래 대분류도 확인한다
         hobbyService.updateHobby(hobbyId, hobbyFormDTO);
-        redirectAttributes.addFlashAttribute("message", "'" + hobbyFormDTO.getTrimmedName() + "' 세부 취미를 저장했어요.");
+        redirectAttributes.addFlashAttribute("message", "'" + hobbyFormDTO.getTrimmedName() + "' 세부 취미를 저장했어요."
+                + stateResetNote(oldCategoryId, hobbyFormDTO.getCategoryId()));
         return "redirect:/admin/sub-hobbies";
     }
 

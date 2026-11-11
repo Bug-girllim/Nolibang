@@ -34,6 +34,8 @@ public enum ErrorCode {
     HOBBY_NOT_OPEN(HttpStatus.FORBIDDEN, "운영 중인 취미가 아닙니다."),
     COURSE_NOT_FOUND(HttpStatus.NOT_FOUND, "강의를 찾을 수 없습니다."),
     LESSON_NOT_FOUND(HttpStatus.NOT_FOUND, "차시를 찾을 수 없습니다."),
+    // 05 §3: 운영 중 대분류에는 운영 중인 세부 취미가 1개 이상 있어야 한다 (관리자 대분류 추가·편집·상태 변경)
+    CATEGORY_NEEDS_OPERATING_HOBBY(HttpStatus.BAD_REQUEST, "운영 중인 세부 취미가 1개 이상 있어야 대분류를 운영 중으로 바꿀 수 있어요."),
 
     /* 수강 */
     ALREADY_ENROLLED(HttpStatus.CONFLICT, "이미 수강 중인 강의입니다."),
