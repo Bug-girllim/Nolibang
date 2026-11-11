@@ -4,6 +4,7 @@ import com.wanted.lmspractice.domain.hobby.dto.HobbyDTO;
 import com.wanted.lmspractice.domain.hobby.service.HobbyService;
 import com.wanted.lmspractice.domain.notification.entity.NotificationKind;
 import com.wanted.lmspractice.domain.notification.service.NotificationService;
+import com.wanted.lmspractice.domain.user.entity.Role;
 import com.wanted.lmspractice.domain.user.service.UserService;
 import com.wanted.lmspractice.domain.work.dto.ModerationLogDTO;
 import com.wanted.lmspractice.domain.work.dto.ModerationSummaryDTO;
@@ -41,7 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
  *              WorkBoardQuery(요약 숫자), UserService.getPublicNames·HobbyService(표시 값)
  *  - 영향:     WorkAccessPolicy 가 works.admin_hidden 을 읽어 일반 사용자 목록·상세·이미지를 막고 작성자·담당 강사·관리자는 계속 열람한다.
  * [규칙] 숨김은 공개 작품만(비공개 → INVALID_INPUT), 이미 숨김이면 ALREADY_HIDDEN, 복구는 숨김 상태만(NOT_HIDDEN).
- *        복구해도 작성자가 비공개로 바꿨다면 공개되지 않는다(visibility 는 건드리지 않음). 작성자는 숨김을 해제할 수 없다(관리자 전용 URL).
+ *        복구해도 작성자가 비공개로 바꿨다면 공개되지 않는다(visibility 는 건드리지 않음). 작성자는 숨김을 해제할 수 없다.
+ *        [권한] 숨김·복구는 URL(SecurityConfig /admin/** ADMIN)과 이 서비스(checkAdmin → ACCESS_DENIED) 두 곳에서 검사한다.
  * [기술] 🟢 Entity 상태 메서드, 🟢 @Transactional
  */
 @Service
@@ -68,10 +70,12 @@ public class WorkModerationService {
     /**
      * 공개 작품 숨김 (AW-02) — 작품 상태 변경 → 이력 저장 → 작성자에게 WORK_HIDDEN 알림 (한 트랜잭션)
      * 호출: AdminWorkController.hide
-     * @throws BusinessException WORK_NOT_FOUND, ALREADY_HIDDEN, INVALID_INPUT(사유 없음·너무 짧거나 긺·비공개 작품)
+     * @param adminRole 요청자 역할 — ADMIN 이 아니면 ACCESS_DENIED (URL 검사와 별도로 서비스에서도 확인)
+     * @throws BusinessException ACCESS_DENIED, WORK_NOT_FOUND, ALREADY_HIDDEN, INVALID_INPUT(사유 없음·너무 짧거나 긺·비공개 작품)
      */
     @Transactional
-    public void hide(Long adminId, Long workId, String reason) {
+    public void hide(Long adminId, Role adminRole, Long workId, String reason) {
+        checkAdmin(adminId, adminRole);
         String cleaned = reason == null ? "" : reason.strip();
         if (cleaned.length() < MIN_HIDE_REASON_LENGTH || cleaned.length() > MAX_REASON_LENGTH) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
@@ -86,17 +90,19 @@ public class WorkModerationService {
 
     /** 숨김 복구 (AW-03) — 사유 없이 호출하는 형태. 기본 문구를 이력에 남긴다 */
     @Transactional
-    public void restore(Long adminId, Long workId) {
-        restore(adminId, workId, null);
+    public void restore(Long adminId, Role adminRole, Long workId) {
+        restore(adminId, adminRole, workId, null);
     }
 
     /**
      * 숨김 복구 (AW-03) — 복구 사유는 선택(비우면 기본 문구). 사유는 작성자 화면에 표시된다(F-10 ⑤).
      * 복구해도 작성자가 비공개로 바꿨다면 공개되지 않는다.
-     * @throws BusinessException WORK_NOT_FOUND, NOT_HIDDEN, INVALID_INPUT(사유가 너무 긺)
+     * @param adminRole 요청자 역할 — ADMIN 이 아니면 ACCESS_DENIED
+     * @throws BusinessException ACCESS_DENIED, WORK_NOT_FOUND, NOT_HIDDEN, INVALID_INPUT(사유가 너무 긺)
      */
     @Transactional
-    public void restore(Long adminId, Long workId, String reason) {
+    public void restore(Long adminId, Role adminRole, Long workId, String reason) {
+        checkAdmin(adminId, adminRole);
         String cleaned = reason == null || reason.isBlank() ? DEFAULT_RESTORE_REASON : reason.strip();
         if (cleaned.length() > MAX_REASON_LENGTH) {
             throw new BusinessException(ErrorCode.INVALID_INPUT);
@@ -172,6 +178,13 @@ public class WorkModerationService {
         cond.setHidden(hidden);
         cond.setKind(kind);
         return workBoardQuery.countForAdmin(cond, null, adminId);
+    }
+
+    /** 숨김·복구는 관리자만 — 컨트롤러 밖(다른 서비스 등)에서 호출돼도 권한이 빠지지 않도록 서비스에서 한 번 더 확인한다 */
+    private void checkAdmin(Long adminId, Role adminRole) {
+        if (adminId == null || adminRole != Role.ADMIN) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
     }
 
     private Work findWork(Long workId) {
