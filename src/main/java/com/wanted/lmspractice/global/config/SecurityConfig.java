@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -39,7 +41,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            AuthSuccessHandler authSuccessHandler,
-                                           AuthFailHandler authFailHandler) throws Exception {
+                                           AuthFailHandler authFailHandler,
+                                           SessionRegistry sessionRegistry) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         // 강사 첫 로그인 비밀번호 변경은 /auth/** 공개 규칙보다 먼저 막아야 한다
@@ -86,9 +89,16 @@ public class SecurityConfig {
                         // 시간 만료·서버 재시작 등으로 세션 쿠키가 더는 유효하지 않을 때 → 세션 만료 안내 화면(E-SESSION)
                         .invalidSessionUrl("/error/401-expired")
                         .maximumSessions(1)                       // 회원당 세션 1개 (AuthDetails.equals가 users.id로 비교)
+                        .sessionRegistry(sessionRegistry)         // 강사 비활성화 때 이미 로그인한 세션을 끊으려고 같은 Registry를 공유
                         .maxSessionsPreventsLogin(false)          // 새 로그인을 막지 않고 이전 세션을 만료
                         .expiredUrl("/error/401-duplicate"));
         return http.build();
+    }
+
+    /** 로그인 중인 세션 목록. maximumSessions와 InstructorAccountService(비활성화 시 세션 만료)가 함께 쓴다 */
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
     }
 
     /**
