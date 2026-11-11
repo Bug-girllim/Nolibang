@@ -110,4 +110,4 @@
 
 ---
 
-**참고 링크:** [기획안 README](README.md) · [요구사항](03-requirements.md) · [운영 정책](05-policy.md) · [11/05 변경 이력](CHANGELOG_20261105.md) · [DB 추적](08_REQUIREMENTS_DB_TRACE.md) · [GitHub PR 목록](https://github.com/Bug-girllim/Nolibang/pulls)
+**참고 링크:** [기획안 README](README.md) · [요구사항](03-requirements.md) · [운영 정책](05-policy.md) · [11/05 변경 이력](CHANGELOG_20261105.md) · [DB 추적](08-requirements_DB_trace.md) · [GitHub PR 목록](https://github.com/Bug-girllim/Nolibang/pulls)
