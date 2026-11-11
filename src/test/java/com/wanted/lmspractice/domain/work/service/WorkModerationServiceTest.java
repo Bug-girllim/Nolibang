@@ -46,6 +46,8 @@ class WorkModerationServiceTest {
     @Autowired
     private WorkRepository workRepository;
     @Autowired
+    private WorkService workService;
+    @Autowired
     private UserRepository userRepository;
 
     private Long userId(String loginId) {
@@ -191,5 +193,18 @@ class WorkModerationServiceTest {
         moderationService.hide(admin, VISIBLE_WORK, REASON);
         assertThat(moderationService.getAllHistory()).extracting(ModerationLogDTO::getWorkId)
                 .containsExactly(VISIBLE_WORK, HIDDEN_WORK);   // 최신순
+    }
+
+    @Test
+    @DisplayName("#163 숨김 이력이 있는 작품을 작성자가 삭제해도 전체 이력이 열리고, 제목은 '(삭제된 작품)'으로 나온다")
+    void historyWithDeletedWork() {
+        workService.deleteGeneralWork(userId("learner"), HIDDEN_WORK);   // 시드: 숨김 + 이력 1건인 일반 작품
+        workRepository.flush();
+
+        assertThat(moderationService.getAllHistory())
+                .filteredOn(log -> log.getWorkId().equals(HIDDEN_WORK))
+                .isNotEmpty()
+                .extracting(ModerationLogDTO::getWorkTitle)
+                .containsOnly(WorkModerationService.DELETED_WORK_TITLE);
     }
 }
