@@ -75,6 +75,11 @@ public final class HobbyPicStyle {
     /** 이미지를 정하지 않은 대분류(관리자가 새로 추가한 대분류 등)의 카드 이미지 — 취미 탐색 배너(bn-explore)와 같은 "정원 문" 그림 */
     private static final String DEFAULT_CATEGORY_IMAGE = "/images/3e5e7da65a0dedf758b57596eb180054.webp";
 
+    /** 관리자가 올린 사진(key = hobby/파일명)을 보여 주는 주소 — HobbyImageController 가 내려 준다 */
+    public static String uploadedImagePath(String key) {
+        return "/hobbies/image-files/" + key.substring(key.lastIndexOf('/') + 1);
+    }
+
     /** 대분류 카드 이미지 경로. 매핑이 없으면 기본 이미지 */
     public static String categoryImage(String categoryCode) {
         return CATEGORY_IMAGES.getOrDefault(categoryCode, DEFAULT_CATEGORY_IMAGE);

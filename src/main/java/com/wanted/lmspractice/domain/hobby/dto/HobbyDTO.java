@@ -32,6 +32,8 @@ public class HobbyDTO {
     private ExposureState state;
     /** 시안 그림 스타일 CSS 클래스(없으면 빈 문자열) */
     private String picClass;
+    /** 관리자가 올린 대표 사진 주소 — 없으면 null(시안 그림 picClass 를 쓴다) */
+    private String imagePath;
 
     /** 관리자 화면(A-S15) 전용 집계 — 일반 화면에서는 0 그대로 둔다. CourseCatalogService.getAdminCategories가 채운다 */
     private int openCourseCount;
@@ -48,6 +50,7 @@ public class HobbyDTO {
                 hobby.getDescription(),
                 effectiveState,
                 HobbyPicStyle.hobbyPicClass(hobby.getCode()),
+                hobby.getThumbnailKey() == null ? null : HobbyPicStyle.uploadedImagePath(hobby.getThumbnailKey()),
                 0, 0, 0);
     }
 

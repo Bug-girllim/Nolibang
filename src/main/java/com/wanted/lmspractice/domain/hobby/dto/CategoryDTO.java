@@ -40,7 +40,9 @@ public class CategoryDTO {
                 category.getCode(),
                 category.getName(),
                 category.getState(),
-                HobbyPicStyle.categoryImage(category.getCode()),
+                category.getImageKey() != null
+                        ? HobbyPicStyle.uploadedImagePath(category.getImageKey())
+                        : HobbyPicStyle.categoryImage(category.getCode()),
                 hobbies);
     }
 

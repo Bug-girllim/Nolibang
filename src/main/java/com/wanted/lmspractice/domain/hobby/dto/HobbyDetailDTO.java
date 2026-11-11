@@ -49,7 +49,9 @@ public class HobbyDetailDTO {
                 hobby.getDescription(),
                 effectiveState,
                 HobbyPicStyle.hobbyPicClass(hobby.getCode()),
-                HobbyPicStyle.heroImage(hobby.getCode()),
+                hobby.getThumbnailKey() != null
+                        ? HobbyPicStyle.uploadedImagePath(hobby.getThumbnailKey())
+                        : HobbyPicStyle.heroImage(hobby.getCode()),
                 List.of());
     }
 

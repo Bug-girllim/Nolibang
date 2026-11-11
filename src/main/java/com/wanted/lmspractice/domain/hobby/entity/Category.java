@@ -48,6 +48,10 @@ public class Category {
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;  // DB 기본값과 같은 초기값
 
+    /** 관리자가 올린 대표 사진 키(hobby/{uuid}.확장자). 없으면 시안 기본 이미지(HobbyPicStyle) */
+    @Column(name = "image_key", length = 512)
+    private String imageKey;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;  // DB가 자동 기록
 
@@ -59,7 +63,7 @@ public class Category {
      * code는 화면에서 받지 않고 서비스가 겹치지 않게 만들어 넣는다(이미지 매핑용 시드 code와 구분).
      */
     public static Category create(String code, String name, ExposureState state, int sortOrder) {
-        return new Category(null, code, name, state, sortOrder, null, null);
+        return new Category(null, code, name, state, sortOrder, null, null, null);
     }
 
     /**
@@ -68,6 +72,11 @@ public class Category {
      */
     public void changeState(ExposureState newState) {
         this.state = newState;
+    }
+
+    /** 대표 사진 바꾸기·지우기(null). 호출: HobbyService.updateCategoryImage */
+    public void changeImage(String newImageKey) {
+        this.imageKey = newImageKey;
     }
 
     /** 관리자 대분류 편집(A-S02) — 이름·노출 상태를 바꾼다. 호출: HobbyService.updateCategory (변경 감지로 저장) */
