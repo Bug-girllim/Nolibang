@@ -23,14 +23,16 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * [역할] 강의 목록·상세 조립 테스트 — 수준 필터, 차시, 정원 현황·대기 인원, 내 신청 상태(비회원·학습자·강사·준비 중 취미), 없는 강의
  * [담당] 팀원 2 · #08   [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재. 조회 전용이라 DB를 바꾸지 않는다.
- *       시드: 강의 9개(취미 3개 × 입문·중급·고급, 차시 3개씩). 강의 4(디지털 드로잉 기초)는 정원 1명이 차서 만석이고 대기 1명.
+ *       시드: 강의 9개(취미 3개 × 입문·중급·고급, 차시 3개씩). 강의 1(색연필화 기초)은 분반 1개(정원 1명)가 learnerB로 차서 만석이고
+ *       대기 1명(learnerC). 강의 4(디지털 드로잉 기초)는 분반 2개(정원 5+5, 수강 중 1+1). learnerA는 수강·대기 기록이 없다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용)
  */
 @SpringBootTest
 @Transactional
 class CourseCatalogServiceTest {
 
-    // 시드 id: 취미 1 색연필화, 2 디지털 드로잉, 4 목공(준비 중) / 강의 1 색연필화 기초, 4 디지털 드로잉 기초(만석)
+    // 시드 id: 취미 1 색연필화, 2 디지털 드로잉, 3 디저트 만들기, 4 목공(준비 중) / 강의 1 색연필화 기초(만석), 4 디지털 드로잉 기초
+    // 사용자 id: 1 admin, 2 learnerA(기록 없음), 3 learnerB, 4 learnerC, 6 teacherA
     @Autowired
     private CourseCatalogService courseCatalogService;
     @Autowired
@@ -43,24 +45,24 @@ class CourseCatalogServiceTest {
     @Test
     @DisplayName("강의 상세는 필수 3차시와 준비물·정원 현황을 담는다 (강의 9개가 같은 템플릿에 맞는 구조)")
     void courseDetailHasThreeLessonsAndSeats() {
-        CourseDetailDTO course = courseCatalogService.getCourseDetail(1L, null);
+        CourseDetailDTO course = courseCatalogService.getCourseDetail(4L, null);
 
-        assertThat(course.getTitle()).isEqualTo("색연필화 기초");
-        assertThat(course.getHobbyName()).isEqualTo("색연필화");
+        assertThat(course.getTitle()).isEqualTo("디지털 드로잉 기초");
+        assertThat(course.getHobbyName()).isEqualTo("디지털 드로잉");
         assertThat(course.getLevel()).isEqualTo(CourseLevel.BASIC);
         assertThat(course.getLessons()).extracting(lesson -> lesson.getLessonNo()).containsExactly(1, 2, 3);
         assertThat(course.getLessons()).allSatisfy(lesson -> assertThat(lesson.getDurationMinutes()).isPositive());
         assertThat(course.getSupplies()).isNotNull();  // 시드 준비물은 TODO 문구를 지워 빈 목록이다(#91) — 빈 줄은 목록에서 빠진다
         assertThat(course.getEnrollmentDays()).isEqualTo(30);
-        // 시드: 강의 1은 분반 2개(정원 5+5, 활성 1명) → 남은 자리 9석
+        // 시드: 강의 4는 분반 2개(정원 5+5, 각 분반 수강 중 1명 — learnerB·learnerC) → 남은 자리 8석
         assertThat(course.getSeats().getTotalCapacity()).isEqualTo(10);
-        assertThat(course.getSeats().getRemainingSeats()).isEqualTo(9);
+        assertThat(course.getSeats().getRemainingSeats()).isEqualTo(8);
     }
 
     @Test
     @DisplayName("만석 강의는 남은 자리 0석·대기 인원이 보인다")
     void fullCourseShowsWaiting() {
-        CourseDetailDTO course = courseCatalogService.getCourseDetail(4L, null);
+        CourseDetailDTO course = courseCatalogService.getCourseDetail(1L, null);  // 정원 1명 만석 + 대기 1명
 
         assertThat(course.getSeats().isFull()).isTrue();
         assertThat(course.getSeats().getWaitingCount()).isEqualTo(1);
@@ -89,25 +91,26 @@ class CourseCatalogServiceTest {
     @Test
     @DisplayName("내 신청 상태: 비회원은 로그인 안내, 강사·관리자는 학습자 전용, 학습자는 수강 도메인(#09)의 결과")
     void enrollStatusByViewer() {
-        assertThat(stateOf(null, null)).isEqualTo(EnrollmentStatusDTO.LOGIN_REQUIRED);
-        assertThat(stateOf(6L, Role.INSTRUCTOR)).isEqualTo(EnrollmentStatusDTO.NOT_LEARNER);
-        assertThat(stateOf(1L, Role.ADMIN)).isEqualTo(EnrollmentStatusDTO.NOT_LEARNER);
-        // #09: 개인 기록을 먼저 본다 — learner2(3)는 강의 1 기록이 없어 빈자리로 신청 가능, learner(2)는 강의 1을 수료(e1)
-        assertThat(stateOf(3L, Role.USER)).isEqualTo(EnrollmentStatusDTO.CAN_APPLY);
-        assertThat(stateOf(2L, Role.USER)).isEqualTo(EnrollmentStatusDTO.COMPLETED);
+        assertThat(stateOf(4L, null, null)).isEqualTo(EnrollmentStatusDTO.LOGIN_REQUIRED);
+        assertThat(stateOf(4L, 6L, Role.INSTRUCTOR)).isEqualTo(EnrollmentStatusDTO.NOT_LEARNER);
+        assertThat(stateOf(4L, 1L, Role.ADMIN)).isEqualTo(EnrollmentStatusDTO.NOT_LEARNER);
+        // #09: 개인 기록을 먼저 본다 — learnerA(2)는 강의 4 기록이 없어 빈자리로 신청 가능, learnerB(3)는 강의 8을 수료(e3)
+        assertThat(stateOf(4L, 2L, Role.USER)).isEqualTo(EnrollmentStatusDTO.CAN_APPLY);
+        assertThat(stateOf(8L, 3L, Role.USER)).isEqualTo(EnrollmentStatusDTO.COMPLETED);
     }
 
     @Test
     @DisplayName("만석이거나 대기자가 있는 강의는 학습자에게 대기 신청으로 보인다 (D-52)")
     void fullCourseShowsWaitApply() {
-        CourseDetailDTO full = courseCatalogService.getCourseDetail(4L, Role.USER);  // 정원 1명 만석 + 대기 1명
+        CourseDetailDTO full = courseCatalogService.getCourseDetail(1L, Role.USER);  // 정원 1명 만석 + 대기 1명
 
+        // learnerA(2)는 강의 1에 수강·대기 기록이 없다
         assertThat(courseCatalogService.getEnrollStatus(full, 2L, Role.USER).getState())
                 .isEqualTo(EnrollmentStatusDTO.CAN_WAIT);
     }
 
-    private String stateOf(Long userId, Role role) {
-        CourseDetailDTO course = courseCatalogService.getCourseDetail(1L, role);
+    private String stateOf(Long courseId, Long userId, Role role) {
+        CourseDetailDTO course = courseCatalogService.getCourseDetail(courseId, role);
         return courseCatalogService.getEnrollStatus(course, userId, role).getState();
     }
 
@@ -155,10 +158,10 @@ class CourseCatalogServiceTest {
         assertThat(categories.get(0).getOpenCourseCount()).isEqualTo(6);  // 미술·드로잉: 색연필화 3 + 디지털 드로잉 3
     }
 
-    // ───────────── [이어서 학습]·[다시 보기]가 열 차시 (시드 learner: 수강 1·2·3, 차시 id는 lesson_no 역순) ─────────────
+    // ───────────── [이어서 학습]·[다시 보기]가 열 차시 (시드 learnerB: 수강 1·2·3, 차시 id = 3 × 강의 + 1 − 차시 번호) ─────────────
 
     private Long learnerId() {
-        return userRepository.findByLoginId("learner").orElseThrow().getId();
+        return userRepository.findByLoginId("learnerB").orElseThrow().getId();
     }
 
     private CourseDTO cardOf(Long courseId, List<CourseDTO> cards) {
@@ -166,31 +169,33 @@ class CourseCatalogServiceTest {
     }
 
     @Test
-    @DisplayName("수강 중인 강의 카드: 한 차시만 끝냈으면 그다음 차시를 이어서 연다 (강의 2: 1차시=6 완료, 2차시=5)")
+    @DisplayName("수강 중인 강의 카드: 끝내지 못한 첫 차시를 이어서 연다 (강의 1: 1차시=3·2차시=2 완료, 3차시=1 재생 중)")
     void learningCardContinuesAtNextLesson() {
         List<CourseDTO> cards = courseCatalogService.getCourses(1L, null, learnerId(), Role.USER);
 
-        CourseDTO course2 = cardOf(2L, cards);
-        assertThat(course2.getEnrollStatus().getState()).isEqualTo(EnrollmentStatusDTO.LEARNING);
-        assertThat(course2.getContinueLessonId()).isEqualTo(5L);
-    }
-
-    @Test
-    @DisplayName("3차시를 모두 끝낸 수강 중 카드는 마지막 차시(3차시=7)를 연다 (강의 3)")
-    void allLessonsDoneOpensLastLesson() {
-        List<CourseDTO> cards = courseCatalogService.getCourses(1L, null, learnerId(), Role.USER);
-
-        assertThat(cardOf(3L, cards).getContinueLessonId()).isEqualTo(7L);
-    }
-
-    @Test
-    @DisplayName("수료한 강의 카드는 다시 보기용 차시가 채워진다 (강의 1, 마지막 차시=1)")
-    void completedCardHasReplayLesson() {
-        List<CourseDTO> cards = courseCatalogService.getCourses(1L, null, learnerId(), Role.USER);
-
         CourseDTO course1 = cardOf(1L, cards);
-        assertThat(course1.getEnrollStatus().getState()).isEqualTo(EnrollmentStatusDTO.COMPLETED);
+        assertThat(course1.getEnrollStatus().getState()).isEqualTo(EnrollmentStatusDTO.LEARNING);
         assertThat(course1.getContinueLessonId()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("3차시를 모두 끝낸 수강 중 카드는 마지막 차시(3차시=10)를 연다 (취미 2 · 강의 4, 평가 대기)")
+    void allLessonsDoneOpensLastLesson() {
+        List<CourseDTO> cards = courseCatalogService.getCourses(2L, null, learnerId(), Role.USER);
+
+        CourseDTO course4 = cardOf(4L, cards);
+        assertThat(course4.getEnrollStatus().getState()).isEqualTo(EnrollmentStatusDTO.LEARNING);
+        assertThat(course4.getContinueLessonId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("수료한 강의 카드는 다시 보기용 차시가 채워진다 (취미 3 · 강의 8, 마지막 차시=22)")
+    void completedCardHasReplayLesson() {
+        List<CourseDTO> cards = courseCatalogService.getCourses(3L, null, learnerId(), Role.USER);
+
+        CourseDTO course8 = cardOf(8L, cards);
+        assertThat(course8.getEnrollStatus().getState()).isEqualTo(EnrollmentStatusDTO.COMPLETED);
+        assertThat(course8.getContinueLessonId()).isEqualTo(22L);
     }
 
     @Test
@@ -204,12 +209,12 @@ class CourseCatalogServiceTest {
     }
 
     @Test
-    @DisplayName("강의 상세의 신청 영역도 같은 차시를 연다 (강의 2 → 5, 비회원 → null)")
+    @DisplayName("강의 상세의 신청 영역도 같은 차시를 연다 (강의 1 → 1, 비회원 → null)")
     void detailContinueLesson() {
-        CourseDetailDTO course = courseCatalogService.getCourseDetail(2L, Role.USER);
+        CourseDetailDTO course = courseCatalogService.getCourseDetail(1L, Role.USER);
         EnrollmentStatusDTO status = courseCatalogService.getEnrollStatus(course, learnerId(), Role.USER);
 
-        assertThat(courseCatalogService.getContinueLessonId(course, status)).isEqualTo(5L);
+        assertThat(courseCatalogService.getContinueLessonId(course, status)).isEqualTo(1L);
 
         EnrollmentStatusDTO anonymous = courseCatalogService.getEnrollStatus(course, null, null);
         assertThat(courseCatalogService.getContinueLessonId(course, anonymous)).isNull();

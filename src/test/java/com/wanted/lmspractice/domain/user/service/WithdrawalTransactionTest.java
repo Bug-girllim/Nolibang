@@ -38,7 +38,7 @@ class WithdrawalTransactionTest {
     private static final String EMAIL = "withdraw-tx-test@example.com";
     private static final String PASSWORD = "Abcd123!";
     private static final String COMMENT_MARK = "탈퇴트랜잭션확인댓글";
-    private static final long OTHERS_WORK_ID = 4L;   // seed learner2 의 최종 과제
+    private static final long OTHERS_WORK_ID = 4L;   // seed learnerC 의 공개 일반 작품(시드 좋아요 1건·익명 좋아요 0)
 
     @Autowired
     WithdrawalService withdrawalService;

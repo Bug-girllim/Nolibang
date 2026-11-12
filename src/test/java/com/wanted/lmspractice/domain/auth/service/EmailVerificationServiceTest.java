@@ -112,7 +112,7 @@ class EmailVerificationServiceTest {
     @DisplayName("없는 이메일·이미 인증된 이메일로 재발송해도 예외 없이 끝난다(계정 존재 여부를 숨김)")
     void resendHidesAccountExistence() {
         emailVerificationService.resend("nobody-here@example.com");
-        emailVerificationService.resend("learner@nolibang.local");  // 시드: 이미 인증된 계정
+        emailVerificationService.resend("learnerb@nolibang.local");  // 시드 learnerB: 이미 인증된 계정
         emailVerificationService.resend("");
     }
 

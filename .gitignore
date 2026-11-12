@@ -53,6 +53,7 @@ out/
 ### Local tool settings / secrets (never commit) ###
 .env
 .env.*
+!.env.example
 /.claude/settings.local.json
 /.playwright-mcp/
 

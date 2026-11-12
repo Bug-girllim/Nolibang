@@ -22,8 +22,10 @@ import org.springframework.test.web.servlet.MockMvc;
 /**
  * [역할] 역할별 URL 권한·CSRF·소유자 검사를 실제 로그인(formLogin)으로 확인하는 MockMvc 통합 테스트
  * [근거] docs/보안점검_CSRF_권한.md — 점검 표를 테스트로 고정했다. SecurityConfig·컨트롤러 권한이 바뀌면 여기서 먼저 깨진다.
- * [전제] 시드 데이터(seed.sql)가 들어 있는 DB. 시연 계정 비밀번호는 모두 1234, 관리자는 Admin!2026.
- *        소유자 검사 케이스는 시드 id에 기대므로(작품 2·3 = learner의 비공개, 문의 1, 수강 1, 리뷰 1 = teacherA 담당) 시드를 바꾸면 함께 고친다.
+ * [전제] 시드 데이터(seed.sql)가 들어 있는 DB. 시연 계정 비밀번호는 계정마다 다르다(아래 상수 — README "시연 계정" 표와 같은 값).
+ *        learnerB·learnerC는 첫 로그인 기록이 이미 있어 로그인하면 "/"로 간다(없으면 /hobbies). teacherD는 임시 비밀번호 상태(must_change_password).
+ *        소유자 검사 케이스는 시드 id에 기대므로 시드를 바꾸면 함께 고친다 — learnerB 소유: 작품 3(비공개 최종 과제, 이미지 파일 4)·작품 2(일반 작품),
+ *        문의 1, 수강 1, 평가 회차 1 / 평가 회차 2 = teacherA 담당 분반(4)의 평가 대기 / 작품 1 = learnerB의 공개 작품.
  * [주의] 쓰기 요청은 모두 거부되어야 하는 것만 보낸다(DB를 바꾸지 않는다). 로그인은 같은 계정의 이전 세션을 끝내므로 테스트마다 새로 로그인한다.
  */
 @SpringBootTest
@@ -41,11 +43,21 @@ class SecurityConfigTest {
         return session;
     }
 
+    // 시연 계정 비밀번호 (seed.sql D1·관리자 행)
+    private static final String LEARNER_B_PW = "demo_L02";
+    private static final String LEARNER_C_PW = "demo_L03";
+    private static final String TEACHER_A_PW = "demo_T01";
+    private static final String TEACHER_B_PW = "demo_T02";
+    private static final String TEACHER_C_PW = "demo_T03";
+    private static final String TEACHER_D_PW = "demo_T04";
+    private static final String NEWBIE_PW = "Newbie_01";
+    private static final String ADMIN_PW = "demo_Admin01";
+
     private MockHttpSession as(String role) throws Exception {
         return switch (role) {
-            case "USER" -> login("learner", "1234");
-            case "INSTRUCTOR" -> login("teacherA", "1234");
-            case "ADMIN" -> login("admin", "Admin!2026");
+            case "USER" -> login("learnerB", LEARNER_B_PW);
+            case "INSTRUCTOR" -> login("teacherA", TEACHER_A_PW);
+            case "ADMIN" -> login("admin", ADMIN_PW);
             default -> throw new IllegalArgumentException(role);
         };
     }
@@ -111,30 +123,30 @@ class SecurityConfigTest {
     @Test
     @DisplayName("로그인 전에 보려던 화면(쿼리 포함)이 있으면 로그인 후 그 화면으로 간다")
     void loginReturnsToRequestedPage() throws Exception {
-        assertThat(loginAfterVisiting("/my/account?tab=password", HTML, "learner", "1234"))
+        assertThat(loginAfterVisiting("/my/account?tab=password", HTML, "learnerB", LEARNER_B_PW))
                 .isEqualTo("/my/account?tab=password");
-        assertThat(loginAfterVisiting("/instructor/reviews", HTML, "teacherA", "1234"))
+        assertThat(loginAfterVisiting("/instructor/reviews", HTML, "teacherA", TEACHER_A_PW))
                 .isEqualTo("/instructor/reviews");
     }
 
     @Test
     @DisplayName("보려던 화면을 그 역할이 볼 수 없으면(학습자 화면 → 강사 로그인) 역할별 첫 화면으로 간다")
     void loginIgnoresPageTheRoleCannotOpen() throws Exception {
-        assertThat(loginAfterVisiting("/my/learning", HTML, "teacherA", "1234")).isEqualTo("/instructor");
-        assertThat(loginAfterVisiting("/admin", HTML, "learner", "1234")).isEqualTo("/");
+        assertThat(loginAfterVisiting("/my/learning", HTML, "teacherA", TEACHER_A_PW)).isEqualTo("/instructor");
+        assertThat(loginAfterVisiting("/admin", HTML, "learnerB", LEARNER_B_PW)).isEqualTo("/");
     }
 
     @Test
     @DisplayName("이미지·fetch 처럼 화면이 아닌 요청은 저장하지 않는다 → 역할별 첫 화면")
     void nonPageRequestsAreNotSaved() throws Exception {
-        assertThat(loginAfterVisiting("/files/works/1", "image/avif,image/webp,*/*;q=0.8", "learner", "1234")).isEqualTo("/");
-        assertThat(loginAfterVisiting("/notifications", "application/json", "learner", "1234")).isEqualTo("/");
+        assertThat(loginAfterVisiting("/files/works/1", "image/avif,image/webp,*/*;q=0.8", "learnerB", LEARNER_B_PW)).isEqualTo("/");
+        assertThat(loginAfterVisiting("/notifications", "application/json", "learnerB", LEARNER_B_PW)).isEqualTo("/");
     }
 
     @Test
     @DisplayName("임시 비밀번호 강사는 보려던 화면이 있어도 비밀번호 변경 화면이 먼저")
     void temporaryPasswordBeatsRequestedPage() throws Exception {
-        assertThat(loginAfterVisiting("/instructor/reviews", HTML, "teacherD", "1234"))
+        assertThat(loginAfterVisiting("/instructor/reviews", HTML, "teacherD", TEACHER_D_PW))
                 .isEqualTo("/auth/instructor/password");
     }
 
@@ -210,7 +222,7 @@ class SecurityConfigTest {
     @DisplayName("토큰 없는 로그인 요청은 로그인되지 않는다")
     void loginWithoutCsrfTokenDoesNotAuthenticate() throws Exception {
         MockHttpSession s = new MockHttpSession();
-        mvc.perform(post("/auth/login").session(s).param("loginId", "learner").param("password", "1234"));
+        mvc.perform(post("/auth/login").session(s).param("loginId", "learnerB").param("password", LEARNER_B_PW));
         mvc.perform(get("/my/learning").session(s)).andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/error/401"));
     }
@@ -229,29 +241,29 @@ class SecurityConfigTest {
     @Test
     @DisplayName("다른 학습자의 비공개 자원은 열리지 않는다")
     void learnerCannotReachOthersResources() throws Exception {
-        MockHttpSession s = login("learner3", "1234");
-        mvc.perform(get("/works/2").session(s)).andExpect(status().isForbidden());
-        mvc.perform(get("/files/works/3").session(s)).andExpect(status().isForbidden());
-        mvc.perform(get("/my/works/2/edit").session(s)).andExpect(status().isNotFound());
+        MockHttpSession s = login("learnerC", LEARNER_C_PW);   // learnerB의 자원을 learnerC가 연다
+        mvc.perform(get("/works/3").session(s)).andExpect(status().isForbidden());          // learnerB 비공개 최종 과제
+        mvc.perform(get("/files/works/3").session(s)).andExpect(status().isForbidden());    // 작품 3의 이미지 (work_files id 3)
+        mvc.perform(get("/my/works/2/edit").session(s)).andExpect(status().isNotFound());   // learnerB 일반 작품 — 남의 것이라 404
         mvc.perform(get("/inquiries/1").session(s)).andExpect(status().isNotFound());
         mvc.perform(get("/assignments/1/result").session(s)).andExpect(status().isNotFound());
         mvc.perform(post("/enrollments/1/cancel").session(s).with(csrf())).andExpect(status().isNotFound());
-        mvc.perform(post("/my/works/2/visibility").session(s).with(csrf()).param("visibility", "PUBLIC"))
+        mvc.perform(post("/my/works/3/visibility").session(s).with(csrf()).param("visibility", "PUBLIC"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     @DisplayName("공개 작품은 다른 학습자도 볼 수 있다 (대조군)")
     void learnerCanReachPublicWork() throws Exception {
-        mvc.perform(get("/works/1").session(login("learner3", "1234"))).andExpect(status().isOk());
+        mvc.perform(get("/works/1").session(login("learnerC", LEARNER_C_PW))).andExpect(status().isOk());   // learnerB 공개 작품
     }
 
     @Test
     @DisplayName("다른 강사 담당 리뷰는 열리지 않는다")
     void instructorCannotReachOthersReview() throws Exception {
-        MockHttpSession s = login("teacherB", "1234");
-        mvc.perform(get("/instructor/reviews/1").session(s)).andExpect(status().isForbidden());
-        mvc.perform(post("/instructor/reviews/1/approve").session(s).with(csrf())).andExpect(status().isForbidden());
+        MockHttpSession s = login("teacherB", TEACHER_B_PW);   // 평가 회차 2 = teacherA 담당 분반(4)의 평가 대기
+        mvc.perform(get("/instructor/reviews/2").session(s)).andExpect(status().isForbidden());
+        mvc.perform(post("/instructor/reviews/2/approve").session(s).with(csrf())).andExpect(status().isForbidden());
     }
 
     // ───────── 계정 상태 ─────────
@@ -259,9 +271,9 @@ class SecurityConfigTest {
     @Test
     @DisplayName("비활성 강사·미인증 학습자는 로그인되지 않는다")
     void inactiveOrUnverifiedCannotLogin() throws Exception {
-        mvc.perform(post("/auth/login").with(csrf()).param("loginId", "teacherC").param("password", "1234"))
+        mvc.perform(post("/auth/login").with(csrf()).param("loginId", "teacherC").param("password", TEACHER_C_PW))
                 .andExpect(redirectedUrl("/auth/login?error=disabled"));
-        mvc.perform(post("/auth/login").with(csrf()).param("loginId", "newbie").param("password", "1234"))
+        mvc.perform(post("/auth/login").with(csrf()).param("loginId", "newbie").param("password", NEWBIE_PW))
                 .andExpect(redirectedUrl("/auth/login?error=unverified"));
     }
 
@@ -279,7 +291,7 @@ class SecurityConfigTest {
     @Test
     @DisplayName("임시 비밀번호 강사는 비밀번호 변경 화면으로만 이동")
     void temporaryPasswordInstructorIsForcedToChange() throws Exception {
-        MockHttpSession s = login("teacherD", "1234");
+        MockHttpSession s = login("teacherD", TEACHER_D_PW);
         mvc.perform(get("/instructor").session(s)).andExpect(redirectedUrl("/auth/instructor/password"));
         mvc.perform(get("/works").session(s)).andExpect(redirectedUrl("/auth/instructor/password"));
         mvc.perform(get("/auth/instructor/password").session(s)).andExpect(status().isOk());

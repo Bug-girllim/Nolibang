@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * [역할] UserService.signup 핵심 규칙 테스트 — 중복 3종, 닉네임 자동 생성, 비밀번호 암호화, 미인증 상태 저장
  * [담당] 팀원 1 · #04 (이슈 완료 조건 "signup 서비스 테스트")
- * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql이 적재돼 있어야 한다. 시드 계정(learner)과 겹치는 값으로 중복을 검사한다.
+ * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql이 적재돼 있어야 한다. 시드 계정 learnerB(이메일 learnerb@nolibang.local, 닉네임 차분한수달)와 겹치는 값으로 중복을 검사한다.
  *       각 테스트는 @Transactional이라 끝나면 롤백되어 DB에 가입 기록이 남지 않는다.
  *       SMTP가 없으면 메일은 보내지 않고 로그로 대신하므로(EmailVerificationService) 테스트 중 메일이 나가지 않는다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5에서 핵심 규칙 테스트용으로 허용)
@@ -78,7 +78,7 @@ class UserServiceTest {
     @DisplayName("이미 있는 아이디로 가입하면 DUPLICATE_LOGIN_ID")
     void duplicateLoginId() {
         SignupDTO dto = validDto();
-        dto.setLoginId("learner");  // 시드 계정
+        dto.setLoginId("learnerB");  // 시드 계정
 
         assertThatThrownBy(() -> userService.signup(dto))
                 .isInstanceOf(BusinessException.class)
@@ -90,7 +90,7 @@ class UserServiceTest {
     @DisplayName("이미 있는 이메일(대소문자만 달라도)로 가입하면 DUPLICATE_EMAIL")
     void duplicateEmail() {
         SignupDTO dto = validDto();
-        dto.setEmail("LEARNER@nolibang.local");  // 시드 이메일과 대소문자만 다름
+        dto.setEmail("LEARNERB@nolibang.local");  // 시드 이메일과 대소문자만 다름
 
         assertThatThrownBy(() -> userService.signup(dto))
                 .isInstanceOf(BusinessException.class)
@@ -102,7 +102,7 @@ class UserServiceTest {
     @DisplayName("이미 있는 닉네임으로 가입하면 DUPLICATE_NICKNAME")
     void duplicateNickname() {
         SignupDTO dto = validDto();
-        dto.setNickname("차분한수달");  // 시드 닉네임
+        dto.setNickname("차분한수달");  // 시드 닉네임(learnerB)
 
         assertThatThrownBy(() -> userService.signup(dto))
                 .isInstanceOf(BusinessException.class)
@@ -113,7 +113,7 @@ class UserServiceTest {
     @Test
     @DisplayName("중복 확인: true = 사용 가능, false = 사용 중 (US-03·04)")
     void availability() {
-        assertThat(userService.isLoginIdAvailable("learner")).isFalse();
+        assertThat(userService.isLoginIdAvailable("learnerB")).isFalse();
         assertThat(userService.isLoginIdAvailable("brandnewid")).isTrue();
         assertThat(userService.isNicknameAvailable("차분한수달")).isFalse();
         assertThat(userService.isNicknameAvailable("아무도안쓰는닉네임")).isTrue();

@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * [역할] #06 계정 복구(아이디 찾기·비밀번호 재설정)·계정 설정(닉네임·비밀번호 변경) 규칙 테스트
  * [담당] 팀원 1 · #06 (이슈 테스트 항목: 정상 3종 + 예외 4종)
- * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재(시드 learner·learner2·newbie 사용, 비밀번호 1234). 각 테스트는 롤백된다.
+ * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재(시드 learnerB·learnerC·newbie 사용 — learnerB 비밀번호 demo_L02, 이메일 learnerb@nolibang.local 인증 완료). 각 테스트는 롤백된다.
  *       SMTP가 없으면 메일 대신 로그만 남으므로 테스트 중 메일이 나가지 않는다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용)
  */
@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class AccountRecoveryAndSettingsTest {
 
-    private static final String SEED_PASSWORD = "1234";
+    private static final String SEED_PASSWORD = "demo_L02";   // learnerB 시드 비밀번호
     private static final String NEW_PASSWORD = "NewPassw0rd!";
 
     @Autowired
@@ -60,12 +60,12 @@ class AccountRecoveryAndSettingsTest {
     @Test
     @DisplayName("아이디 찾기: 가입 이메일로 요청하면 토큰이 발급되고, 링크 토큰으로 아이디를 한 번만 확인할 수 있다")
     void recoverLoginId() {
-        User learner = seedUser("learner");
-        emailVerificationService.sendRecovery("LEARNER@nolibang.local", TokenPurpose.RECOVER_LOGIN_ID);  // 대소문자 무시
-        assertThat(hasUnusedToken(learner.getId(), TokenPurpose.RECOVER_LOGIN_ID)).isTrue();
+        User learnerB = seedUser("learnerB");
+        emailVerificationService.sendRecovery("LEARNERB@nolibang.local", TokenPurpose.RECOVER_LOGIN_ID);  // 대소문자 무시
+        assertThat(hasUnusedToken(learnerB.getId(), TokenPurpose.RECOVER_LOGIN_ID)).isTrue();
 
-        String token = emailVerificationService.issueToken(learner.getId(), TokenPurpose.RECOVER_LOGIN_ID, Duration.ofHours(1));
-        assertThat(emailVerificationService.recoverLoginId(token)).isEqualTo("learner");
+        String token = emailVerificationService.issueToken(learnerB.getId(), TokenPurpose.RECOVER_LOGIN_ID, Duration.ofHours(1));
+        assertThat(emailVerificationService.recoverLoginId(token)).isEqualTo("learnerB");
 
         assertThatThrownBy(() -> emailVerificationService.recoverLoginId(token))  // 재사용 토큰
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_TOKEN));
@@ -84,20 +84,20 @@ class AccountRecoveryAndSettingsTest {
     @Test
     @DisplayName("복구 화면에서는 가입 인증(VERIFY_EMAIL) 토큰을 만들 수 없다")
     void recoveryRejectsVerifyPurpose() {
-        assertThatThrownBy(() -> emailVerificationService.sendRecovery("learner@nolibang.local", TokenPurpose.VERIFY_EMAIL))
+        assertThatThrownBy(() -> emailVerificationService.sendRecovery("learnerb@nolibang.local", TokenPurpose.VERIFY_EMAIL))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 
     @Test
     @DisplayName("비밀번호 재설정 후 새 비밀번호로만 로그인할 수 있고, 같은 링크는 다시 쓸 수 없다")
     void resetPassword() {
-        User learner = seedUser("learner");
-        String token = emailVerificationService.issueToken(learner.getId(), TokenPurpose.RESET_PASSWORD, Duration.ofHours(1));
+        User learnerB = seedUser("learnerB");
+        String token = emailVerificationService.issueToken(learnerB.getId(), TokenPurpose.RESET_PASSWORD, Duration.ofHours(1));
         emailVerificationService.checkToken(token, TokenPurpose.RESET_PASSWORD);  // 폼 열기만으로는 소모되지 않는다
 
         userService.resetPassword(token, NEW_PASSWORD);
 
-        String hash = seedUser("learner").getPasswordHash();
+        String hash = seedUser("learnerB").getPasswordHash();
         assertThat(passwordEncoder.matches(NEW_PASSWORD, hash)).isTrue();
         assertThat(passwordEncoder.matches(SEED_PASSWORD, hash)).isFalse();
         assertThatThrownBy(() -> userService.resetPassword(token, "Another1!"))
@@ -107,7 +107,7 @@ class AccountRecoveryAndSettingsTest {
     @Test
     @DisplayName("가입 인증 토큰과 재설정·아이디 찾기 토큰은 서로 쓸 수 없다 (DEV_REVIEW §2-12)")
     void tokenPurposesAreSeparated() {
-        Long userId = seedUser("learner").getId();
+        Long userId = seedUser("learnerB").getId();
         String verifyToken = emailVerificationService.issueToken(userId, TokenPurpose.VERIFY_EMAIL, Duration.ofHours(1));
         String resetToken = emailVerificationService.issueToken(userId, TokenPurpose.RESET_PASSWORD, Duration.ofHours(1));
 
@@ -122,7 +122,7 @@ class AccountRecoveryAndSettingsTest {
     @Test
     @DisplayName("만료된 재설정 토큰은 TOKEN_EXPIRED")
     void expiredResetToken() throws InterruptedException {
-        Long userId = seedUser("learner").getId();
+        Long userId = seedUser("learnerB").getId();
         // DB CHECK(expires_at > created_at) 때문에 지난 시각으로 저장할 수 없어 1초짜리를 만들고 기다린다(#04 테스트와 같은 방식)
         String token = emailVerificationService.issueToken(userId, TokenPurpose.RESET_PASSWORD, Duration.ofSeconds(1));
         Thread.sleep(1500);
@@ -136,12 +136,12 @@ class AccountRecoveryAndSettingsTest {
     @Test
     @DisplayName("닉네임 변경: 앞뒤 공백을 지워 저장하고, 다른 회원 닉네임이면 DUPLICATE_NICKNAME")
     void changeNickname() {
-        Long userId = seedUser("learner").getId();
+        Long userId = seedUser("learnerB").getId();
 
         assertThat(userService.changeNickname(userId, "  새닉네임 ")).isEqualTo("새닉네임");
-        assertThat(seedUser("learner").getNickname()).isEqualTo("새닉네임");
+        assertThat(seedUser("learnerB").getNickname()).isEqualTo("새닉네임");
 
-        String otherNickname = seedUser("learner2").getNickname();
+        String otherNickname = seedUser("learnerC").getNickname();
         assertThatThrownBy(() -> userService.changeNickname(userId, otherNickname))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.DUPLICATE_NICKNAME));
         assertThat(userService.isNicknameAvailableFor(userId, "새닉네임")).isTrue();  // 내 닉네임은 사용 가능으로 본다
@@ -150,8 +150,8 @@ class AccountRecoveryAndSettingsTest {
     @Test
     @DisplayName("탈퇴 익명화 닉네임(withdrawn_N)은 예약어: 가입·변경·중복 확인 모두 막혀, 남의 탈퇴를 UNIQUE 충돌로 막을 수 없다")
     void reservedWithdrawnNickname() {
-        Long userId = seedUser("learner").getId();
-        Long victimId = seedUser("learner2").getId();
+        Long userId = seedUser("learnerB").getId();
+        Long victimId = seedUser("learnerC").getId();
 
         assertThatThrownBy(() -> userService.changeNickname(userId, "withdrawn_" + victimId))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.DUPLICATE_NICKNAME));
@@ -165,7 +165,7 @@ class AccountRecoveryAndSettingsTest {
     @Test
     @DisplayName("비밀번호 변경: 현재 비밀번호가 틀리면 PASSWORD_MISMATCH, 현재와 같으면 INVALID_NEW_PASSWORD")
     void changePassword() {
-        Long userId = seedUser("learner").getId();
+        Long userId = seedUser("learnerB").getId();
 
         assertThatThrownBy(() -> userService.changePassword(userId, "wrong", NEW_PASSWORD))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.PASSWORD_MISMATCH));
@@ -173,6 +173,6 @@ class AccountRecoveryAndSettingsTest {
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_NEW_PASSWORD));
 
         userService.changePassword(userId, SEED_PASSWORD, NEW_PASSWORD);
-        assertThat(passwordEncoder.matches(NEW_PASSWORD, seedUser("learner").getPasswordHash())).isTrue();
+        assertThat(passwordEncoder.matches(NEW_PASSWORD, seedUser("learnerB").getPasswordHash())).isTrue();
     }
 }

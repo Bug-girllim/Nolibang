@@ -45,7 +45,10 @@ class InstructorStatQueryTest {
         return ((Number) em.createNativeQuery(sql).getSingleResult()).longValue();
     }
 
-    /** 시드에서 담당 분반이 있는 강사 id 한 명 */
+    /**
+     * 시드에서 담당 분반이 있는 강사 id 한 명 — 현재 시드에서는 분반 1의 teacherA(6)
+     * (담당 분반 1·2·3·4·7, 활성 수강 e1·e2, 평가 대기 r2). 남의 분반 첫 번째는 분반 5(teacherB)다.
+     */
     private Long anyInstructorWithSection() {
         return ((Number) em.createNativeQuery(
                 "SELECT instructor_id FROM course_sections WHERE instructor_id IS NOT NULL ORDER BY id LIMIT 1")

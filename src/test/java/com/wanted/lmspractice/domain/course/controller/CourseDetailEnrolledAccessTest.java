@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] 신규 탐색에는 숨겨진 강의(닫힌 강의·준비 중 취미의 강의)의 상세를, 수강·대기 기록이 있는 학습자만 열 수 있는지 확인 (D-20)
  * [근거] 체크리스트 ② "비공개 강의의 기존 수강생 접근" 검증에서 발견 — 나의 학습 카드·학습 사이드 메뉴의 [강의 상세] 링크가
  *        강의가 닫히면 404가 됐다. 차시·영상·과제는 이미 열려 있었다(PreparingHobbyEnrolledAccessTest).
- * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재. 시드: learner — 강의 1 수료, 강의 2 수강 중 / learner2 — 강의 1·2 기록 없음.
+ * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재. 시드: learnerB — 강의 8(디저트 응용) 수료, 강의 1(색연필화 기초) 수강 중 / learnerA — 수강·대기 기록 없음.
  *        상태 변경은 네이티브 SQL로 하고 각 테스트는 롤백된다(쓰기 트랜잭션 안이라 취미 목록 캐시를 거치지 않는다).
  * 🟡 미학습 기술: @SpringBootTest·MockMvc·spring-security-test user() (작업분배 §5 허용)
  */
@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class CourseDetailEnrolledAccessTest {
 
-    private static final long COMPLETED_COURSE = 1L, LEARNING_COURSE = 2L, HOBBY = 1L;
+    private static final long COMPLETED_COURSE = 8L, LEARNING_COURSE = 1L, HOBBY = 1L;   // 강의 1의 취미 = 색연필화(1)
 
     @Autowired
     MockMvc mvc;
@@ -55,7 +55,7 @@ class CourseDetailEnrolledAccessTest {
     @Test
     @DisplayName("공개 강의는 지금처럼 열리고 안내 문구 표시(hiddenForEnrolled)는 없다")
     void openCourseIsUnchanged() throws Exception {
-        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learner")))
+        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learnerB")))
                 .andExpect(status().isOk())
                 .andExpect(model().attribute("hiddenForEnrolled", false));
     }
@@ -65,18 +65,18 @@ class CourseDetailEnrolledAccessTest {
     void closedCourseOpensOnlyForLearnersWithRecord() throws Exception {
         sql("UPDATE courses SET status = 'CLOSED' WHERE id IN (" + COMPLETED_COURSE + ", " + LEARNING_COURSE + ")");
 
-        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learner")))
+        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learnerB")))
                 .andExpect(status().isOk())
                 .andExpect(view().name("course/detail"))
                 .andExpect(model().attribute("hiddenForEnrolled", true))
                 .andExpect(model().attribute("enrollStatus",
                         Matchers.hasProperty("state", Matchers.is(EnrollmentStatusDTO.LEARNING))));
-        mvc.perform(get("/courses/" + COMPLETED_COURSE).with(as("learner")))
+        mvc.perform(get("/courses/" + COMPLETED_COURSE).with(as("learnerB")))
                 .andExpect(status().isOk())
                 .andExpect(model().attribute("enrollStatus",
                         Matchers.hasProperty("state", Matchers.is(EnrollmentStatusDTO.COMPLETED))));
 
-        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learner2"))).andExpect(status().isNotFound());
+        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learnerA"))).andExpect(status().isNotFound());
         mvc.perform(get("/courses/" + LEARNING_COURSE)).andExpect(status().isNotFound());
     }
 
@@ -85,12 +85,12 @@ class CourseDetailEnrolledAccessTest {
     void preparingHobbyCourseOpensOnlyForLearnersWithRecord() throws Exception {
         sql("UPDATE hobbies SET state = 'PREPARING' WHERE id = " + HOBBY);
 
-        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learner")))
+        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learnerB")))
                 .andExpect(status().isOk())
                 .andExpect(model().attribute("hiddenForEnrolled", true))
                 .andExpect(model().attribute("enrollStatus",
                         Matchers.hasProperty("state", Matchers.is(EnrollmentStatusDTO.LEARNING))));
-        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learner2"))).andExpect(status().isNotFound());
+        mvc.perform(get("/courses/" + LEARNING_COURSE).with(as("learnerA"))).andExpect(status().isNotFound());
     }
 
     @Test

@@ -20,14 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] D-20 + 새 노출 정책 검증 — 취미가 준비 중으로 바뀌면 학습자의 탐색·신규 신청에서는 숨겨지지만,
  *        이미 수강 중인 학습자의 학습(차시 화면)·나의 학습 기록은 그대로 열린다
  * [담당] 팀원 3 · #12 (노출 정책 변경 반영)   [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재. 변경은 테스트 트랜잭션이 롤백한다.
- *       시드: learner(2)의 수강 3 = 색연필화 심화(강의 3, 취미 1, 차시 9·8·7), 기간 안 ACTIVE.
+ *       시드: learnerB(3)의 수강 1 = 색연필화 기초(강의 1, 취미 1, 차시 3·2·1), 기간 안 ACTIVE.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용)
  */
 @SpringBootTest
 @Transactional
 class PreparingHobbyEnrolledAccessTest {
 
-    private static final Long LEARNER = 2L, ENROLLMENT = 3L, COURSE = 3L, FIRST_LESSON = 9L, HOBBY = 1L;
+    private static final Long LEARNER = 3L, ENROLLMENT = 1L, COURSE = 1L, FIRST_LESSON = 3L, HOBBY = 1L;
 
     @Autowired
     private ProgressService progressService;

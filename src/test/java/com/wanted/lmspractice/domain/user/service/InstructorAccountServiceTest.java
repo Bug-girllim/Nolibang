@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] InstructorAccountService 핵심 규칙 테스트 — 생성·재발급·비활성, 취미 권한 부여·회수(C3), 첫 로그인 비밀번호 변경
  * [담당] 팀원 1 · #05 (이슈 완료 조건 "서비스 테스트: 생성·재발급·비활성")
  * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql이 적재돼 있어야 한다.
- *       시드: teacherA(id 6, 취미 1·2 권한), 취미 1 색연필화·3 디저트 만들기(운영 중), learner(USER).
+ *       시드: teacherA(id 6, ACTIVE, 이메일 teachera@nolibang.local, 취미 1·2 권한 — 3 없음), 취미 1 색연필화·3 디저트 만들기(운영 중), learnerB(USER).
  *       각 테스트는 @Transactional이라 끝나면 롤백된다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5에서 핵심 규칙 테스트용으로 허용)
  */
@@ -130,7 +130,7 @@ class InstructorAccountServiceTest {
     @DisplayName("비활성화하면 이미 로그인한 그 강사의 세션이 만료되고, 다른 회원의 세션은 그대로다")
     void changeStatusExpiresLoggedInSessions() {
         User teacher = userRepository.findById(TEACHER_A_ID).orElseThrow();
-        User learner = userRepository.findByLoginId("learner").orElseThrow();
+        User learner = userRepository.findByLoginId("learnerB").orElseThrow();
         AuthDetails teacherPrincipal = new AuthDetails(teacher);
         AuthDetails learnerPrincipal = new AuthDetails(learner);
         sessionRegistry.registerNewSession("teacher-session", teacherPrincipal);
@@ -155,7 +155,7 @@ class InstructorAccountServiceTest {
     @Test
     @DisplayName("강사가 아닌 회원 id로 재발급·상태 변경하면 USER_NOT_FOUND")
     void notInstructor() {
-        Long learnerId = userRepository.findByLoginId("learner").orElseThrow().getId();
+        Long learnerId = userRepository.findByLoginId("learnerB").orElseThrow().getId();
         assertThatThrownBy(() -> instructorAccountService.reissue(learnerId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);

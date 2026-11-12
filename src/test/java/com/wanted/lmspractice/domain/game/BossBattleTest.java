@@ -15,13 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [역할] 보스 대치 화면 데이터 검증 — 취미별 보스, 단계(phase)별 체력·버튼, 격파 보상
- * [검증] 시드 학습자(id 2): 색연필화 수강 3건(수료·반려·학습 중 등)
+ * [검증] 시드 학습자 learnerB(id 3): 수강 3건 — 색연필화 기초 학습 중(수련 중) · 디지털 드로잉 기초 평가 대기(판정 대기) ·
+ *        디저트 만들기 중급 수료(격파, 수료 배지 중급)
  */
 @SpringBootTest
 @Transactional
 class BossBattleTest {
 
-    private static final Long LEARNER = 2L;
+    private static final Long LEARNER = 3L;
 
     @Autowired
     private GameService gameService;

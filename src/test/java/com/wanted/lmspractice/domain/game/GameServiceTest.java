@@ -27,14 +27,16 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * [역할] RPG 서비스 통합 테스트 — 캐릭터 화면 조립, 퀘스트 보상, 꾸미기 장착, 길드 순위
  * [전제] 로컬 MySQL(nolibang)에 schema.sql(quest_claims·user_avatars 포함)·seed.sql이 적재돼 있어야 한다.
- *       시드 사용자: 2 learner(학습자). @Transactional이라 테스트가 끝나면 바꾼 데이터는 되돌린다.
+ *       시드 사용자: 3 learnerB(학습자) — 완료 차시 8개(수강 1: 2 · 수강 2: 3 · 수강 3: 3), 과제 제출 2회(r1·r2), 수료 1건(디저트 만들기 중급),
+ *       보이는 공개 일반 작품 1개(작품 2), 댓글 1개(작품 2의 답글 2), 남이 누른 좋아요 1개 → 업적 배지 LESSON_1·SUBMIT_1·BOSS_1·WORK_1·COMMENT_1 + 수료 배지 1개.
+ *       마스터 배지는 없다. @Transactional이라 테스트가 끝나면 바꾼 데이터는 되돌린다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용)
  */
 @SpringBootTest
 @Transactional
 class GameServiceTest {
 
-    private static final Long LEARNER = 2L;
+    private static final Long LEARNER = 3L;
 
     @Autowired
     private GameService gameService;
@@ -168,8 +170,8 @@ class GameServiceTest {
     @DisplayName("수료 배지: 기존 BadgeService 의 수료 배지가 화면용으로 함께 내려온다")
     void courseBadges() {
         CharacterPageDTO page = gameService.getCharacterPage(LEARNER, "테스터");
-        // 시드: learner 는 색연필화 입문 수료 배지를 가졌다
-        assertThat(page.getCourseBadges()).anyMatch(b -> b.getHobbyName().equals("색연필화") && b.getLevelLabel().equals("입문"));
+        // 시드: learnerB 는 디저트 만들기 중급(강의 8) 수료 배지를 가졌다
+        assertThat(page.getCourseBadges()).anyMatch(b -> b.getHobbyName().equals("디저트 만들기") && b.getLevelLabel().equals("중급"));
     }
 
     @Test
@@ -179,7 +181,7 @@ class GameServiceTest {
 
         assertThat(gameService.equipBadge(LEARNER, "LESSON_1")).isEqualTo(BadgeEquipResult.EQUIPPED);
         assertThat(gameService.equipBadge(LEARNER, "LESSON_1")).isEqualTo(BadgeEquipResult.ALREADY_EQUIPPED);
-        assertThat(gameService.equipBadge(LEARNER, "LESSON_30")).isEqualTo(BadgeEquipResult.NOT_OWNED);   // 아직 못 받은 배지
+        assertThat(gameService.equipBadge(LEARNER, "LESSON_30")).isEqualTo(BadgeEquipResult.NOT_OWNED);   // 아직 못 받은 배지(완료 차시 8개)
         assertThat(gameService.equipBadge(LEARNER, "NO_SUCH_BADGE")).isEqualTo(BadgeEquipResult.NOT_OWNED);
         assertThat(gameService.equipBadge(LEARNER, "C999-M")).isEqualTo(BadgeEquipResult.NOT_OWNED);      // 없는 수료 배지
         assertThat(gameService.equipBadge(LEARNER, "")).isEqualTo(BadgeEquipResult.NOT_OWNED);
@@ -196,6 +198,7 @@ class GameServiceTest {
         java.util.List<String> owned = new java.util.ArrayList<>(before.getAchievements().stream()
                 .filter(AchievementDTO::isEarned).map(AchievementDTO::getCode).toList());
         before.getCourseBadges().forEach(b -> owned.add(b.getCode()));
+        // 시드 learnerB: 업적 배지 5개(LESSON_1·SUBMIT_1·BOSS_1·WORK_1·COMMENT_1) + 수료 배지 1개(C3-I)
         assertThat(owned.size()).as("시드 학습자는 업적 배지와 수료 배지를 합쳐 4개 이상 가졌다").isGreaterThanOrEqualTo(4);
 
         for (int i = 0; i < 3; i++) {

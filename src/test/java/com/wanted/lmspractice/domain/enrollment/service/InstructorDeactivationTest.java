@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  *  - 긴급 비활성화(갑작스러운 이탈·정지): 바로 비활성화하고 담당 분반을 담당 공백으로 → 신규 배정 제외·대시보드 담당 공백 표시
  * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql이 적재돼 있어야 한다. @Transactional이라 끝나면 롤백된다.
  *       시드: teacherD(9) 취미 2(디지털 드로잉), 강의 5(디지털 드로잉 중급)의 분반 6 하나만 담당 — 강의 5의 유일한 분반.
- *            learner2(3)는 강의 5 수강 기록이 없다. teacherA(6) 취미 1·2.
+ *            learnerA(2)는 수강·대기 기록이 없다(학습자 계정). teacherA(6) 취미 1·2, teacherD는 활성·첫 로그인 전 상태.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5에서 핵심 규칙 테스트용으로 허용)
  */
 @SpringBootTest
@@ -39,7 +39,7 @@ class InstructorDeactivationTest {
     private static final long HOBBY_DIGITAL = 2L;
     private static final long COURSE_DIGITAL_MID = 5L;
     private static final long SECTION_DIGITAL_MID_A = 6L;  // teacherD 담당
-    private static final long LEARNER2 = 3L;
+    private static final long LEARNER_A = 2L;  // learnerA — 수강·대기 기록 없음
 
     @Autowired
     private SectionService sectionService;
@@ -101,7 +101,7 @@ class InstructorDeactivationTest {
         entityManager.flush();
 
         // 강의 5는 분반이 하나뿐이라 신청 가능한 분반이 없어진다
-        assertThatThrownBy(() -> enrollmentService.apply(LEARNER2, COURSE_DIGITAL_MID))
+        assertThatThrownBy(() -> enrollmentService.apply(LEARNER_A, COURSE_DIGITAL_MID))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.NO_ASSIGNABLE_SECTION);
     }
@@ -144,7 +144,7 @@ class InstructorDeactivationTest {
     @Test
     @DisplayName("강사가 아닌 id는 USER_NOT_FOUND")
     void deactivateNonInstructor() {
-        assertThatThrownBy(() -> sectionService.deactivateInstructor(LEARNER2, true))
+        assertThatThrownBy(() -> sectionService.deactivateInstructor(LEARNER_A, true))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.USER_NOT_FOUND);
     }

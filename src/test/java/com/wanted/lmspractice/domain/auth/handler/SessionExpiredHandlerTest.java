@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * [역할] 강제로 끝난 세션의 안내 화면 구분 — 관리자가 비활성화한 강사는 "다른 기기 로그인"이 아니라 "비활성화된 계정" 안내
- * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql. teacherA(6) 활성. @Transactional이라 끝나면 롤백된다.
+ * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql. teacherA(id 6) 활성 강사. @Transactional이라 끝나면 롤백된다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5에서 핵심 규칙 테스트용으로 허용)
  */
 @SpringBootTest

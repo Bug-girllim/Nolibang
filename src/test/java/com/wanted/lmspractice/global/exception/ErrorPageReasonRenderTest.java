@@ -46,7 +46,7 @@ class ErrorPageReasonRenderTest {
     @DisplayName("없는 주소(일반 404)는 이유 없이 화면 기본 문구를 보여 준다")
     void unknownUrlKeepsDefaultText() throws Exception {
         // 비로그인은 없는 주소도 로그인 필요 화면으로 가므로 로그인한 학습자로 요청한다
-        AuthDetails learner = new AuthDetails(userRepository.findByLoginId("learner").orElseThrow());
+        AuthDetails learner = new AuthDetails(userRepository.findByLoginId("learnerB").orElseThrow());   // 시드 활성 학습자
         mvc.perform(get("/no/such/page").with(user(learner)))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string(containsString("주소가 변경되었거나 더 이상 이용할 수 없는 페이지입니다.")));
