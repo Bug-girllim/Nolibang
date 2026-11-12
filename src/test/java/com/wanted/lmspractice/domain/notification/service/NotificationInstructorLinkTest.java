@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * [역할] 강사용 알림(새 문의·과제 제출)의 이동 — 분반 담당이 바뀐 뒤 이전 강사의 옛 알림이 403 오류 화면으로 가지 않는지
  * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql. @Transactional이라 끝나면 롤백된다.
- *       시드: 문의 스레드 2(learner3 · 수강 e6 · 분반 1 teacherA), 평가 회차 4(수강 e5 · 분반 5 teacherA).
- *       teacherB(7)는 취미 1(색연필화) 권한이 있다.
+ *       시드: 문의 스레드 2(learnerB · 수강 e1 · 강의 1 분반 1 teacherA), 평가 회차 2(learnerB · 수강 e2 · 강의 4 분반 4 teacherA, 평가 대기).
+ *       담당 변경은 분반 행을 직접 바꾸므로 teacherB(7)의 취미 권한(2·3)과 관계없다 — 알림 이동은 "지금 분반 담당자"만 본다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5에서 핵심 규칙 테스트용으로 허용)
  */
 @SpringBootTest
@@ -24,8 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 class NotificationInstructorLinkTest {
 
     private static final long TEACHER_A = 6L, TEACHER_B = 7L;
-    private static final long THREAD = 2L, REVIEW_ROUND = 4L;
-    private static final long SECTION_OF_THREAD = 1L, SECTION_OF_REVIEW = 5L;
+    private static final long THREAD = 2L, REVIEW_ROUND = 2L;
+    private static final long SECTION_OF_THREAD = 1L, SECTION_OF_REVIEW = 4L;
 
     @Autowired
     NotificationService notificationService;

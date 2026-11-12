@@ -25,14 +25,14 @@ import org.springframework.transaction.support.TransactionTemplate;
  * [역할] 좋아요 동시 클릭 확인 — 같은 사용자가 같은 작품에 좋아요를 동시에 두 번 눌러도 500(PK 충돌) 없이 차례로 토글된다
  * [담당] 팀원 2 · 좋아요 동시 클릭 수정
  * [방법] 두 요청이 각자 커밋해야 충돌이 드러나므로 @Transactional 을 붙이지 않는다(WithdrawalTransactionTest 와 같은 방식).
- *        시드에서 작품 1(공개)에 좋아요를 누르지 않은 learner3 를 쓰고, 끝나면 그 좋아요 행을 지워 시드 상태로 되돌린다.
+ *        시드에서 작품 2(공개)에 좋아요를 누르지 않은 learnerA(좋아요·댓글 이력 없음)를 쓰고, 끝나면 그 좋아요 행을 지워 시드 상태로 되돌린다.
  *        준비·정리 DELETE 는 TransactionTemplate 으로 커밋한다 — 커넥션이 autocommit=false(application.yaml)라 그냥 실행하면 반영되지 않는다.
  * 🟡 미학습 기술: @SpringBootTest, ExecutorService·CountDownLatch(두 요청을 동시에 출발시키려고)
  */
 @SpringBootTest
 class LikeToggleConcurrencyTest {
 
-    private static final long PUBLIC_WORK = 1L;
+    private static final long PUBLIC_WORK = 2L;   // learnerB 의 공개 일반 작품(시드 좋아요: learnerB·learnerC)
 
     @Autowired
     CommentService commentService;
@@ -45,7 +45,7 @@ class LikeToggleConcurrencyTest {
 
     @BeforeEach
     void prepare() {
-        userId = jdbc.queryForObject("SELECT id FROM users WHERE login_id = 'learner3'", Long.class);
+        userId = jdbc.queryForObject("SELECT id FROM users WHERE login_id = 'learnerA'", Long.class);
         removeLike();
     }
 

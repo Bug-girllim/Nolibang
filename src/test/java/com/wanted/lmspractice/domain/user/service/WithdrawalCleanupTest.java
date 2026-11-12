@@ -25,20 +25,22 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] 회원 탈퇴 체크리스트(U-15, D-25) — 계정 익명화·이메일 확인값·연관 데이터 삭제·댓글/좋아요 익명 보존을 실제 DB로 확인한다
  * [담당] 팀원 2 · 회원 탈퇴 개인정보 정리
  * [전제] 로컬 MySQL(nolibang)에 schema.sql(+ migration_withdrawal_privacy.sql)·seed.sql 적재. 각 테스트는 롤백된다.
- *        시드 학습자 learner(id 2)는 진행 중 수강이 있어 탈퇴가 막히므로, 준비 단계에서 진행 중 수강을 만료로 바꾼다.
- *        다른 학습자 learner2(id 3)의 최종 과제(work 4)에 learner 의 댓글·좋아요를 넣어 "남의 작품" 경우를 만든다.
+ *        시드 학습자 learnerB(id 3, 비밀번호 demo_L02)는 진행 중 수강(수강 1·2, 수강 2는 평가 대기)이 있어 탈퇴가 막히므로,
+ *        준비 단계에서 진행 중 수강을 만료로 바꾼다. learnerB에게는 작품 1·2·3·6, 문의 1·2, 수료 배지(수강 3), 평가 회차 1·2, 알림이 있다.
+ *        다른 학습자 learnerC(id 4)의 공개 일반 작품(work 4)에 learnerB 의 댓글·좋아요를 넣어 "남의 작품" 경우를 만든다
+ *        (learnerB 의 work 4 좋아요는 시드에 이미 있다). 남의 답글·내 작품에 남이 단 댓글은 learnerA(id 2)가 단다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용)
  */
 @SpringBootTest
 @Transactional
 class WithdrawalCleanupTest {
 
-    private static final long LEARNER_ID = 2L;     // seed learner
-    private static final long LEARNER2_ID = 3L;    // seed learner2
-    private static final long LEARNER3_ID = 4L;    // seed learner3
-    private static final long OTHERS_WORK_ID = 4L; // learner2 의 최종 과제
-    private static final long MY_PUBLIC_WORK_ID = 5L;  // learner 의 공개 일반 작품
-    private static final String PASSWORD = "1234";
+    private static final long LEARNER_ID = 3L;     // seed learnerB (탈퇴하는 학습자)
+    private static final long LEARNER_C_ID = 4L;   // seed learnerC
+    private static final long LEARNER_A_ID = 2L;   // seed learnerA
+    private static final long OTHERS_WORK_ID = 4L; // learnerC 의 공개 일반 작품
+    private static final long MY_PUBLIC_WORK_ID = 2L;  // learnerB 의 공개 일반 작품 (시드 댓글 2개·좋아요 2개)
+    private static final String PASSWORD = "demo_L02";
 
     @Autowired
     WithdrawalService withdrawalService;
@@ -77,12 +79,12 @@ class WithdrawalCleanupTest {
         normalCommentId = insertComment(OTHERS_WORK_ID, null, LEARNER_ID,
                 "연락 주세요 010-1234-5678 또는 " + originalEmail + " 저는 " + originalRealName + " 입니다. 색감이 정말 좋아요", false);
         deletedCommentId = insertComment(OTHERS_WORK_ID, null, LEARNER_ID, WorkComment.DELETED_BODY, true);
-        replyByOtherId = insertComment(OTHERS_WORK_ID, normalCommentId, LEARNER3_ID, "저도 그렇게 생각해요", false);
+        replyByOtherId = insertComment(OTHERS_WORK_ID, normalCommentId, LEARNER_A_ID, "저도 그렇게 생각해요", false);
 
         // 남의 작품에 누른 좋아요(익명 집계로 남아야 함) · 내 작품에 남이 단 댓글·좋아요(작품과 함께 지워져야 함)
         jdbc.update("INSERT IGNORE INTO work_likes (work_id, user_id) VALUES (?, ?)", OTHERS_WORK_ID, LEARNER_ID);
-        insertComment(MY_PUBLIC_WORK_ID, null, LEARNER3_ID, "멋진 작품이에요", false);
-        jdbc.update("INSERT IGNORE INTO work_likes (work_id, user_id) VALUES (?, ?)", MY_PUBLIC_WORK_ID, LEARNER2_ID);
+        insertComment(MY_PUBLIC_WORK_ID, null, LEARNER_A_ID, "멋진 작품이에요", false);
+        jdbc.update("INSERT IGNORE INTO work_likes (work_id, user_id) VALUES (?, ?)", MY_PUBLIC_WORK_ID, LEARNER_C_ID);
         anonymousLikesBefore = jdbc.queryForObject("SELECT anonymous_like_count FROM works WHERE id = ?", Integer.class, OTHERS_WORK_ID);
 
         // 인증 비밀정보·개인 게임 기록
@@ -209,7 +211,7 @@ class WithdrawalCleanupTest {
         assertThat(deleted.get("body")).isEqualTo(WorkComment.DELETED_BODY);
 
         Map<String, Object> reply = jdbc.queryForMap("SELECT * FROM work_comments WHERE id = ?", replyByOtherId);
-        assertThat(((Number) reply.get("author_id")).longValue()).isEqualTo(LEARNER3_ID);
+        assertThat(((Number) reply.get("author_id")).longValue()).isEqualTo(LEARNER_A_ID);
         assertThat(((Number) reply.get("parent_id")).longValue()).isEqualTo(normalCommentId);
 
         assertThat(count("SELECT COUNT(*) FROM work_comments WHERE author_id = ?", LEARNER_ID)).isZero();

@@ -36,7 +36,9 @@ import org.springframework.web.multipart.MultipartFile;
  * [역할] #19 일반 작품 등록·수정·공개 설정·회고·성장 타임라인 통합 테스트 (이슈 #19 테스트 항목)
  * [담당] 팀원 4 · #19   [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재. DB 변경은 테스트 트랜잭션이 롤백한다.
  *       업로드 파일은 build/test-uploads 에만 쓴다(시드 uploads/ 보호).
- *       시드: learner(색연필화(1) 입문 배지만 보유, 작품 1·2·3(최종)·5·6(일반)), learner2(작품 4), 취미 4 목공 = 준비 중, 8 = 비공개
+ *       시드: learnerB(디저트 만들기(3) 중급 배지만 보유, 색연필화 배지 없음. 작품 1·3(최종)·2·6(일반) — 등록일 최신순 3 → 2 → 6 → 1)
+ *             learnerC(배지 없음. 작품 4(일반·디지털 드로잉·참고 피드백 = 자기 반려 회차 3·이미지 1장)·5(일반)·7(최종))
+ *             learnerA(작품·좋아요·댓글 없음), 작품 2 좋아요 2건, 취미 4 목공 = 준비 중, 8 = 비공개
  * 🟡 미학습 기술: @SpringBootTest, @TestPropertySource (작업분배 §5 허용 범위 + 업로드 폴더 분리)
  */
 @SpringBootTest
@@ -45,12 +47,13 @@ import org.springframework.web.multipart.MultipartFile;
 class GeneralWorkServiceTest {
 
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4};
-    private static final Long COLORED_PENCIL = 1L;   // learner 입문 배지 보유
-    private static final Long DESSERT = 3L;          // learner 배지 없음
+    private static final Long COLORED_PENCIL = 1L;   // learnerB 배지 없음
+    private static final Long DESSERT = 3L;          // learnerB 중급 배지 보유
     private static final Long WOODWORK = 4L;         // 준비 중
     private static final Long PHOTO = 8L;            // 비공개
-    private static final Long LEARNER_GENERAL_WORK = 6L;
-    private static final Long LEARNER2_REVIEW_ROUND = 4L;
+    private static final Long LEARNER_GENERAL_WORK = 2L;          // learnerB 일반 작품(공개)
+    private static final Long REFERENCED_GENERAL_WORK = 4L;       // learnerC 일반 작품, 참고 피드백 = 평가 회차 3
+    private static final Long REFERENCED_REVIEW_ROUND = 3L;       // learnerC 의 반려 회차 (learnerB 에게는 남의 피드백)
 
     @Autowired
     private WorkService workService;
@@ -74,7 +77,11 @@ class GeneralWorkServiceTest {
     private ReviewRoundRepository reviewRoundRepository;
 
     private Long learner() {
-        return userRepository.findByLoginId("learner").orElseThrow().getId();
+        return userRepository.findByLoginId("learnerB").orElseThrow().getId();
+    }
+
+    private Long learnerC() {
+        return userRepository.findByLoginId("learnerC").orElseThrow().getId();
     }
 
     private List<MultipartFile> oneImage() {
@@ -129,18 +136,21 @@ class GeneralWorkServiceTest {
     }
 
     @Test
-    @DisplayName("수준 선택지: 배지 없는 취미는 입문만, 입문 배지 취미도 입문까지")
+    @DisplayName("수준 선택지: 배지 없는 취미는 입문만, 중급 배지 취미는 입문·중급까지")
     void allowedLevels() {
-        assertThat(workLevelPolicy.allowedLevels(learner(), DESSERT)).containsExactly(CourseLevel.BASIC);
         assertThat(workLevelPolicy.allowedLevels(learner(), COLORED_PENCIL)).containsExactly(CourseLevel.BASIC);
+        assertThat(workLevelPolicy.allowedLevels(learner(), DESSERT)).containsExactly(CourseLevel.BASIC, CourseLevel.INTERMEDIATE);
         assertThat(workLevelPolicy.allowedLevels(learner(), null)).containsExactly(CourseLevel.BASIC);
     }
 
     @Test
-    @DisplayName("예외: 중급 배지 없이 중급 선택 → LEVEL_TAG_NOT_ALLOWED")
+    @DisplayName("예외: 보유 배지보다 높은 수준 선택(배지 없는 취미의 중급, 중급 배지 취미의 고급) → LEVEL_TAG_NOT_ALLOWED")
     void levelNotAllowed() {
         assertThatThrownBy(() -> workService.saveGeneralWork(learner(),
                 form("중급 작품", COLORED_PENCIL, CourseLevel.INTERMEDIATE), oneImage()))
+                .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.LEVEL_TAG_NOT_ALLOWED));
+        assertThatThrownBy(() -> workService.saveGeneralWork(learner(),
+                form("고급 작품", DESSERT, CourseLevel.ADVANCED), oneImage()))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.LEVEL_TAG_NOT_ALLOWED));
     }
 
@@ -171,7 +181,7 @@ class GeneralWorkServiceTest {
     @DisplayName("예외: 남의 평가 회차를 참고 피드백으로 연결 → ACCESS_DENIED")
     void foreignReference() {
         WorkFormDTO form = form("참고", COLORED_PENCIL, CourseLevel.BASIC);
-        form.setReferenceReviewId(LEARNER2_REVIEW_ROUND);
+        form.setReferenceReviewId(REFERENCED_REVIEW_ROUND);
         assertThatThrownBy(() -> workService.saveGeneralWork(learner(), form, oneImage()))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ACCESS_DENIED));
     }
@@ -193,19 +203,19 @@ class GeneralWorkServiceTest {
     @Test
     @DisplayName("수정: 이미 연결한 참고 피드백은 유지 가능, 사진을 고르지 않으면 기존 사진 유지, 타임라인 순서 불변")
     void editKeepsOrder() {
-        List<Long> before = growthService.getTimeline(learner(), null).getItems().stream()
+        List<Long> before = growthService.getTimeline(learnerC(), null).getItems().stream()
                 .map(TimelineDTO.Item::getWorkId).toList();
 
-        WorkFormDTO form = workService.getGeneralWorkForm(learner(), LEARNER_GENERAL_WORK);   // 시드: 참고 피드백 2 연결
-        form.setTitle("색연필 정물 연습 (고침)");
-        workService.updateGeneralWork(learner(), LEARNER_GENERAL_WORK, form, List.of());
+        WorkFormDTO form = workService.getGeneralWorkForm(learnerC(), REFERENCED_GENERAL_WORK);   // 시드: 참고 피드백 3 연결
+        form.setTitle("노을 풍경 (고침)");
+        workService.updateGeneralWork(learnerC(), REFERENCED_GENERAL_WORK, form, List.of());
         workRepository.flush();
 
-        List<Long> after = growthService.getTimeline(learner(), null).getItems().stream()
+        List<Long> after = growthService.getTimeline(learnerC(), null).getItems().stream()
                 .map(TimelineDTO.Item::getWorkId).toList();
         assertThat(after).isEqualTo(before);
-        Work work = workRepository.findById(LEARNER_GENERAL_WORK).orElseThrow();
-        assertThat(work.getReferenceReviewId()).isEqualTo(2L);
+        Work work = workRepository.findById(REFERENCED_GENERAL_WORK).orElseThrow();
+        assertThat(work.getReferenceReviewId()).isEqualTo(REFERENCED_REVIEW_ROUND);
         assertThat(workFileRepository.findByWorkVersionIdOrderBySortOrder(work.getDisplayVersionId())).hasSize(1);
     }
 
@@ -214,7 +224,7 @@ class GeneralWorkServiceTest {
     void editOnlyOwnGeneral() {
         assertThatThrownBy(() -> workService.getGeneralWorkForm(learner(), 1L))   // 최종 과제
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
-        assertThatThrownBy(() -> workService.getGeneralWorkForm(learner(), 4L))   // learner2 작품
+        assertThatThrownBy(() -> workService.getGeneralWorkForm(learner(), 4L))   // learnerC 작품
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
     }
 
@@ -244,44 +254,47 @@ class GeneralWorkServiceTest {
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
         assertThatThrownBy(() -> workService.deleteGeneralWork(learner(), 1L))       // 최종 과제
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
-        assertThatThrownBy(() -> workService.deleteGeneralWork(learner(), 4L))       // learner2 작품
+        assertThatThrownBy(() -> workService.deleteGeneralWork(learner(), 4L))       // learnerC 작품
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
     }
 
     @Test
     @DisplayName("삭제(D-32): 참고 피드백 연결만 끊고 원본 피드백은 보존, 댓글·답글은 소프트 삭제, 좋아요는 행 삭제")
     void deleteGeneralWorkCleansUpByD32() {
-        Long otherUser = userRepository.findByLoginId("learner2").orElseThrow().getId();
+        // 시드: 작품 4(learnerC)에는 learnerB 의 좋아요 1건만 있고 댓글은 없다 → 남(learnerA)의 댓글·작성자 답글·좋아요 2건을 더한다
+        Long author = learnerC();
+        Long otherUser = userRepository.findByLoginId("learnerA").orElseThrow().getId();
         WorkComment comment = workCommentRepository.save(
-                WorkComment.create(LEARNER_GENERAL_WORK, null, otherUser, "멋진 작품이에요"));
-        workCommentRepository.save(WorkComment.create(LEARNER_GENERAL_WORK, comment.getId(), learner(), "감사합니다"));
-        workLikeRepository.save(WorkLike.create(LEARNER_GENERAL_WORK, otherUser));
-        workLikeRepository.save(WorkLike.create(LEARNER_GENERAL_WORK, learner()));
+                WorkComment.create(REFERENCED_GENERAL_WORK, null, otherUser, "멋진 작품이에요"));
+        workCommentRepository.save(WorkComment.create(REFERENCED_GENERAL_WORK, comment.getId(), author, "감사합니다"));
+        workLikeRepository.save(WorkLike.create(REFERENCED_GENERAL_WORK, otherUser));
+        workLikeRepository.save(WorkLike.create(REFERENCED_GENERAL_WORK, author));
         workCommentRepository.flush();
 
-        workService.deleteGeneralWork(learner(), LEARNER_GENERAL_WORK);   // 시드: 참고 피드백 2 연결
+        workService.deleteGeneralWork(author, REFERENCED_GENERAL_WORK);   // 시드: 참고 피드백 3 연결
         workRepository.flush();
 
-        assertThat(workRepository.findById(LEARNER_GENERAL_WORK).orElseThrow().getReferenceReviewId()).isNull();
-        assertThat(reviewRoundRepository.findById(2L)).isPresent();   // 원본 공식 피드백은 그대로
-        assertThat(workCommentRepository.findByWorkIdOrderById(LEARNER_GENERAL_WORK))
+        assertThat(workRepository.findById(REFERENCED_GENERAL_WORK).orElseThrow().getReferenceReviewId()).isNull();
+        assertThat(reviewRoundRepository.findById(REFERENCED_REVIEW_ROUND)).isPresent();   // 원본 공식 피드백은 그대로
+        assertThat(workCommentRepository.findByWorkIdOrderById(REFERENCED_GENERAL_WORK))
                 .hasSize(2).allMatch(WorkComment::isDeleted);
-        assertThat(workLikeRepository.countByWorkId(LEARNER_GENERAL_WORK)).isZero();
-        assertThat(workLikeRepository.countByWorkId(1L)).isEqualTo(2);   // 다른 작품의 좋아요는 그대로
+        assertThat(workLikeRepository.countByWorkId(REFERENCED_GENERAL_WORK)).isZero();   // 시드 좋아요(learnerB)까지 모두 삭제
+        assertThat(workLikeRepository.countByWorkId(2L)).isEqualTo(2);   // 다른 작품의 좋아요는 그대로
     }
 
     @Test
     @DisplayName("타임라인: 등록일 최신순, 취미 필터 시 첫/최근 작품, 전체 보기에서는 없음")
     void timeline() {
         TimelineDTO all = growthService.getTimeline(learner(), null);
-        assertThat(all.getItems()).extracting(TimelineDTO.Item::getWorkId).containsExactly(3L, 6L, 2L, 5L, 1L);
+        // 시드 등록일: 작품 3(2일 전) → 2(6일 전) → 6(9일 전, 숨김이어도 본인 기록에는 나온다) → 1(33일 전)
+        assertThat(all.getItems()).extracting(TimelineDTO.Item::getWorkId).containsExactly(3L, 2L, 6L, 1L);
         assertThat(all.getFirst()).isNull();
-        assertThat(all.getHobbies()).extracting("id").containsExactly(1L, 3L);
+        assertThat(all.getHobbies()).extracting("id").containsExactly(1L, 2L, 3L);
 
         TimelineDTO pencil = growthService.getTimeline(learner(), COLORED_PENCIL);
-        assertThat(pencil.getItems()).extracting(TimelineDTO.Item::getWorkId).containsExactly(6L, 2L, 1L);
-        assertThat(pencil.getFirst().getWorkId()).isEqualTo(1L);
-        assertThat(pencil.getLatest().getWorkId()).isEqualTo(6L);
+        assertThat(pencil.getItems()).extracting(TimelineDTO.Item::getWorkId).containsExactly(2L, 6L);
+        assertThat(pencil.getFirst().getWorkId()).isEqualTo(6L);
+        assertThat(pencil.getLatest().getWorkId()).isEqualTo(2L);
         assertThat(pencil.getFirst().getThumbnailFileId()).isNotNull();
         assertThat(pencil.getSelectedHobbyName()).isEqualTo("색연필화");
     }
@@ -289,23 +302,28 @@ class GeneralWorkServiceTest {
     @Test
     @DisplayName("회고: 저장·빈 값이면 삭제, 남의 작품은 WORK_NOT_FOUND, 500자 초과는 INVALID_INPUT")
     void reflection() {
-        growthService.saveReflection(learner(), 5L, "  아이싱이 고르게 됐다  ");
-        assertThat(workRepository.findById(5L).orElseThrow().getReflection()).isEqualTo("아이싱이 고르게 됐다");
-        growthService.saveReflection(learner(), 5L, "   ");
-        assertThat(workRepository.findById(5L).orElseThrow().getReflection()).isNull();
+        growthService.saveReflection(learner(), LEARNER_GENERAL_WORK, "  명암이 고르게 됐다  ");
+        assertThat(workRepository.findById(LEARNER_GENERAL_WORK).orElseThrow().getReflection()).isEqualTo("명암이 고르게 됐다");
+        growthService.saveReflection(learner(), LEARNER_GENERAL_WORK, "   ");
+        assertThat(workRepository.findById(LEARNER_GENERAL_WORK).orElseThrow().getReflection()).isNull();
 
-        assertThatThrownBy(() -> growthService.saveReflection(learner(), 4L, "남의 작품"))
+        assertThatThrownBy(() -> growthService.saveReflection(learner(), 4L, "남의 작품"))   // learnerC 작품
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
-        assertThatThrownBy(() -> growthService.saveReflection(learner(), 5L, "가".repeat(Work.MAX_REFLECTION_LENGTH + 1)))
+        assertThatThrownBy(() -> growthService.saveReflection(learner(), LEARNER_GENERAL_WORK, "가".repeat(Work.MAX_REFLECTION_LENGTH + 1)))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 
     @Test
     @DisplayName("공개 설정: 비공개 → 공개면 공개 시각 기록, 남의 작품은 WORK_NOT_FOUND")
     void visibility() {
-        workService.changeVisibility(learner(), LEARNER_GENERAL_WORK, Visibility.PUBLIC);
+        // 시드에는 비공개 일반 작품이 없어 기본값(비공개)으로 하나 등록해 두고 공개로 바꾼다
+        Long privateWork = workService.saveGeneralWork(learner(), form("비공개 연습", COLORED_PENCIL, CourseLevel.BASIC), oneImage());
         workRepository.flush();
-        Work work = workRepository.findById(LEARNER_GENERAL_WORK).orElseThrow();
+        assertThat(workRepository.findById(privateWork).orElseThrow().getPublishedAt()).isNull();
+
+        workService.changeVisibility(learner(), privateWork, Visibility.PUBLIC);
+        workRepository.flush();
+        Work work = workRepository.findById(privateWork).orElseThrow();
         assertThat(work.getVisibility()).isEqualTo(Visibility.PUBLIC);
         assertThat(work.getPublishedAt()).isNotNull();
 

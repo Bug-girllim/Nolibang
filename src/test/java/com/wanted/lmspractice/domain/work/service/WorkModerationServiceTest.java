@@ -28,14 +28,16 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * [역할] WorkModerationService 통합 테스트 — 숨김·복구 규칙, 이력, 알림, 숨김 작품의 노출 차단과 작성자 열람, 복구 후 공개 여부
  * [담당] 팀원 4 · #20   [전제] 로컬 MySQL(nolibang)에 schema.sql(H5 work_moderation_logs 포함)·seed.sql 적재. 변경은 테스트 트랜잭션이 롤백한다.
- *       시드: 작품 1(공개·작성자 learner), 작품 5(공개 + 관리자 숨김 + 이력 1건, 작성자 learner), 작품 2(비공개), 관리자 admin.
+ *       시드: 작품 2(공개·일반 작품·작성자 learnerB), 작품 6(공개 + 관리자 숨김 + 이력 1건, 일반 작품, 작성자 learnerB),
+ *             작품 3(learnerB 비공개 최종 과제). 공개 작품은 1(최종 과제)·2·4·5·6(일반 작품) 5개 — 이 중 숨김은 6뿐. 관리자 admin.
+ *             다른 학습자 시점은 learnerC 로 본다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용), ReflectionTestUtils (작성자의 비공개 전환 메서드가 #19 소관이라 필드를 직접 세팅)
  */
 @SpringBootTest
 @Transactional
 class WorkModerationServiceTest {
 
-    private static final Long VISIBLE_WORK = 1L, HIDDEN_WORK = 5L, PRIVATE_WORK = 2L;
+    private static final Long VISIBLE_WORK = 2L, HIDDEN_WORK = 6L, PRIVATE_WORK = 3L;
     private static final String REASON = "타인의 얼굴이 식별되는 사진이 포함되어 있습니다.";
 
     @Autowired
@@ -69,13 +71,13 @@ class WorkModerationServiceTest {
     @Test
     @DisplayName("숨김: 일반 게시판·상세에서 사라지고 작성자·관리자는 계속 열람하며, 이력 1건과 작성자 알림 1건이 생긴다")
     void hide() {
-        Long admin = userId("admin"), author = userId("learner");
+        Long admin = userId("admin"), author = userId("learnerB");
         long unreadBefore = notificationService.countUnread(author);
 
         moderationService.hide(admin, Role.ADMIN, VISIBLE_WORK, REASON);
 
-        assertThat(boardIds("learner2")).doesNotContain(VISIBLE_WORK);
-        assertThatThrownBy(() -> workBoardService.getDetail(VISIBLE_WORK, userId("learner2"), Role.USER))
+        assertThat(boardIds("learnerC")).doesNotContain(VISIBLE_WORK);
+        assertThatThrownBy(() -> workBoardService.getDetail(VISIBLE_WORK, userId("learnerC"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
         assertThat(workBoardService.getDetail(VISIBLE_WORK, author, Role.USER).isOwner()).isTrue();   // 작성자 열람 유지(Q-02)
         assertThat(workBoardService.getDetail(VISIBLE_WORK, admin, Role.ADMIN)).isNotNull();
@@ -112,7 +114,7 @@ class WorkModerationServiceTest {
     @Test
     @DisplayName("권한: 관리자가 아니면(학습자·강사·역할 없음·id 없음) 숨김·복구 모두 ACCESS_DENIED, 상태·이력은 그대로")
     void moderationRequiresAdmin() {
-        Long author = userId("learner");
+        Long author = userId("learnerB");
         int logsBefore = moderationService.getAllHistory().size();
         boolean visibleHiddenBefore = workRepository.findById(VISIBLE_WORK).orElseThrow().isAdminHidden();
         boolean hiddenHiddenBefore = workRepository.findById(HIDDEN_WORK).orElseThrow().isAdminHidden();
@@ -135,13 +137,13 @@ class WorkModerationServiceTest {
     @Test
     @DisplayName("복구: 게시판에 다시 보이고 복구 이력·작성자 알림이 생기며, 사유를 비우면 기본 문구가 남는다")
     void restore() {
-        Long admin = userId("admin"), author = userId("learner");
+        Long admin = userId("admin"), author = userId("learnerB");
         long unreadBefore = notificationService.countUnread(author);
 
         moderationService.restore(admin, Role.ADMIN, HIDDEN_WORK);
 
-        assertThat(boardIds("learner2")).contains(HIDDEN_WORK);
-        assertThat(workBoardService.getDetail(HIDDEN_WORK, userId("learner2"), Role.USER)).isNotNull();
+        assertThat(boardIds("learnerC")).contains(HIDDEN_WORK);
+        assertThat(workBoardService.getDetail(HIDDEN_WORK, userId("learnerC"), Role.USER)).isNotNull();
         ModerationViewDTO view = moderationService.getAuthorView(author, HIDDEN_WORK);
         assertThat(view.getWork().isHidden()).isFalse();
         assertThat(view.getLogs()).extracting(ModerationLogDTO::getAction)
@@ -172,19 +174,19 @@ class WorkModerationServiceTest {
         moderationService.restore(userId("admin"), Role.ADMIN, HIDDEN_WORK);
 
         assertThat(workRepository.findById(HIDDEN_WORK).orElseThrow().getVisibility()).isEqualTo(Visibility.PRIVATE);
-        assertThat(boardIds("learner2")).doesNotContain(HIDDEN_WORK);
-        assertThatThrownBy(() -> workBoardService.getDetail(HIDDEN_WORK, userId("learner2"), Role.USER))
+        assertThat(boardIds("learnerC")).doesNotContain(HIDDEN_WORK);
+        assertThatThrownBy(() -> workBoardService.getDetail(HIDDEN_WORK, userId("learnerC"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
     }
 
     @Test
     @DisplayName("작성자 본인만 조치 사유를 볼 수 있다 — 다른 학습자·없는 작품은 WORK_NOT_FOUND")
     void authorViewOwnerOnly() {
-        assertThat(moderationService.getAuthorView(userId("learner"), HIDDEN_WORK).getLogs()).hasSize(1);   // 시드의 숨김 이력
+        assertThat(moderationService.getAuthorView(userId("learnerB"), HIDDEN_WORK).getLogs()).hasSize(1);   // 시드의 숨김 이력
 
-        assertThatThrownBy(() -> moderationService.getAuthorView(userId("learner2"), HIDDEN_WORK))
+        assertThatThrownBy(() -> moderationService.getAuthorView(userId("learnerC"), HIDDEN_WORK))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
-        assertThatThrownBy(() -> moderationService.getAuthorView(userId("learner"), 999999L))
+        assertThatThrownBy(() -> moderationService.getAuthorView(userId("learnerB"), 999999L))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
     }
 
@@ -195,7 +197,7 @@ class WorkModerationServiceTest {
 
         WorkSearchDTO all = new WorkSearchDTO();
         assertThat(workBoardService.searchForAdmin(all, admin).getItems()).extracting(WorkDTO::getWorkId)
-                .containsExactlyInAnyOrder(VISIBLE_WORK, HIDDEN_WORK);   // 비공개 작품(2·3·4·6)은 관리 대상이 아니다
+                .containsExactlyInAnyOrder(1L, VISIBLE_WORK, 4L, 5L, HIDDEN_WORK);   // 비공개 작품(3·7)은 관리 대상이 아니다
 
         WorkSearchDTO hiddenOnly = new WorkSearchDTO();
         hiddenOnly.setHidden(true);
@@ -207,14 +209,14 @@ class WorkModerationServiceTest {
         WorkSearchDTO visibleOnly = new WorkSearchDTO();
         visibleOnly.setHidden(false);
         assertThat(workBoardService.searchForAdmin(visibleOnly, admin).getItems()).extracting(WorkDTO::getWorkId)
-                .containsExactly(VISIBLE_WORK);
+                .containsExactlyInAnyOrder(1L, VISIBLE_WORK, 4L, 5L);
 
         ModerationSummaryDTO summary = moderationService.getSummary(admin);
-        assertThat(summary.getTotal()).isEqualTo(2);
-        assertThat(summary.getVisible()).isEqualTo(1);
+        assertThat(summary.getTotal()).isEqualTo(5);
+        assertThat(summary.getVisible()).isEqualTo(4);
         assertThat(summary.getHidden()).isEqualTo(1);
-        assertThat(summary.getFinalCount()).isEqualTo(1);
-        assertThat(summary.getGeneralCount()).isEqualTo(1);
+        assertThat(summary.getFinalCount()).isEqualTo(1);     // 작품 1
+        assertThat(summary.getGeneralCount()).isEqualTo(4);   // 작품 2·4·5·6
 
         moderationService.hide(admin, Role.ADMIN, VISIBLE_WORK, REASON);
         assertThat(moderationService.getAllHistory()).extracting(ModerationLogDTO::getWorkId)
@@ -224,7 +226,7 @@ class WorkModerationServiceTest {
     @Test
     @DisplayName("#163 숨김 이력이 있는 작품을 작성자가 삭제해도 전체 이력이 열리고, 제목은 '(삭제된 작품)'으로 나온다")
     void historyWithDeletedWork() {
-        workService.deleteGeneralWork(userId("learner"), HIDDEN_WORK);   // 시드: 숨김 + 이력 1건인 일반 작품
+        workService.deleteGeneralWork(userId("learnerB"), HIDDEN_WORK);   // 시드: 숨김 + 이력 1건인 일반 작품
         workRepository.flush();
 
         assertThat(moderationService.getAllHistory())
@@ -237,7 +239,7 @@ class WorkModerationServiceTest {
     @Test
     @DisplayName("#167 성장 기록: 숨김 중이면 숨김 사유 링크, 복구된 뒤에도 이력이 있으면 조치 이력 링크(moderated), 이력 없는 작품은 링크 없음")
     void growthLinkAfterRestore() {
-        Long author = userId("learner");
+        Long author = userId("learnerB");
         assertThat(timelineItem(author, HIDDEN_WORK).isAdminHidden()).isTrue();          // 숨김 중 → [숨김 사유]
         assertThat(timelineItem(author, HIDDEN_WORK).isModerated()).isTrue();
 

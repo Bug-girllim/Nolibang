@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  * [역할] 관리자 운영 메뉴 편집 기능 테스트 — 대분류 편집·삭제(A-S02), 세부 취미 편집(A-S03), 강의 편집(A-S06), 관리자 대기 취소(A-S12)
  * [담당] 팀원 2 · #08·#10
  * [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql이 적재돼 있어야 한다. @Transactional이라 테스트가 끝나면 바꾼 데이터는 되돌린다.
- *       시드: 대분류 1 미술·드로잉(세부 취미 2개)·3 공예, 세부 취미 1 색연필화, 강의 1 색연필화 기초, 대기 줄 2(WAITING, 강의 4)
+ *       시드: 대분류 1 미술·드로잉(세부 취미 2개)·3 공예, 세부 취미 1 색연필화, 강의 1 색연필화 기초, 대기 줄 2(WAITING, 강의 1 · learnerC)
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용)
  */
 @SpringBootTest
@@ -133,13 +133,13 @@ class AdminEditFeaturesTest {
     @Test
     @DisplayName("관리자 대기 취소: 대기 중인 줄이 취소되고 그 강의 id를 돌려준다. 이미 취소된 줄은 NOT_FOUND")
     void cancelWaitlistByAdmin() {
-        final long waitingEntry = 2L;  // 시드: 강의 4 대기 1순위
-        assertThat(waitlistService.getWaitlist(4L)).hasSize(1);
+        final long waitingEntry = 2L;  // 시드 w2: 강의 1 대기 1순위(learnerC) — 강의 1의 유일한 대기자
+        assertThat(waitlistService.getWaitlist(1L)).hasSize(1);
 
         Long courseId = waitlistService.cancelByAdmin(waitingEntry);
 
-        assertThat(courseId).isEqualTo(4L);
-        assertThat(waitlistService.getWaitlist(4L)).isEmpty();
+        assertThat(courseId).isEqualTo(1L);
+        assertThat(waitlistService.getWaitlist(1L)).isEmpty();
         assertThatThrownBy(() -> waitlistService.cancelByAdmin(waitingEntry))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_FOUND));
     }

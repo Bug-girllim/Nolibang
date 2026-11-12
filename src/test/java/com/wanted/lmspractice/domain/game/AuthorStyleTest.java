@@ -33,15 +33,17 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * [역할] 작성자 꾸밈 테스트(대표 배지·닉네임 색·닉네임 테두리) — 여러 사용자 한 번에 조회, 작품 게시판·상세·댓글에 붙는지, 관리자 화면에는 안 붙는지
  * [전제] 로컬 MySQL(nolibang)에 schema.sql(user_equipped_badges 포함)·seed.sql이 적재돼 있어야 한다.
- *       시드 사용자: 2 learner(학습자, 색연필화 입문 수료). @Transactional이라 테스트가 끝나면 바꾼 데이터는 되돌린다.
+ *       시드 사용자: 3 learnerB(학습자, 디저트 만들기 중급 수료 → 🥈 배지, 차시·제출·공개 작품·댓글 업적, Lv.3 이상, 작품 2·5에 댓글),
+ *                    2 learnerA(학습자, 활동·꾸밈 기록 없음), 게시판 첫 카드 = 작품 5(learnerC — 차시·제출·공개 작품 업적 보유).
+ *       @Transactional이라 테스트가 끝나면 바꾼 데이터는 되돌린다.
  * 🟡 미학습 기술: @SpringBootTest (작업분배 §5 허용)
  */
 @SpringBootTest
 @Transactional
 class AuthorStyleTest {
 
-    private static final Long LEARNER = 2L;
-    private static final Long OTHER = 3L;
+    private static final Long LEARNER = 3L;   // learnerB
+    private static final Long OTHER = 2L;     // learnerA
 
     @Autowired
     private AuthorStyleService authorStyleService;
@@ -105,16 +107,16 @@ class AuthorStyleTest {
     }
 
     @Test
-    @DisplayName("수료 배지는 취미 이름이 붙은 이름으로 나온다 (예: 색연필화 입문)")
+    @DisplayName("수료 배지는 취미 이름이 붙은 이름으로 나온다 (예: 디저트 만들기 중급)")
     void courseBadgeTitle() {
         CharacterPageDTO page = gameService.getCharacterPage(LEARNER, "테스터");
-        String code = page.getCourseBadges().stream().filter(b -> b.getHobbyName().equals("색연필화") && !b.isMaster())
+        String code = page.getCourseBadges().stream().filter(b -> b.getHobbyName().equals("디저트 만들기") && !b.isMaster())
                 .findFirst().orElseThrow().getCode();
         assertThat(gameService.equipBadge(LEARNER, code)).isEqualTo(BadgeEquipResult.EQUIPPED);
 
         EquippedBadgeDTO badge = authorStyleService.getEquippedBadges(Set.of(LEARNER)).get(LEARNER).get(0);
-        assertThat(badge.getEmoji()).isEqualTo("🥉");
-        assertThat(badge.getTitle()).isEqualTo("색연필화 입문");
+        assertThat(badge.getEmoji()).isEqualTo("🥈");
+        assertThat(badge.getTitle()).isEqualTo("디저트 만들기 중급");
     }
 
     @Test

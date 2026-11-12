@@ -41,7 +41,7 @@ import org.springframework.web.multipart.MultipartFile;
  * [역할] WorkService 통합 테스트 — 최종 과제 저장(최초·재제출)·수정(같은 버전·이미지 교체)·조회·이미지 열람 권한·실패 시 파일 정리
  * [담당] 팀원 4 · #16   [전제] 로컬 MySQL(nolibang)에 schema.sql·seed.sql 적재. DB 변경은 테스트 트랜잭션이 롤백한다.
  *       업로드 파일은 실제 DB 롤백과 무관하게 디스크에 남으므로, 시드 uploads/ 가 아닌 build/test-uploads 에만 쓴다.
- *       시드: learner(2)의 수강 2(색연필화 응용, 작품 없음), learner2(3)의 수강 5, admin 계정.
+ *       시드: learnerB(3)의 수강 1(색연필화 기초·입문, 진행 중, 작품 없음), learnerC(4)는 수강 1의 주인이 아니다, admin 계정.
  * 🟡 미학습 기술: @SpringBootTest, @TestPropertySource (작업분배 §5 허용 범위 + 업로드 폴더 분리)
  */
 @SpringBootTest
@@ -51,7 +51,7 @@ class WorkServiceTest {
 
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4};
     private static final byte[] JPG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3, 4, 5, 6, 7, 8};
-    private static final Long ENROLLMENT = 2L;   // learner 의 수강, 시드에 작품 없음
+    private static final Long ENROLLMENT = 1L;   // learnerB 의 수강(색연필화 기초·입문, 진행 중), 시드에 작품 없음
 
     @Autowired
     private WorkService workService;
@@ -86,7 +86,7 @@ class WorkServiceTest {
     }
 
     private Long save(String title, List<MultipartFile> images) {
-        return workService.saveFinalWorkVersion(userId("learner"), ENROLLMENT, 1L, CourseLevel.INTERMEDIATE,
+        return workService.saveFinalWorkVersion(userId("learnerB"), ENROLLMENT, 1L, CourseLevel.BASIC,
                 title, "설명입니다", images);
     }
 
@@ -111,15 +111,15 @@ class WorkServiceTest {
     @Test
     @DisplayName("제출한 과제 조회: 제출 전에는 비어 있고, 제출하면 제목·설명·이미지가 나오며, 남의 수강 건으로는 나오지 않는다")
     void findFinalWork() {
-        assertThat(workService.findFinalWork(userId("learner"), ENROLLMENT)).isEmpty();
+        assertThat(workService.findFinalWork(userId("learnerB"), ENROLLMENT)).isEmpty();
 
         save("나의 정물화", List.of(image("a.png", PNG), image("b.jpg", JPG)));
 
-        WorkDTO dto = workService.findFinalWork(userId("learner"), ENROLLMENT).orElseThrow();
+        WorkDTO dto = workService.findFinalWork(userId("learnerB"), ENROLLMENT).orElseThrow();
         assertThat(dto.getTitle()).isEqualTo("나의 정물화");
         assertThat(dto.getDescription()).isEqualTo("설명입니다");
         assertThat(dto.getImageIds()).hasSize(2);
-        assertThat(workService.findFinalWork(userId("learner2"), ENROLLMENT)).isEmpty();
+        assertThat(workService.findFinalWork(userId("learnerC"), ENROLLMENT)).isEmpty();
     }
 
     @Test
@@ -127,13 +127,13 @@ class WorkServiceTest {
     void firstSubmission() {
         Long versionId = save("나의 정물화", List.of(image("a.png", PNG), image("b.jpg", JPG)));
 
-        WorkDTO dto = workService.getWork(workIdOf(versionId), userId("learner"), Role.USER);
+        WorkDTO dto = workService.getWork(workIdOf(versionId), userId("learnerB"), Role.USER);
         assertThat(dto.getWorkVersionId()).isEqualTo(versionId);
         assertThat(dto.getVersionNo()).isEqualTo(1);
         assertThat(dto.getTitle()).isEqualTo("나의 정물화");
         assertThat(dto.getImageIds()).hasSize(2);
         assertThat(dto.getHobbyId()).isEqualTo(1L);
-        assertThat(dto.getLevel()).isEqualTo(CourseLevel.INTERMEDIATE);
+        assertThat(dto.getLevel()).isEqualTo(CourseLevel.BASIC);
         assertThat(dto.getVisibility()).isEqualTo(Visibility.PRIVATE);
         assertThat(workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId))
                 .extracting(f -> f.getSortOrder()).containsExactly(1, 2);
@@ -147,7 +147,7 @@ class WorkServiceTest {
 
         assertThat(workIdOf(v2)).isEqualTo(workIdOf(v1));
         assertThat(workVersionRepository.findById(v2).orElseThrow().getVersionNo()).isEqualTo(2);
-        assertThat(workService.getWork(workIdOf(v2), userId("learner"), Role.USER).getTitle()).isEqualTo("2차");
+        assertThat(workService.getWork(workIdOf(v2), userId("learnerB"), Role.USER).getTitle()).isEqualTo("2차");
         assertThat(workVersionRepository.findById(v1)).isPresent();
     }
 
@@ -168,7 +168,7 @@ class WorkServiceTest {
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_IMAGE_FILE));
         assertThatThrownBy(() -> save("  ", List.of(image("a.png", PNG))))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_INPUT));
-        assertThatThrownBy(() -> workService.saveFinalWorkVersion(userId("learner2"), ENROLLMENT, 1L, CourseLevel.BASIC,
+        assertThatThrownBy(() -> workService.saveFinalWorkVersion(userId("learnerC"), ENROLLMENT, 1L, CourseLevel.BASIC,
                 "제목", null, List.of(image("a.png", PNG))))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.ENROLLMENT_NOT_FOUND));
         assertThat(filesOnDisk()).isEqualTo(before);
@@ -194,7 +194,7 @@ class WorkServiceTest {
         Long versionId = save("수정 전", List.of(image("a.png", PNG)));
         Long fileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
 
-        workService.updateFinalWorkVersion(userId("learner"), versionId, "수정 후", "새 설명", null);
+        workService.updateFinalWorkVersion(userId("learnerB"), versionId, "수정 후", "새 설명", null);
 
         WorkVersion version = workVersionRepository.findById(versionId).orElseThrow();
         assertThat(version.getTitle()).isEqualTo("수정 후");
@@ -209,17 +209,17 @@ class WorkServiceTest {
     void updateReplacesImages() {
         Long versionId = save("제목", List.of(image("a.png", PNG)));
         Long oldFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
-        String oldKey = workService.openFile(oldFileId, userId("learner"), Role.USER).getKey();
+        String oldKey = workService.openFile(oldFileId, userId("learnerB"), Role.USER).getKey();
         assertThat(stored(oldKey)).isTrue();
 
-        workService.updateFinalWorkVersion(userId("learner"), versionId, "제목", null,
+        workService.updateFinalWorkVersion(userId("learnerB"), versionId, "제목", null,
                 List.of(image("x.jpg", JPG), image("y.png", PNG)));
 
         var files = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId);
         assertThat(files).hasSize(2);
         assertThat(files).extracting(f -> f.getMimeType()).containsExactly("image/jpeg", "image/png");
         assertThat(stored(oldKey)).isTrue();   // 커밋이 실패하면 DB는 옛 행 그대로이므로 이전 파일을 먼저 지우지 않는다
-        assertThat(stored(workService.openFile(files.get(0).getId(), userId("learner"), Role.USER).getKey())).isTrue();
+        assertThat(stored(workService.openFile(files.get(0).getId(), userId("learnerB"), Role.USER).getKey())).isTrue();
     }
 
     @Test
@@ -227,7 +227,7 @@ class WorkServiceTest {
     void rollbackDeletesStoredFiles() {
         Long versionId = save("롤백될 제출", List.of(image("a.png", PNG)));
         Long fileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
-        String key = workService.openFile(fileId, userId("learner"), Role.USER).getKey();
+        String key = workService.openFile(fileId, userId("learnerB"), Role.USER).getKey();
         assertThat(stored(key)).isTrue();
 
         TestTransaction.flagForRollback();
@@ -241,15 +241,15 @@ class WorkServiceTest {
     void updateFailureKeepsOld() {
         Long versionId = save("원래 제목", List.of(image("a.png", PNG)));
         Long oldFileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
-        String oldKey = workService.openFile(oldFileId, userId("learner"), Role.USER).getKey();
+        String oldKey = workService.openFile(oldFileId, userId("learnerB"), Role.USER).getKey();
 
-        assertThatThrownBy(() -> workService.updateFinalWorkVersion(userId("learner"), versionId, "바뀐 제목", null,
+        assertThatThrownBy(() -> workService.updateFinalWorkVersion(userId("learnerB"), versionId, "바뀐 제목", null,
                 List.of(image("fake.png", "text".getBytes(StandardCharsets.UTF_8)))))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.INVALID_IMAGE_FILE));
         assertThat(stored(oldKey)).isTrue();
         assertThat(workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId)).hasSize(1);
 
-        assertThatThrownBy(() -> workService.updateFinalWorkVersion(userId("learner2"), versionId, "탈취", null, null))
+        assertThatThrownBy(() -> workService.updateFinalWorkVersion(userId("learnerC"), versionId, "탈취", null, null))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
     }
 
@@ -259,12 +259,12 @@ class WorkServiceTest {
         Long versionId = save("비공개", List.of(image("a.png", PNG)));
         Long fileId = workFileRepository.findByWorkVersionIdOrderBySortOrder(versionId).get(0).getId();
 
-        WorkFileDTO own = workService.openFile(fileId, userId("learner"), Role.USER);
+        WorkFileDTO own = workService.openFile(fileId, userId("learnerB"), Role.USER);
         assertThat(own.getMimeType()).isEqualTo("image/png");
         assertThat(stored(own.getKey())).isTrue();
         assertThat(stored(workService.openFile(fileId, userId("admin"), Role.ADMIN).getKey())).isTrue();
 
-        assertThatThrownBy(() -> workService.openFile(fileId, userId("learner2"), Role.USER))
+        assertThatThrownBy(() -> workService.openFile(fileId, userId("learnerC"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
         assertThatThrownBy(() -> workService.openFile(fileId, null, null))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
@@ -278,12 +278,12 @@ class WorkServiceTest {
         var work = workRepository.findById(workIdOf(versionId)).orElseThrow();
         ReflectionTestUtils.setField(work, "visibility", Visibility.PUBLIC);   // 공개 전환은 #18 소관 — 테스트에서만 직접 세팅
 
-        assertThat(stored(workService.openFile(fileId, userId("learner2"), Role.USER).getKey())).isTrue();
+        assertThat(stored(workService.openFile(fileId, userId("learnerC"), Role.USER).getKey())).isTrue();
 
         ReflectionTestUtils.setField(work, "adminHidden", true);
-        assertThatThrownBy(() -> workService.openFile(fileId, userId("learner2"), Role.USER))
+        assertThatThrownBy(() -> workService.openFile(fileId, userId("learnerC"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
-        assertThat(stored(workService.openFile(fileId, userId("learner"), Role.USER).getKey())).isTrue();
+        assertThat(stored(workService.openFile(fileId, userId("learnerB"), Role.USER).getKey())).isTrue();
     }
 
     @Test
@@ -297,20 +297,20 @@ class WorkServiceTest {
         assertThat(work.getDisplayVersionId()).isEqualTo(secondVersion);
         ReflectionTestUtils.setField(work, "visibility", Visibility.PUBLIC);
 
-        assertThat(stored(workService.openFile(newFileId, userId("learner2"), Role.USER).getKey())).isTrue();
-        assertThatThrownBy(() -> workService.openFile(oldFileId, userId("learner2"), Role.USER))
+        assertThat(stored(workService.openFile(newFileId, userId("learnerC"), Role.USER).getKey())).isTrue();
+        assertThatThrownBy(() -> workService.openFile(oldFileId, userId("learnerC"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_ACCESS_DENIED));
 
-        assertThat(stored(workService.openFile(oldFileId, userId("learner"), Role.USER).getKey())).isTrue();
+        assertThat(stored(workService.openFile(oldFileId, userId("learnerB"), Role.USER).getKey())).isTrue();
         assertThat(stored(workService.openFile(oldFileId, userId("admin"), Role.ADMIN).getKey())).isTrue();
     }
 
     @Test
     @DisplayName("없는 이미지 id는 NOT_FOUND, 없는 작품 id는 WORK_NOT_FOUND")
     void notFound() {
-        assertThatThrownBy(() -> workService.openFile(999999L, userId("learner"), Role.USER))
+        assertThatThrownBy(() -> workService.openFile(999999L, userId("learnerB"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.NOT_FOUND));
-        assertThatThrownBy(() -> workService.getWork(999999L, userId("learner"), Role.USER))
+        assertThatThrownBy(() -> workService.getWork(999999L, userId("learnerB"), Role.USER))
                 .satisfies(e -> assertThat(codeOf(e)).isEqualTo(ErrorCode.WORK_NOT_FOUND));
     }
 }
