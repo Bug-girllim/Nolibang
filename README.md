@@ -320,6 +320,4 @@ Nolibang/
 
 **놀이방 — 취미를 배우는 시간을, 나만의 성장 기록으로.**
 
-[GitHub Repository](https://github.com/Bug-girllim/Nolibang)
-
 </div>
