@@ -1,122 +1,313 @@
-# 놀이방 (Nolibang) LMS
+<div align="center">
 
-취미를 배우고, 과제를 제출하고, 작품을 나누는 학습 플랫폼입니다.
-학습자가 취미를 고르고 수준별 강의(차시 3개)를 수강한 뒤 최종 과제를 제출하면, 담당 강사가 평가하고 승인되면 수료·배지를 받습니다.
+# 🏛️ 놀이방 | Nolibang
 
-- 사용자: **학습자**(가입·수강·과제·작품) / **강사**(담당 학습자 평가·문의 답변·통계) / **관리자**(강사 계정·분반·작품 관리)
-- 이 저장소는 4명이 이슈 22개로 나눠 개발합니다. 진행 현황은 [Issues](../../issues)와 [Pull requests](../../pulls)에서 확인하세요.
+### 취미의 발견부터 배움, 작품 공유, 성장 기록까지
 
-## 기술 스택
+**Spring Boot 기반 취미 학습 관리 플랫폼 (LMS)**
 
-| 구분 | 사용 기술 |
-|---|---|
-| 언어·빌드 | Java 21, Gradle |
-| 프레임워크 | Spring Boot 4.1 (Spring MVC, Spring Data JPA, Spring Security, Bean Validation) |
-| 화면 | Thymeleaf (+ `thymeleaf-extras-springsecurity6`) |
-| DB | MySQL 8 (`utf8mb4`, 시간은 UTC로 저장) |
-| 기타 | Lombok, Spring Boot DevTools, `spring-boot-starter-mail`(이메일 인증) |
+학습자는 관심 있는 취미를 찾아 강의를 듣고 작품을 남깁니다.  
+강사는 제출된 과제를 평가하고, 관리자는 강의·분반·계정을 운영합니다.  
+**탐색 → 수강 신청 → 영상 학습 → 과제 평가 → 수료 → 작품 공유**를 하나의 흐름으로 연결했습니다.
 
-## 시작하기
+[프로젝트 저장소](https://github.com/Bug-girllim/Nolibang) · [실행 화면](#05-실행-화면) · [실행 가이드](docs/SUBMISSION_SETUP.md) · [API 명세](docs/API_명세서.md) · [기획 문서](docs/기획안_11.05)
 
-> 제출본(ZIP)을 다른 컴퓨터에서 실행하는 전체 순서·환경변수·자주 나는 오류는 [`docs/SUBMISSION_SETUP.md`](docs/SUBMISSION_SETUP.md)를 보세요.
-> DB와 접속 계정은 `src/main/resources/sql/setup_database.sql`(root로 실행)로 만들 수 있습니다.
+</div>
 
-### 1. 준비물
-- JDK 21
-- MySQL 8 (로컬)
+---
 
-### 2. DB 만들기
-`src/main/resources/application.yaml`은 DB 이름 `nolibang`, 계정 `wanted` / 비밀번호 `wanted`를 기본으로 씁니다.
-MySQL에 root로 접속해서 아래를 실행하세요. 계정은 본인 환경에 맞게 바꿔도 되고, 그러면 `application.yaml`도 같이 바꿉니다.
+## 01. 프로젝트 소개
 
-```sql
-CREATE DATABASE nolibang DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE USER IF NOT EXISTS 'wanted'@'%' IDENTIFIED BY 'wanted';
-GRANT ALL PRIVILEGES ON nolibang.* TO 'wanted'@'%';
-FLUSH PRIVILEGES;
+| 항목 | 내용 |
+| --- | --- |
+| 프로젝트명 | 놀이방 (Nolibang) |
+| 프로젝트 유형 | 4인 팀 프로젝트 · 취미 기반 LMS 웹 서비스 |
+| 개발 방식 | GitHub Issues / 브랜치 / Pull Request 기반 협업 |
+| 사용자 역할 | 학습자(USER), 강사(INSTRUCTOR), 관리자(ADMIN) |
+| 서비스 형태 | 서버 렌더링 웹 애플리케이션 · 로컬 시연 및 제출용 실행 지원 |
+| 기준 코드 | GitHub `main` 브랜치 · 2026-11-12 확인 |
+
+### 기획 배경
+
+취미를 시작하려는 사람은 강의를 찾고, 학습 진도를 관리하고, 결과물을 공유하는 과정을 각각 다른 곳에서 수행하기 쉽습니다. 놀이방은 이 과정을 연결해 **배움이 기록으로 쌓이고 다음 도전으로 이어지는 경험**을 제공하도록 설계했습니다.
+
+### 핵심 설계 포인트
+
+- **역할별 업무 분리:** 학습자는 학습·작품을, 강사는 담당 학습자의 평가를, 관리자는 운영을 맡습니다.
+- **분반과 대기열:** 강의별 분반·정원을 관리하고, 정원이 찼을 때 신청을 대기열로 연결합니다.
+- **평가 기반 수료:** 영상 학습 완료만으로 수료시키지 않고 최종 과제와 담당 강사 평가를 함께 반영합니다.
+- **학습 결과의 축적:** 과제·피드백·작품 버전·성장 기록을 남겨 한 번의 수강으로 끝나지 않도록 했습니다.
+- **시연 재현성:** 역할과 상태가 다른 계정 9개, 9개 강의·27차시, 과제·작품·대기열 시드를 제공합니다.
+
+## 02. 기술 스택
+
+| 구분 | 기술 |
+| --- | --- |
+| Language | Java 21 |
+| Backend | Spring Boot 4.1.2, Spring MVC, Spring Data JPA |
+| Authentication / Authorization | Spring Security, 세션 기반 로그인, 역할·소유자 검증 |
+| Frontend | Thymeleaf, HTML, CSS, JavaScript |
+| Database | MySQL 8, Hibernate / JPA |
+| Build & Test | Gradle Wrapper, JUnit, Spring Boot Test, Spring Security Test |
+| Mail | Spring Mail, Gmail SMTP(설정 시) |
+| File Storage | 로컬 파일 저장, S3 호환 저장소 선택 지원 |
+| Collaboration | Git, GitHub Issues, Pull Requests |
+
+**구조:** 브라우저 → Spring MVC Controller → Service / Policy → JPA Repository → MySQL.  
+화면은 Thymeleaf로 서버에서 렌더링하고, 영상·파일 접근은 서버에서 사용자 권한과 수강 관계를 확인하도록 구성했습니다.
+
+## 03. 주요 기능
+
+| 영역 | 구현 내용 |
+| --- | --- |
+| 계정·인증 | 학습자 회원가입, 이메일 인증, 로그인·로그아웃, 비밀번호 재설정, 강사 계정 발급 및 첫 로그인 비밀번호 변경 |
+| 취미 탐색 | 대분류·세부 취미, 입문·중급·고급 강의, 운영 중·준비 중·비공개 노출 정책 |
+| 수강 운영 | 강의 신청·취소, 분반 자동 배정, 정원 관리, 강의별 대기열·빈자리 확정, 수강기간 관리 |
+| 영상 학습 | 차시별 영상 재생, 재생 진도 기록, 학습 완료 판정, 수강 권한에 따른 영상 접근 제어 |
+| 과제·수료 | 최종 과제 등록, 제출·수정·재제출, 강사 승인·반려 및 피드백, 수료 기록·배지 |
+| 작품 게시판 | 작품 등록·공개, 버전·이미지 관리, 좋아요·댓글·답글, 성장 기록·회고, 관리자 숨김·복구 |
+| 소통·알림 | 학습자와 담당 강사 간 1:1 문의, 주요 상태 변경 알림 |
+| 강사 화면 | 담당 강의·분반·학습자, 과제 평가, 문의 답변, 운영 통계 |
+| 관리자 화면 | 취미·카테고리, 강사 계정·권한, 분반·대기열, 작품 공개 관리, 통계 |
+| 성장 요소 | 학습 활동 기반 캐릭터·경험치·퀘스트·업적 배지·분반 길드 요소 |
+
+### 주요 학습 흐름
+
+```mermaid
+flowchart LR
+    A[취미·강의 탐색] --> B{정원 확인}
+    B -->|여유 있음| C[수강 확정]
+    B -->|마감| D[대기열 등록]
+    D -->|자리 발생| C
+    C --> E[차시 영상 학습]
+    E --> F[최종 과제 제출]
+    F --> G{강사 평가}
+    G -->|반려| H[피드백 확인·재제출]
+    H --> G
+    G -->|승인| I[수료·배지]
+    I --> J[작품 공유·성장 기록]
 ```
 
-그다음 **순서대로** 테이블과 시드 데이터를 넣습니다. (`schema.sql`은 빈 DB용이며 재실행용이 아닙니다.)
+### 주요 비즈니스 정책
+
+- 수강 기간은 **확정일 기준 30일**이며, 완료·만료 이후 접근은 학습·수료 상태에 따라 구분합니다.
+- 필수 차시와 최종 과제 평가를 수료 조건으로 사용합니다. 영상 진도는 실제 재생 진행을 기준으로 계산합니다.
+- 과제에는 평가·반려·재제출 흐름이 있으며, 기한과 상태 전이를 서비스 정책에서 관리합니다.
+- 작품은 작성자, 공개 여부, 관리자 숨김 여부에 따라 노출·수정·삭제 권한이 달라집니다.
+- 준비 중 또는 비공개 취미와 종료된 강의는 신규 학습자에게 노출·신청 범위를 제한합니다.
+
+정확한 예외·상태값은 [공통 개발 규칙](docs/CONVENTIONS.md) 및 [API 명세서](docs/API_명세서.md)를 기준으로 확인할 수 있습니다.
+
+## 04. 시연 시나리오
+
+시연 데이터는 **새 학습자 / 수강 중 / 평가 대기 / 수료 / 대기열 / 비활성 강사 / 첫 로그인 / 이메일 미인증**을 비교할 수 있도록 준비했습니다.
+
+1. **탐색과 신청:** `learnerA`로 로그인해 비어 있는 ‘나의 학습’을 확인한 뒤 강의를 탐색하고 신청합니다.
+2. **학습과 평가:** `learnerB`로 영상·진도·과제 상태를 살펴보고, `teacherA`로 전환해 평가 흐름을 확인합니다.
+3. **분반과 대기열:** `learnerC`의 색연필화 대기 상태를 확인하고 관리자 화면에서 분반·정원 운영을 시연합니다.
+4. **작품 게시판:** 공개 작품, 작성자별 메뉴, 좋아요·댓글, 관리자 숨김 등 역할별 차이를 확인합니다.
+5. **계정 상태:** `teacherC` 비활성 로그인 차단, `teacherD` 첫 로그인 비밀번호 변경, `newbie` 이메일 미인증 안내를 확인합니다.
+
+> **주의:** 시드의 수강·평가 기한은 적재 시각을 기준으로 계산됩니다. 일부 시연은 평가·상태 변경으로 초기 데이터가 바뀌므로, 반복 시연 전에는 **DB 담당자가** 초기화·재적재 여부를 판단해야 합니다.
+
+### 시연용 계정 (개발·제출 환경 전용)
+
+| 역할 | 아이디 | 비밀번호 | 확인 포인트 |
+| --- | --- | --- | --- |
+| 관리자 | `admin` | `demo_Admin01` | 취미·강의·강사·분반 관리 |
+| 학습자 A | `learnerA` | `demo_L01` | 수강 이력 없음, 신규 신청 |
+| 학습자 B | `learnerB` | `demo_L02` | 수강·진도·평가 대기·수료·작품 |
+| 학습자 C | `learnerC` | `demo_L03` | 다른 분반 수강·색연필화 대기 |
+| 강사 A | `teacherA` | `demo_T01` | 담당 강의·최종 과제 평가 |
+| 강사 B | `teacherB` | `demo_T02` | 다른 분반·담당 학습자 |
+| 비활성 강사 | `teacherC` | `demo_T03` | 로그인 불가 |
+| 첫 로그인 강사 | `teacherD` | `demo_T04` | 비밀번호 변경 유도 |
+| 미인증 학습자 | `newbie` | `Newbie_01` | 이메일 인증 전 로그인 제한 |
+
+이 계정은 공개된 **시연 전용 데이터**입니다. 실제 운영 서버에서는 사용하지 마세요.
+
+## 05. 실행 화면
+
+시연용 시드 데이터로 실행한 실제 화면입니다. 학습자·강사·관리자 화면을 학습 흐름 순서로 골랐습니다.
+
+> 📦 **전체 실행 화면 원본 108장**(공통·인증, 취미·수강, 학습·영상, 과제·작품, 성장·소통, 강사, 관리자, 오류·예외)은 [GitHub Release `screenshots-v1`](https://github.com/Bug-girllim/Nolibang/releases/tag/screenshots-v1)에서 [`Nolibang_All_Screenshots.zip`](https://github.com/Bug-girllim/Nolibang/releases/download/screenshots-v1/Nolibang_All_Screenshots.zip)으로 내려받을 수 있습니다.
+
+### 학습자 — 탐색과 수강
+
+| 메인 홈 | 세부 취미 상세 |
+| --- | --- |
+| ![메인 홈](docs/PAGE/README/01_메인홈.png) | ![세부 취미 상세](docs/PAGE/README/02_세부취미_상세.png) |
+| 아뜰리에 테마 메인과 취미 카테고리 | 입문·중급·고급 강의를 직접 선택 |
+
+| 정원 마감 · 대기 신청 | 나의 학습 현황 |
+| --- | --- |
+| ![강의 상세 대기 신청](docs/PAGE/README/03_강의상세_정원마감_대기신청.png) | ![나의 학습 현황](docs/PAGE/README/04_나의학습_현황.png) |
+| 정원이 차면 대기 신청으로 전환 | 학습 중·평가 대기·수료 상태를 한눈에 |
+
+### 학습자 — 학습, 과제, 작품
+
+| 차시 영상 학습 | 최종 과제 반려 · 재제출 |
+| --- | --- |
+| ![차시 영상 학습](docs/PAGE/README/05_차시영상_학습.png) | ![최종 과제 반려 재제출](docs/PAGE/README/06_최종과제_반려_재제출.png) |
+| 실제 재생 기반 진도와 차시 목록 | 반려 사유 이력과 재제출 후 평가 진행 |
+
+| 작품 게시판 | 작품 상세 · 좋아요 · 댓글 |
+| --- | --- |
+| ![작품 게시판](docs/PAGE/README/07_작품게시판.png) | ![작품 상세](docs/PAGE/README/08_작품상세_좋아요_댓글.png) |
+| 공개 작품 검색·필터 | 강사 댓글과 작성자 답글 |
+
+| 성장 타임라인 | 길드 순위 |
+| --- | --- |
+| ![성장 타임라인](docs/PAGE/README/09_성장타임라인.png) | ![길드 순위](docs/PAGE/README/10_길드순위.png) |
+| 작품별 회고·공개 상태·숨김 사유 | 분반 단위 경험치 순위 |
+
+### 강사 · 관리자
+
+| 강사 대시보드 | 강사 과제 평가 |
+| --- | --- |
+| ![강사 대시보드](docs/PAGE/README/11_강사대시보드.png) | ![강사 과제 평가](docs/PAGE/README/12_강사_과제평가.png) |
+| 담당 분반·정원·평가 대기 요약 | 제출물 확인과 공식 평가 시작 |
+
+| 관리자 대시보드 | 관리자 분반 관리 |
+| --- | --- |
+| ![관리자 대시보드](docs/PAGE/README/13_관리자대시보드.png) | ![관리자 분반 관리](docs/PAGE/README/14_관리자_분반관리.png) |
+| 운영 지표와 확인이 필요한 항목 | 담당 강사·정원·남은 자리 |
+
+<p align="center">
+  <img src="docs/PAGE/README/15_권한없음_403.png" alt="권한 없음 403 화면" width="70%"><br>
+  <sub>역할별 접근 제어 — 학습자가 관리자 화면에 접근하면 403 안내</sub>
+</p>
+
+## 06. 실행 및 환경 설정
+
+### 실행 요구사항
+
+- JDK **21**
+- MySQL **8.x**
+- Gradle 별도 설치 불필요(Wrapper 포함)
+
+DB가 준비되고 시드가 적재된 환경에서 프로젝트 루트 기준 다음과 같이 실행합니다.
+
+```powershell
+# Windows PowerShell
+.\gradlew.bat bootRun
+```
 
 ```bash
-mysql -u root -p --default-character-set=utf8mb4 nolibang < src/main/resources/sql/schema.sql
-mysql -u root -p --default-character-set=utf8mb4 nolibang < src/main/resources/sql/seed.sql
+# macOS / Linux
+./gradlew bootRun
 ```
 
-`ddl-auto`는 `none`이라 테이블은 직접 만들어야 합니다. 테이블 구조를 바꾸면 `schema.sql`과 Entity를 같은 PR에서 함께 고칩니다.
+접속 주소: **http://localhost:8080**
 
-### 3. 실행
+**처음 설치하거나 다른 PC에서 제출본을 실행한다면** [제출용 설치·실행 가이드](docs/SUBMISSION_SETUP.md)를 먼저 확인하세요. 이 문서에 DB 담당자용 설치 순서(`setup_database.sql` → `schema.sql` → `seed.sql`), 환경변수, 업로드 리소스 확인, 오류 해결이 정리되어 있습니다. **기존 공용 DB나 운영 DB에 시드·스키마를 임의로 재실행하지 마세요.**
 
-```bash
-./gradlew bootRun        # Windows: .\gradlew.bat bootRun
+### 주요 환경변수
+
+| 환경변수 | 용도 |
+| --- | --- |
+| `LOCAL_DB_URL`, `LOCAL_DB_USERNAME`, `LOCAL_DB_PASSWORD` | 기본 로컬 DB 연결 정보 |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | Gmail SMTP 인증 메일 발송(선택) |
+| `APP_BASE_URL` | 이메일 인증·비밀번호 재설정 링크 주소 |
+| `UPLOAD_DIR` | 업로드 파일 저장 위치(기본 `./uploads`) |
+| `FILE_STORAGE`, `S3_*` | S3 호환 파일 저장소 선택 시 사용 |
+| `SPRING_PROFILES_ACTIVE`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | 공용·배포 프로필 DB 연결 시 사용 |
+
+`.env.example`은 참고 파일이며, **앱이 `.env`를 자동으로 불러오지는 않습니다.** 실제 값은 실행 셸 또는 IntelliJ 실행 환경변수로 주입합니다. 비밀번호·메일 앱 비밀번호·클라우드 키는 Git에 올리지 않습니다.
+
+SMTP 계정을 설정하지 않은 로컬 개발 환경에서는 이메일 인증 링크를 서버 로그에서 확인할 수 있도록 구성되어 있습니다. 실제 메일 발송 시에는 Gmail 계정과 앱 비밀번호가 필요합니다.
+
+### 파일·영상 리소스
+
+- 시연 작품 이미지: `uploads/seed/`
+- 시연 강의 영상: `uploads/videos/`
+- 신규 작품 업로드: `uploads/works/`(실행 중 생성)
+- SQL 정본 및 시드: `src/main/resources/sql/`
+
+이미지·영상 경로는 실행 작업 디렉터리와 `UPLOAD_DIR`의 영향을 받습니다. 시연용 영상 27개는 DB의 차시 `video_key`와 실제 파일 경로가 일치해야 합니다.
+
+## 07. 프로젝트 구조
+
+```text
+Nolibang/
+├── src/main/java/com/wanted/lmspractice/
+│   ├── domain/
+│   │   ├── admin/         # 관리자
+│   │   ├── auth/          # 인증
+│   │   ├── course/        # 강의
+│   │   ├── enrollment/    # 수강·분반·대기열
+│   │   ├── game/          # 성장 요소
+│   │   ├── hobby/         # 취미·카테고리
+│   │   ├── inquiry/       # 1:1 문의
+│   │   ├── instructor/    # 강사
+│   │   ├── learning/      # 진도·나의 학습
+│   │   ├── notification/  # 알림
+│   │   ├── review/        # 과제 평가
+│   │   ├── user/          # 회원
+│   │   └── work/          # 작품
+│   └── global/            # 공통 설정·예외·파일 처리
+├── src/main/resources/
+│   ├── templates/         # Thymeleaf 화면
+│   ├── static/            # CSS·JS·이미지
+│   └── sql/               # 스키마·시드·마이그레이션
+├── uploads/
+│   ├── seed/              # 시연 작품 이미지
+│   └── videos/            # 시연 영상
+├── docs/                  # 기획·API·검증·실행 가이드
+├── scripts/               # 운영 백업·복원 스크립트
+├── build.gradle
+└── README.md
 ```
 
-브라우저에서 http://localhost:8080 을 엽니다.
+## 08. 테스트와 검증
 
-### 4. 테스트
+검증 문서는 테스트 시점과 기준 커밋을 함께 기록합니다. 주요 점검 범위는 회원가입·권한, 취미·강의, 수강·대기열, 영상 진도, 과제 평가, 이미지 업로드, 보안 및 배포입니다.
 
-```bash
-./gradlew build          # 빌드 + 테스트
+- [기능 체크리스트 결과](docs/기능체크리스트_결과.md)
+- [CSRF·역할·소유자 권한 점검](docs/보안점검_CSRF_권한.md)
+- [완료된 검증 파트 기록](docs/진행_완/검증_파트)
+
+```powershell
+# Windows: 테스트용 DB 및 실행 환경이 준비된 경우에만
+.\gradlew.bat test
 ```
 
-서비스 테스트(`@SpringBootTest`)는 로컬 MySQL의 `nolibang`에 시드가 들어 있어야 통과합니다. 테스트는 끝나면 롤백되어 DB를 바꾸지 않습니다.
+**테스트 실행 주의:** 일부 통합 테스트는 DB 연결과 쓰기 작업을 수반할 수 있습니다. 실제 운영·공용·시연 DB에서 임의로 실행하지 말고, DB 담당자가 승인한 격리된 검증 환경을 사용하세요. 과거 점검 결과는 해당 커밋의 결과이며 **현재 `main`의 전체 무결점 또는 전체 테스트 통과를 의미하지 않습니다.**
 
-## 시연 계정
+## 09. 프로젝트 문서
 
-| 아이디 | 비밀번호 | 역할 · 초기 상태 |
-|---|---|---|
-| `admin` | `demo_Admin01` | 관리자 — 취미·강의 관리, 강사 배정, 취미 카테고리 생성·편집 |
-| `learnerA` | `demo_L01` | 학습자 — 이메일 인증 완료, 수강 이력 없음 (빈 '나의 학습', 빈자리 있는 강의 신청) |
-| `learnerB` | `demo_L02` | 학습자 — 색연필화 입문 수강 중(영상 1개 남음·과제 미제출), 디지털 드로잉 입문 최종 과제 평가 대기, 디저트 만들기 중급 수료(30일 수강기간 경과), 공개 작품 2개 |
-| `learnerC` | `demo_L03` | 학습자 — 디지털 드로잉 입문 강사B 분반 수강 중, 색연필화 입문 정원 마감으로 대기 중, 공개 작품 2개 |
-| `teacherA` | `demo_T01` | 강사 — 디지털 드로잉 입문 A분반 담당(학습자B 배정), 학습자B 최종 과제 평가 |
-| `teacherB` | `demo_T02` | 강사 — 같은 강의 B분반 담당(학습자C 배정) |
-| `teacherC` | `demo_T03` | 강사 · **비활성** (로그인 불가 시연) |
-| `teacherD` | `demo_T04` | 강사 · 첫 로그인 전(임시 비밀번호 → 비밀번호 변경 화면으로 이동) |
-| `newbie` | `Newbie_01` | 학습자 · 이메일 **미인증** (로그인 불가 시연) |
+| 문서 | 설명 |
+| --- | --- |
+| [제출 실행 가이드](docs/SUBMISSION_SETUP.md) | 새 PC 설치, DB 담당자 설정, 환경변수, 계정·영상 검증 |
+| [API 명세서](docs/API_명세서.md) | URL, 역할별 접근, 요청·응답·예외 |
+| [공통 규칙](docs/CONVENTIONS.md) | 도메인 경계, 상태·권한, 코딩 컨벤션 |
+| [기획안 (11.05 기준)](docs/기획안_11.05) | 초기 기획 배경·정책·요구사항 |
+| [패키지 구조 설계](docs/패키지_구조_설계.md) | 계층·도메인 구조 |
+| [기능 점검 결과](docs/기능체크리스트_결과.md) | 항목별 검증 결과와 후속 조치 |
+| [배포·운영 가이드](docs/배포_운영_가이드.md) | 환경변수, 서버 구동, HTTPS, 백업·복원 |
+| [개발 이슈·PR 전략](docs/작업분배_GitHub이슈_PR전략.md) | 팀 협업 기준과 작업 분리 |
+| [배운 기술 정리](docs/배운기술_정리.md) | 수업에서 배운 기술 정리(우선 사용) |
+| [HTML 변환 결과](docs/HTML_변환_결과.md) | 디자인 시안 → Thymeleaf 템플릿 변환 결과 |
 
-시드의 기한(수강 30일·평가 7일)은 `seed.sql`을 적재한 시각 기준으로 계산됩니다. 시연 직전에 적재하세요.
+## 10. 협업과 개발 과정
 
-## 이메일 인증
+4명이 기획, 역할·권한 정책, DB 및 도메인 설계, 백엔드 구현, 화면 연동, 데이터 시연, 검증을 분담했습니다. 초기 작업은 **22개 이슈**로 정리했고, GitHub 브랜치·PR을 통해 통합했습니다.
 
-회원가입 후 인증 메일이 발송됩니다. 발송 계정(환경 변수 `MAIL_USERNAME`)이 비어 있으면 메일을 보내지 않고, **서버 로그에 `[개발용] ... 인증 링크:`로 링크를 출력**합니다. 개발·시연에서는 그 링크를 브라우저에 붙여 넣으면 됩니다.
-SMTP를 쓰려면 `application.yaml`의 `spring:` 아래에 `mail` 설정을 추가합니다. 비밀번호 같은 값은 파일에 직접 쓰지 말고 환경 변수로 넣으세요.
+문서와 코드가 함께 수정되는 과정에서 기능 연결, 로그인·인가, 업로드 파일 경로, 로컬 환경과 공용 DB의 차이, 화면 디자인 일관성을 점검했습니다. 세부 구현·이슈 이력은 [Issues](../../issues), [Pull Requests](../../pulls)와 `docs/` 기록을 참고하세요.
 
-## 프로젝트 구조
+## 11. 운영 범위와 유의사항
 
-```
-src/main/java/com/wanted/lmspractice
-├── domain/{도메인}/{controller, service, entity, repository, dto, policy}
-│     admin · auth · course · enrollment · hobby · inquiry
-│     instructor · learning · notification · review · user · work
-└── global/{config, controller, exception, file}   공통 설정·전역 예외·파일 저장
+- 본 프로젝트는 **교육·시연용 LMS**입니다. 공개 인터넷 서비스의 상용 운영 준비가 끝났다는 의미는 아닙니다.
+- 로컬 실행은 DB와 업로드 파일을 같은 환경에 준비해야 합니다. 팀 공용 DB 연결만으로 다른 PC의 로컬 영상 파일이 자동 공유되지는 않습니다.
+- 시연 계정, 개발용 DB 기본값, SMTP 미설정 시 서버 로그에 나오는 링크는 운영 환경에서 사용하지 않아야 합니다.
+- 개발·검증 문서에는 일부 미구현 범위, 점검 조건 및 후속 조치가 명시되어 있습니다. 기능 평가는 문서의 **기준 커밋과 실제 실행 결과**를 함께 확인해야 합니다.
 
-src/main/resources
-├── templates/   Thymeleaf 화면 (폴더 = 도메인, 공통 조각은 common/layout.html)
-├── static/      CSS·이미지·JS
-└── sql/         schema.sql, seed.sql
-uploads/seed/    시드 작품 이미지
-docs/            프로젝트 문서
-이슈_22개/        이슈 본문
-```
+---
 
-## 개발 규칙
+<div align="center">
 
-- **계층:** Controller는 요청·화면 결정만, 비즈니스 규칙은 Service·Policy·Entity에 둡니다.
-- **도메인 경계:** 다른 도메인의 Repository를 직접 주입하지 않고, 그 도메인 Service의 계약 메서드로만 접근합니다.
-- **예외:** `throw new BusinessException(ErrorCode.XXX)` → `GlobalExceptionHandler`가 오류 화면으로 변환합니다.
-- **로그인 사용자:** 컨트롤러에서 `@AuthenticationPrincipal AuthDetails`로 받습니다.
-- **시간:** `LocalDateTime.now()`를 씁니다. `now(ZoneOffset.UTC)`는 한국 서버에서 9시간 어긋납니다. (자세한 이유는 `docs/CONVENTIONS.md` §9)
-- **공통 파일 소유자:** `SecurityConfig`, `ErrorCode`, `build.gradle`, `application.yaml`, `common/layout.html`은 팀원 1이 소유하며, 수정이 필요하면 요청합니다.
-- **브랜치·PR:** `main`은 보호하고, `feature/#이슈번호-짧은이름` 브랜치에서 작업해 PR로 올립니다. PR 제목은 `[#번호] 이슈 제목`, 병합은 Squash merge입니다.
+**놀이방 — 취미를 배우는 시간을, 나만의 성장 기록으로.**
 
-## 문서
+[GitHub Repository](https://github.com/Bug-girllim/Nolibang)
 
-| 문서 | 내용 |
-|---|---|
-| [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md) | 공통 규칙(상태값·도메인 간 계약·ErrorCode·URL·미확정 사항) — **가장 먼저 읽기** |
-| [`docs/API_명세서.md`](docs/API_명세서.md) | 화면별 URL·요청값·응답·예외 |
-| [`docs/패키지_구조_설계.md`](docs/패키지_구조_설계.md) | 패키지·클래스 설계와 계층 규칙 |
-| [`docs/작업분배_GitHub이슈_PR전략.md`](docs/작업분배_GitHub이슈_PR전략.md) | 이슈 분배, 계약 메서드(C1~C15), PR 체크리스트 |
-| [`docs/배운기술_정리.md`](docs/배운기술_정리.md) | 수업에서 배운 기술 정리(우선 사용) |
-| [`docs/HTML_변환_결과.md`](docs/HTML_변환_결과.md) | 디자인 시안 → Thymeleaf 템플릿 변환 결과 |
+</div>
