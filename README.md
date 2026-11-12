@@ -288,7 +288,69 @@ Nolibang/
 
 ## 09. 프로젝트 문서
 
-최종 제출 기준 문서(2026-11-12)는 `docs/current/`에 있습니다.
+최종 제출 기준 문서(2026-11-12)는 `docs/current/`에 있습니다. 핵심 내용은 아래에서 바로 확인할 수 있고, 전체 내용은 [문서 목록](#문서-목록)의 링크에서 볼 수 있습니다.
+
+### 최신 ERD
+
+**테이블 26개 · 외래 키 50개 · 뷰 6개** — 수강·평가·작품 흐름의 핵심 관계만 표시했습니다. 실선은 자식 PK에 FK가 포함된 식별 관계, 점선은 비식별 관계입니다.
+
+```mermaid
+erDiagram
+    direction TB
+    categories ||..o{ hobbies : "세부 취미"
+    hobbies ||..o{ courses : "수준별 강의"
+    courses ||..o{ lessons : "차시"
+    courses ||..o{ course_sections : "분반"
+    users |o..o{ course_sections : "담당 강사"
+    courses ||..o{ waitlist_entries : "단일 대기열"
+    users ||..o{ waitlist_entries : "대기"
+    course_sections ||..o{ enrollments : "배정"
+    users ||..o{ enrollments : "수강"
+    enrollments ||--o{ lesson_progresses : "차시별 진도"
+    enrollments ||..o{ review_rounds : "평가 회차"
+    enrollments |o..o| works : "최종 과제"
+    users ||..o{ works : "작성"
+    works ||..o{ work_versions : "제출 버전"
+    work_versions ||..o{ work_files : "이미지"
+    work_versions |o..o| review_rounds : "평가 대상"
+    works ||..o{ work_comments : "댓글·답글"
+    works ||--o{ work_likes : "좋아요"
+    enrollments ||..o{ inquiry_threads : "1:1 문의"
+```
+
+전체 컬럼, 영역별 ERD, 외래 키 50개 목록, 알림·성장·탈퇴 이메일 보관 테이블은 [최신 ERD](docs/current/Nolibang_ERD_2026-11-12.md)에 있습니다.
+
+### 최종 DB 설계 핵심
+
+| 규칙 | DB에서 보장하는 방법 |
+| --- | --- |
+| 같은 강의는 한 번만 수강 | `enrollments` UNIQUE (`user_id`, `course_id`) |
+| 수강 기간 30일 | CHECK `expires_at = confirmed_at + 30일` |
+| 평가 마감 7일, 확정 피드백 50자 이상 | `review_rounds` CHECK |
+| 수강 건당 진행 중 평가 1건·승인 1건 | 상태별 생성 열(`active_enrollment_id`, `approved_enrollment_id`) UNIQUE |
+| 같은 강의 중복 대기 방지 | 생성 열 `waiting_user_id` UNIQUE |
+| 분반·진도·문의·대기 확정이 같은 강의·같은 학습자 | 복합 외래 키 (예: `enrollments(section_id, course_id)` → `course_sections(id, course_id)`) |
+| 최종 과제 이미지 JPG·PNG·WebP 1~5장, 장당 50MB | `work_files` CHECK (최소 1장은 서비스 검사) |
+| 수준·마스터 배지 | 별도 테이블 없이 수료 기록에서 뷰로 계산 (`v_user_level_badges`, `v_user_master_badges`) |
+| 탈퇴 후 30일 재가입 제한 | 이메일 원문 대신 HMAC 확인값을 `withdrawn_email_holds`에 보관 |
+
+정원·FIFO 순번·분반 배정·실제 재생 60% 완료는 서비스가 강의 분반 행을 `FOR UPDATE`로 잠근 뒤 검사합니다. 테이블별 역할과 11월 6일 설계 이후 변경사항은 [최종 DB 설계서](docs/current/Nolibang_DB_Design_2026-11-12.md)에 있습니다.
+
+### 최종 정책 핵심
+
+| 영역 | 현재 규칙 | 정책 상태 |
+| --- | --- | --- |
+| 수강·대기 | 대기자가 있으면 대기열 끝, 없으면 담당 강사가 있는 분반 중 남은 자리가 가장 큰 분반에 배정. 자리가 나면 대기 1순위를 즉시 확정하고 사이트 알림 | 확정 |
+| 수강 취소·재신청 | 평가 대기·진행 중에는 취소 불가. 수료·취소·만료한 강의는 재신청 불가 | 확정 |
+| 평가·수료 | 3차시 완료 후 제출 → 평가 대기. 강사가 평가를 시작하면 수정 잠금. 승인(피드백 50자 이상) 시 수료, 기간 안 반려는 재제출 가능 | 확정 (반려 사유 50자 수치는 확인 필요) |
+| 약관 | 약관·만 14세 동의 단계 없음. 개인정보 처리방침 열람과 이메일 인증 제공 | 11-06 팀 결정 |
+| 회원 탈퇴 | 학습자 본인 확인 후 학습 데이터 삭제, 타인 작품 댓글은 개인정보 마스킹 후 익명 보존, 계정 익명화. 진행 중 수강이 있으면 거부 | 원칙 확정 (차단 조건·MVP 포함은 확인 필요) |
+| 작품 삭제·숨김 | 일반 작품만 작성자가 논리 삭제. 관리자는 공개 작품만 사유와 함께 숨김·복구하며 수료·배지·평가에는 영향 없음 | 확정 (삭제 시 보존 범위는 확인 필요) |
+| 성장 시스템 | 수료 배지가 작품 수준 태그와 댓글 자격을 결정. 경험치·퀘스트·업적·길드는 활동 기록에서 계산 | 배지 규칙 확정, RPG 요소는 확인 필요 |
+
+역할별 권한과 규칙별 근거·예외는 [최종 정책 명세서](docs/current/Nolibang_Policy_Spec_2026-11-12.md)에 있습니다.
+
+### 문서 목록
 
 | 문서 | 설명 |
 | --- | --- |
